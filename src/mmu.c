@@ -101,7 +101,7 @@ uint16_t mmu_rw (MMU * const mmu, uint16_t const addr)
 { 
     /* Read 16-bit word from a given address */ 
     
-    LOG_("Reading word at %04x, %04x\n", addr, addr + 1);
+    LOG_(" ..Reading word at %04x, %04x\n", addr, addr + 1);
     return mmu_rb (mmu, addr) + (mmu_rb (mmu, addr + 1) << 8);
 }
 

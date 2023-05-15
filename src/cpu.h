@@ -3,7 +3,12 @@
 
 #include <stdint.h>
 
-enum registers { A = 0, B, C, D, E, H, L };
+enum registers { A = 0, B, C, D, E, H, L, F = 10 };
+
+#define FLAG_Z   0x80
+#define FLAG_N   0x40
+#define FLAG_H   0x20
+#define FLAG_C   0x10
 
 typedef struct CPU_struct
 {
@@ -15,6 +20,9 @@ typedef struct CPU_struct
 
     uint8_t stop, halt;
     char reg_names[7];
+
+    /* Interrupt */
+    uint8_t ime;
 
     /* Testing */
     uint16_t ni;
