@@ -14,9 +14,10 @@ MMU * mmu = &GB.mmu;
 
 /* Instruction helpers */
 
-#define ADDR_HL  (cpu->r[H] << 8) + cpu->r[L]
-#define INCR_HL  cpu->r[L]++; if (!cpu->r[L]) cpu->r[H]++
-#define DECR_HL  cpu->r[L]--; if (cpu->r[L] == 255) cpu->r[H]--;
+#define ADDR_HL       ((cpu->r[H] << 8) + cpu->r[L])
+#define INCR_HL       cpu->r[L]++; if (!cpu->r[L]) cpu->r[H]++
+#define DECR_HL       cpu->r[L]--; if (cpu->r[L] == 255) cpu->r[H]--;
+#define HL_ADDR_BYTE  mmu_rb (mmu, ADDR_HL);
 
 #define NYI(S)           LOG_("Instruction not implemented! (%s)\n", S); cpu->ni++;
 #define OP(name)         LOG_("%s\n", #name);
@@ -27,15 +28,15 @@ MMU * mmu = &GB.mmu;
 
 #define LD(X,Y)   OPXY(LD, X, Y); cpu->r[X] = cpu->r[Y]; cpu->rm = 1;        
 #define LDrn(X)   OPX(LDrn, X);   cpu->r[X] = CPU_RB (cpu->pc); cpu->pc++; cpu->rm = 2;
-#define LDrHL(X)  OPX(LDrHL, X);  cpu->r[X] = CPU_RB (ADDR_HL); cpu->rm = 2;
+#define LDrHL(X)  OPX(LDrHL, X);  cpu->r[X] = HL_ADDR_BYTE; cpu->rm = 2;
 #define LDHLr(X)  OPX(LDHLr, X);  CPU_WB (ADDR_HL, cpu->r[X]); cpu->rm = 2;
 #define LDHLn()   OP(LDHLn);      CPU_WB ((cpu->r[H] << 8) + cpu->r[L], CPU_RB (cpu->pc)); cpu->pc++; cpu->rm = 3;
 #define LDHL()    OP(LDHL);       CPU_WB (ADDR_HL, cpu->pc); cpu->pc++; cpu->rm = 3;
 
 #define LDHLIA()  OP(LDHLIA); CPU_WB (ADDR_HL, cpu->r[A]); INCR_HL;  cpu->rm=2; //22
-#define LDAHLI()  OP(LDAHLI); cpu->r[A] = CPU_RB (ADDR_HL); INCR_HL; cpu->rm=2; //2A
+#define LDAHLI()  OP(LDAHLI); cpu->r[A] = HL_ADDR_BYTE; INCR_HL; cpu->rm=2; //2A
 #define LDHLDA()  OP(LDHLDA); CPU_WB (ADDR_HL, cpu->r[A]); DECR_HL;  cpu->rm=2; //32
-#define LDAHLD()  OP(LDAHLD); cpu->r[A] = CPU_RB (ADDR_HL); DECR_HL; cpu->rm=2; //3A
+#define LDAHLD()  OP(LDAHLD); cpu->r[A] = HL_ADDR_BYTE; DECR_HL; cpu->rm=2; //3A
 
 #define LDrrmA(X,Y)  OPXY(LDrrmA, X, Y); CPU_WB((cpu->r[X] << 8) + cpu->r[Y], cpu->r[A]); cpu->rm = 2;
 
@@ -49,17 +50,23 @@ MMU * mmu = &GB.mmu;
 #define SET_ADD_CARRY(X,Y,T)    cpu->flags = __builtin_add_overflow (X, Y, T) << 4;
 #define SET_SUB_CARRY(X,Y,T)    cpu->flags = __builtin_sub_overflow (X, Y, T) << 4;
 
-#define SET_ADD_FLAGS(T,X)  if (!T) cpu->flags |=0x80; if ((T ^ cpu->r[X] ^ cpu->r[A]) & 0x10) cpu->flags |=0x20; cpu->r[A] = T;
-#define SET_SUB_FLAGS(T,X)  cpu->flags = (cpu->r[A] > T) ? 0x50 : 0x40; if (!cpu->r[A]) cpu->flags |=0x80; if ((cpu->r[A] ^ cpu->r[X] ^ T) & 0x10) cpu->flags |=0x20; 
+#define SET_ADD_FLAGS(T,X)  cpu->flags = (cpu->r[A] < T) ? 0x10 : 0;    if (!cpu->r[A]) cpu->flags |=0x80; if ((cpu->r[A] ^ X ^ T) & 0x10) cpu->flags |=0x20;
+#define SET_SUB_FLAGS(T,X)  cpu->flags = (cpu->r[A] > T) ? 0x50 : 0x40; if (!cpu->r[A]) cpu->flags |=0x80; if ((cpu->r[A] ^ X ^ T) & 0x10) cpu->flags |=0x20; 
+/*
+#define ADD(X)   OPX(ADD, X); uint8_t total; SET_ADD_CARRY (cpu->r[A], cpu->r[X], &total); SET_ADD_FLAGS(total, cpu->r[X]); cpu->rm = 1;
+#define ADC(X)   OPX(ADC, X); uint8_t total; cpu->r[A] += (cpu->flags & 0x10) ? 1 : 0; SET_ADD_CARRY (cpu->r[A], cpu->r[X], &total); SET_ADD_FLAGS(total, cpu->r[X]); cpu->rm = 1;
+#define ADHL()   OP(ADHL);    uint8_t total = cpu->r[A]; uint8_t hl = HL_ADDR_BYTE; SET_ADD_CARRY(cpu->r[A], hl, &total); SET_ADD_FLAGS(total, hl); cpu->rm = 2;
+#define ACHL()   OP(ACHL);    uint8_t total; cpu->r[A] += (cpu->flags & 0x10) ? 1 : 0; SET_ADD_CARRY (cpu->r[A], ADDR_HL, &total); SET_ADD_FLAGS(total, ADDR_HL); cpu->rm = 2;
+*/
+#define ADD(X)   OPX(ADD, X); uint8_t tmp = cpu->r[A]; cpu->r[A] += cpu->r[X]; SET_ADD_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
+#define ADC(X)   OPX(ADC, X); uint8_t tmp = cpu->r[A]; cpu->r[A] += cpu->r[X]; cpu->r[A] += (cpu->flags & 0x10) ? 1 : 0; SET_ADD_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
+#define ADHL()   OP(ADHL);    uint8_t tmp = cpu->r[A]; uint8_t hl = HL_ADDR_BYTE; cpu->r[A] -= hl; SET_ADD_FLAGS(tmp, hl); cpu->rm = 2;
+#define ACHL()   OP(ACHL);    uint8_t tmp = cpu->r[A]; uint8_t hl = HL_ADDR_BYTE; cpu->r[A] -= hl; cpu->r[A] -= (cpu->flags & 0x10) ? 1 : 0; SET_SUB_FLAGS(tmp, hl); cpu->rm = 2; 
 
-#define ADD(X)   uint8_t total; SET_ADD_CARRY (cpu->r[A], cpu->r[X], &total); SET_ADD_FLAGS(total, X); cpu->rm = 1;
-#define ADC(X)   NYI("ADC"); cpu->rm = 1;
-#define ADHL(X)  NYI("ADHL"); cpu->rm = 1;
-#define ACHL(X)  NYI("ACHL"); cpu->rm = 1;
-#define SUB(X)   uint8_t total = cpu->r[A]; cpu->r[A] -= cpu->r[X]; SET_SUB_FLAGS(total, X); cpu->rm = 1;
-#define SBC(X)   NYI("SBC"); cpu->rm = 1;
-#define SBHL(X)  NYI("SBHL"); cpu->rm = 1;
-#define SCHL(X)  NYI("SCHL"); cpu->rm = 1; 
+#define SUB(X)   OPX(SUB, X); uint8_t tmp = cpu->r[A]; cpu->r[A] -= cpu->r[X]; SET_SUB_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
+#define SBC(X)   OPX(SBC, X); uint8_t tmp = cpu->r[A]; cpu->r[A] -= cpu->r[X]; cpu->r[A] -= (cpu->flags & 0x10) ? 1 : 0; SET_SUB_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
+#define SBHL()   OP(SBHL);    uint8_t tmp = cpu->r[A]; uint8_t hl = HL_ADDR_BYTE; cpu->r[A] -= hl; SET_SUB_FLAGS(tmp, hl); cpu->rm = 2;
+#define SCHL()   OP(SCHL);    uint8_t tmp = cpu->r[A]; uint8_t hl = HL_ADDR_BYTE; cpu->r[A] -= hl; cpu->r[A] -= (cpu->flags & 0x10) ? 1 : 0; SET_SUB_FLAGS(tmp, hl); cpu->rm = 2; 
 #define AND(X)   NYI("AND"); cpu->rm = 1;
 #define XOR(X)   NYI("XOR"); cpu->rm = 1;
 #define ANHL(X)  NYI("ANHL"); cpu->rm = 1;
@@ -113,7 +120,7 @@ void cpu_print_regs()
     for (i = A; i < L; i++)
         LOG_("%d ", cpu->r[i]);
 
-    LOG_(" . %llu\n", cpu->clock_m);
+    /*LOG_(" . %llu\n", cpu->clock_m);*/
 }
 
 void cpu_state()
@@ -241,9 +248,9 @@ void cpu_exec(uint8_t const op)
             else {
                 switch (opHh - 0x10)
                 {
-                    case 0: ADHL (); break;
-                    case 1: ACHL (); break;
-                    case 2: SBHL (); break;
+                    case 0: { ADHL (); } break;
+                    case 1: { ACHL (); } break;
+                    case 2: { SBHL (); } break;
                     case 3: SCHL (); break;
                     case 4: ANHL (); break;
                     case 5: XRHL (); break;
@@ -288,6 +295,6 @@ void cpu_clock()
         //cpu_state();
     }
     
-    LOG_("Ran CPU. (%lld clocks)\n", cpu->clock_m);
+    /*LOG_("Ran CPU. (%lld clocks)\n", cpu->clock_m);*/
     LOG_("%d%% of 256 instructions done.\n", ((256 - cpu->ni) * 100) / 256);
 }
