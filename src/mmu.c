@@ -64,7 +64,8 @@ uint8_t mmu_rb (MMU * const mmu, uint16_t const addr)
     /* Hardcode $FF44 for testing */
     if (addr == 0xFF44) return 0x90;
 
-    switch (addr >> 12)
+    /* Read 8-bit byte from a given address */
+    switch (addr & 0xF000)
     {
         /* ROM bank 0 */
         case 0:
@@ -82,18 +83,55 @@ uint8_t mmu_rb (MMU * const mmu, uint16_t const addr)
             else
                 return mmu->rom.data[addr];
         break;
-        case 1 ... 3:
+        case 0x1000: case 0x2000: case 0x3000:
             return mmu->rom.data[addr];
         break;
+        case 0x4000: case 0x5000: case 0x6000: case 0x7000:        
         /* ROM bank 1 ... N */
-        case 4 ... 7:
             return mmu->rom.data[addr];
+        break;
+        case 0x8000: case 0x9000:
+        /* Video RAM */
+            return mmu->vram[addr & 0x1FFF];
+        break;
+        case 0xA000: case 0xB000:
+        /* External RAM */
+            return mmu->eram[addr & 0x1FFF];
+        break;
+        case 0xC000:
+        /* Work RAM lower 4KB */
+            return mmu->wram[addr & 0xFFF];
+        break;
+        case 0xD000:
+        /* Work RAM upper 4KB */
+            return mmu->wram[addr & 0x1FFF];
+        break;
+        case 0xE000:
+        /* Work RAM echo */
+            return mmu->wram[addr & 0x1FFF];
+        break;
+        case 0xF000:
+            switch ((addr & 0x0F00) >> 8)
+		    {
+                case 0 ... 0xD: /* Work RAM echo */
+                    return mmu->wram[addr & 0x1FFF];
+                case 0xE:
+                    if (addr < 0xFEA0)
+                        /* return OAM */
+                        return 1;
+                    else
+                        return 0;
+                case 0xF:
+                    if (addr >= 0xFF80) /* Zero page */
+                        return mmu->zram[addr & 0x7F];
+                    else
+                        return 0;
+                break;
+            }
         break;
         default:
             return 0;
     }
-
-    /* Read 8-bit byte from a given address */
     return 0; 
 }
 
