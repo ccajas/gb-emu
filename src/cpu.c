@@ -21,88 +21,87 @@ MMU * mmu = &GB.mmu;
 
 #define NYI(S)           LOG_("Instruction not implemented! (%s)\n", S); cpu->ni++;
 #define OP(name)         LOG_("%s\n", #name);
-#define OPX(name, X)     LOG_("%s (%c)\n", #name, cpu->reg_names[X]);
-#define OPXY(name, X, Y) LOG_("%s (%c,%c)\n", #name, cpu->reg_names[X], cpu->reg_names[Y]);
+#define OPX(name, X)     LOG_("%s %c\n", #name, cpu->reg_names[X]);
+#define OPXY(name, X, Y) LOG_("%s %c,%c\n", #name, cpu->reg_names[X], cpu->reg_names[Y]);
 
 /* 8-bit load instructions */
 
 #define LD(X,Y)   OPXY(LD, X, Y); cpu->r[X] = cpu->r[Y]; cpu->rm = 1;        
 #define LDrn(X)   OPX(LDrn, X);   cpu->r[X] = CPU_RB (cpu->pc); cpu->pc++; cpu->rm = 2;
 #define LDrHL(X)  OPX(LDrHL, X);  cpu->r[X] = HL_ADDR_BYTE; cpu->rm = 2;
-#define LDHLr(X)  OPX(LDHLr, X);  CPU_WB (ADDR_HL, cpu->r[X]); cpu->rm = 2;
-#define LDHLn()   OP(LDHLn);      CPU_WB ((cpu->r[H] << 8) + cpu->r[L], CPU_RB (cpu->pc)); cpu->pc++; cpu->rm = 3;
-#define LDHL()    OP(LDHL);       CPU_WB (ADDR_HL, cpu->pc); cpu->pc++; cpu->rm = 3;
+#define LDHLr(X)  OPX(LDHLr, X);  CPU_WB (ADDR_HL, cpu->r[X]); cpu->rm = 2; /* 70 ... 77 */
+#define LDHLn     OP(LDHLn);      CPU_WB ((cpu->r[H] << 8) + cpu->r[L], CPU_RB (cpu->pc)); cpu->pc++; cpu->rm = 3;
+#define LDHL      OP(LDHL);       CPU_WB (ADDR_HL, cpu->pc); cpu->pc++; cpu->rm = 3;
 
-#define LDHLIA()  OP(LDHLIA); CPU_WB (ADDR_HL, cpu->r[A]); INCR_HL;  cpu->rm=2; //22
-#define LDAHLI()  OP(LDAHLI); cpu->r[A] = HL_ADDR_BYTE; INCR_HL; cpu->rm=2; //2A
-#define LDHLDA()  OP(LDHLDA); CPU_WB (ADDR_HL, cpu->r[A]); DECR_HL;  cpu->rm=2; //32
-#define LDAHLD()  OP(LDAHLD); cpu->r[A] = HL_ADDR_BYTE; DECR_HL; cpu->rm=2; //3A
+#define LDHLIA    OP(LDHLIA); CPU_WB (ADDR_HL, cpu->r[A]); INCR_HL;  cpu->rm=2; //22
+#define LDAHLI    OP(LDAHLI); cpu->r[A] = HL_ADDR_BYTE; INCR_HL; cpu->rm=2; //2A
+#define LDHLDA    OP(LDHLDA); CPU_WB (ADDR_HL, cpu->r[A]); DECR_HL;  cpu->rm=2; //32
+#define LDAHLD    OP(LDAHLD); cpu->r[A] = HL_ADDR_BYTE; DECR_HL; cpu->rm=2; //3A
 
 #define LDrrmA(X,Y)  OPXY(LDrrmA, X, Y); CPU_WB((cpu->r[X] << 8) + cpu->r[Y], cpu->r[A]); cpu->rm = 2;
 
 /* 16-bit load instructions */
 
-#define LDrr(X,Y) OPXY(LDrr, X, Y); cpu->r[Y] = CPU_RB (cpu->pc); cpu->r[X] = CPU_RB (cpu->pc + 1); cpu->pc += 2; cpu->rm =3;
-#define LDSP()    OP(LDSP);         cpu->sp = CPU_RW (cpu->pc); cpu->pc += 2; cpu->rm =3;
+#define LDrr(X,Y) OPXY(LDrr, X, Y); cpu->r[Y] = CPU_RB (cpu->pc); cpu->r[X] = CPU_RB (cpu->pc + 1); cpu->pc += 2; cpu->rm = 3;
+#define LDimSP    OP(LDimSP); uint16_t val = CPU_RW (cpu->pc); CPU_WW (val, cpu->sp); cpu->pc += 2; cpu->rm = 5;
+#define LDSP      OP(LDSP);   cpu->sp = CPU_RW (cpu->pc); cpu->pc += 2; cpu->rm =3;
 
 /* 8-bit arithmetic/logic instructions */
 
 #define SET_ADD_CARRY(X,Y,T)    cpu->flags = __builtin_add_overflow (X, Y, T) << 4;
 #define SET_SUB_CARRY(X,Y,T)    cpu->flags = __builtin_sub_overflow (X, Y, T) << 4;
+#define SET_ZERO(X)   if (!X) cpu->flags |= 0x80;
+#define SET_HALF(X)   if ((X) & 0x10) cpu->flags |= 0x20;
 
-#define SET_ADD_FLAGS(T,X)  cpu->flags = (cpu->r[A] < T) ? 0x10 : 0;    if (!cpu->r[A]) cpu->flags |=0x80; if ((cpu->r[A] ^ X ^ T) & 0x10) cpu->flags |=0x20;
-#define SET_SUB_FLAGS(T,X)  cpu->flags = (cpu->r[A] > T) ? 0x50 : 0x40; if (!cpu->r[A]) cpu->flags |=0x80; if ((cpu->r[A] ^ X ^ T) & 0x10) cpu->flags |=0x20; 
-/*
-#define ADD(X)   OPX(ADD, X); uint8_t total; SET_ADD_CARRY (cpu->r[A], cpu->r[X], &total); SET_ADD_FLAGS(total, cpu->r[X]); cpu->rm = 1;
-#define ADC(X)   OPX(ADC, X); uint8_t total; cpu->r[A] += (cpu->flags & 0x10) ? 1 : 0; SET_ADD_CARRY (cpu->r[A], cpu->r[X], &total); SET_ADD_FLAGS(total, cpu->r[X]); cpu->rm = 1;
-#define ADHL()   OP(ADHL);    uint8_t total = cpu->r[A]; uint8_t hl = HL_ADDR_BYTE; SET_ADD_CARRY(cpu->r[A], hl, &total); SET_ADD_FLAGS(total, hl); cpu->rm = 2;
-#define ACHL()   OP(ACHL);    uint8_t total; cpu->r[A] += (cpu->flags & 0x10) ? 1 : 0; SET_ADD_CARRY (cpu->r[A], ADDR_HL, &total); SET_ADD_FLAGS(total, ADDR_HL); cpu->rm = 2;
-*/
+#define SET_ADD_FLAGS(T,X)  cpu->flags = (cpu->r[A] < T) ? 0x10 : 0;    SET_ZERO(cpu->r[A]); SET_HALF(cpu->r[A] ^ X ^ T);
+#define SET_SUB_FLAGS(T,X)  cpu->flags = (cpu->r[A] > T) ? 0x50 : 0x40; SET_ZERO(cpu->r[A]); SET_HALF(cpu->r[A] ^ X ^ T); 
+
 #define ADD(X)   OPX(ADD, X); uint8_t tmp = cpu->r[A]; cpu->r[A] += cpu->r[X]; SET_ADD_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
 #define ADC(X)   OPX(ADC, X); uint8_t tmp = cpu->r[A]; cpu->r[A] += cpu->r[X]; cpu->r[A] += (cpu->flags & 0x10) ? 1 : 0; SET_ADD_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
-#define ADHL()   OP(ADHL);    uint8_t tmp = cpu->r[A]; uint8_t hl = HL_ADDR_BYTE; cpu->r[A] -= hl; SET_ADD_FLAGS(tmp, hl); cpu->rm = 2;
-#define ACHL()   OP(ACHL);    uint8_t tmp = cpu->r[A]; uint8_t hl = HL_ADDR_BYTE; cpu->r[A] -= hl; cpu->r[A] -= (cpu->flags & 0x10) ? 1 : 0; SET_SUB_FLAGS(tmp, hl); cpu->rm = 2; 
+#define ADHL     OP(ADHL);    uint8_t tmp = cpu->r[A]; cpu->r[A] += hl; SET_ADD_FLAGS(tmp, hl); cpu->rm = 2;
+#define ACHL     OP(ACHL);    uint8_t tmp = cpu->r[A]; cpu->r[A] += hl; cpu->r[A] += (cpu->flags & 0x10) ? 1 : 0; SET_SUB_FLAGS(tmp, hl); cpu->rm = 2; 
 
 #define SUB(X)   OPX(SUB, X); uint8_t tmp = cpu->r[A]; cpu->r[A] -= cpu->r[X]; SET_SUB_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
 #define SBC(X)   OPX(SBC, X); uint8_t tmp = cpu->r[A]; cpu->r[A] -= cpu->r[X]; cpu->r[A] -= (cpu->flags & 0x10) ? 1 : 0; SET_SUB_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
-#define SBHL()   OP(SBHL);    uint8_t tmp = cpu->r[A]; uint8_t hl = HL_ADDR_BYTE; cpu->r[A] -= hl; SET_SUB_FLAGS(tmp, hl); cpu->rm = 2;
-#define SCHL()   OP(SCHL);    uint8_t tmp = cpu->r[A]; uint8_t hl = HL_ADDR_BYTE; cpu->r[A] -= hl; cpu->r[A] -= (cpu->flags & 0x10) ? 1 : 0; SET_SUB_FLAGS(tmp, hl); cpu->rm = 2; 
-#define AND(X)   NYI("AND"); cpu->rm = 1;
-#define XOR(X)   NYI("XOR"); cpu->rm = 1;
-#define ANHL(X)  NYI("ANHL"); cpu->rm = 1;
-#define XRHL(X)  NYI("XRHL"); cpu->rm = 1;
-#define OR(X)    NYI("OR"); cpu->rm = 1;
-#define CP(X)    NYI("CP"); cpu->rm = 1;
-#define ORHL(X)  NYI("ORHL"); cpu->rm = 1;
-#define CPHL(X)  NYI("CPHL"); cpu->rm = 1;
+#define SBHL     OP(SBHL);    uint8_t tmp = cpu->r[A]; cpu->r[A] -= hl; SET_SUB_FLAGS(tmp, hl); cpu->rm = 2;
+#define SCHL     OP(SCHL);    uint8_t tmp = cpu->r[A]; cpu->r[A] -= hl; cpu->r[A] -= (cpu->flags & 0x10) ? 1 : 0; SET_SUB_FLAGS(tmp, hl); cpu->rm = 2; 
 
-#define INC(X)  OPX(INC, X); cpu->r[X]++; cpu->flags = cpu->r[X] ? 0 : 0x80; cpu->rm = 1;
-#define DEC(X)  OPX(DEC, X); cpu->r[X]--; cpu->flags = cpu->r[X] ? 0 : 0x80; cpu->rm = 1;
+#define AND(X)   OPX(AND, X)  cpu->r[A] &= cpu->r[X]; cpu->flags = cpu->r[A] ? 0 : 0x80; cpu->rm = 1;
+#define XOR(X)   OPX(XOR, X)  cpu->r[A] ^= cpu->r[X]; cpu->flags = cpu->r[A] ? 0 : 0x80; cpu->rm = 1;
+#define ANHL     OP(ANHL);    cpu->r[A] &= hl; cpu->flags = cpu->r[A] ? 0 : 0x80; cpu->rm = 2;
+#define XRHL     OP(XRHL);    cpu->r[A] ^= hl; cpu->flags = cpu->r[A] ? 0 : 0x80; cpu->rm = 2;
+#define OR(X)    OPX(OR, X);  cpu->r[A] |= cpu->r[X]; cpu->flags = cpu->r[A] ? 0 : 0x80; cpu->rm = 1;
+#define ORHL     OP(ORHL)     cpu->r[A] |= hl; cpu->flags = cpu->r[A] ? 0 : 0x80; cpu->rm = 2;
+#define CP(X)    OPX(CP, X);  uint8_t tmp = cpu->r[A]; tmp -= cpu->r[X]; cpu->flags = (tmp < 0) ? 0x50 : 0x40; SET_ZERO(tmp); SET_HALF(cpu->r[A] ^ cpu->r[X] ^ tmp); cpu->rm = 1;
+#define CPHL     OP(CPHL);    uint8_t tmp = cpu->r[A]; tmp -= hl; cpu->flags = (tmp < 0) ? 0x50 : 0x40; SET_ZERO(tmp); SET_HALF(cpu->r[A] ^ hl ^ tmp); cpu->rm = 2;
+
+#define INC(X)   OPX(INC, X); cpu->r[X]++; cpu->flags = cpu->r[X] ? 0 : 0x80; cpu->rm = 1;
+#define DEC(X)   OPX(DEC, X); cpu->r[X]--; cpu->flags = cpu->r[X] ? 0 : 0x80; cpu->rm = 1;
 
 /* 16-bit arithmetic instructions */
 
 #define ADHLrr(X,Y) NYI("ADHLrr");     cpu->rm = 1;
 #define INCrr(X,Y)  OPXY(INCrr, X, Y); cpu->r[Y]++; if (!cpu->r[Y]) cpu->r[X]++; cpu->rm = 1;
-#define INCSP()     OP(INCSP);         cpu->sp++; cpu->rm = 1;
+#define INCSP       OP(INCSP);         cpu->sp++; cpu->rm = 1;
 #define DECrr(X,Y)  OPXY(DECrr, X, Y); cpu->r[Y]--; if (cpu->r[Y] == 0xff) cpu->r[X]--; cpu->rm = 1;
-#define DECSP()     OP(DECSP);         cpu->sp++; cpu->rm = 1;
+#define DECSP       OP(DECSP);         cpu->sp++; cpu->rm = 1;
 
 /* CPU control instructions */
 
-#define CCF()   OP(CCF);  uint8_t ci = cpu->flags & 0x10 ? 0 : 0x10; cpu->flags &= 0xEF; cpu->flags += ci; cpu->rm = 1;
-#define SCF()   OP(SCF);  cpu->flags |= 0x10; cpu->rm = 1;
-#define HALT()  OP(HALT); cpu->halt = 1; cpu->rm = 1;
-#define STOP()  OP(STOP); cpu->stop = 1; cpu->rm = 1;
-#define NOP()   OP(NOP);  cpu->rm = 1
+#define CCF     OP(CCF);  uint8_t ci = cpu->flags & 0x10 ? 0 : 0x10; cpu->flags &= 0xEF; cpu->flags += ci; cpu->rm = 1;
+#define SCF     OP(SCF);  cpu->flags |= 0x10; cpu->rm = 1;
+#define HALT    OP(HALT); cpu->halt = 1; cpu->rm = 1;
+#define STOP    OP(STOP); cpu->stop = 1; cpu->rm = 1;
+#define NOP     OP(NOP);  cpu->rm = 1
 
 /* Jump instructions */
 
-#define JRNC()  NYI("JRNC"); cpu->rm = 1;
+#define JRNC    NYI("JRNC"); cpu->rm = 1;
 
 /* Rotate and shift instructions */
 
-#define RLA   	OP(RLA);   uint8_t ci = cpu->r[A]; cpu->r[A] = cpu->r[A] << 1 | (cpu->flags & 0x10); cpu->flags = 0; cpu->flags = ((ci >> 7) & 1) * 0x10;
-#define RLCA    OP(RLCA);  cpu->r[A] = ( cpu->r[A] << 1) | ( cpu->r[A] >> 7); cpu->flags = 0; cpu->flags = (cpu->r[A] & 1) * 0x10;
+#define RLA   	OP(RLA);   uint8_t ci = cpu->r[A]; cpu->r[A] = cpu->r[A] << 1 | (cpu->flags & 0x10); cpu->flags = 0; cpu->flags = ((ci >> 7) & 1) * 0x10; cpu->rm = 1;
+#define RLCA    OP(RLCA);  cpu->r[A] = ( cpu->r[A] << 1) | ( cpu->r[A] >> 7); cpu->flags = 0; cpu->flags = (cpu->r[A] & 1) * 0x10; cpu->rm = 1;
 #define RLAa    OP(RLAa);  uint8_t ci = cpu->flags & 0x10 ? 1 : 0; uint8_t co=cpu->r[A] & 0x80 ? 0x10 : 0; cpu->r[A]=(cpu->r[A]<<1)+ci; (cpu->flags &= 0xEF) + co; cpu->rm = 1;
 #define RLCAa   OP(RLCAa); uint8_t ci = cpu->r[A]  & 0x80 ? 1 : 0; uint8_t co=cpu->r[A] & 0x80 ? 0x10 : 0; cpu->r[A]=(cpu->r[A]<<1)+ci; (cpu->flags &= 0xEF) + co; cpu->rm = 1;
 
@@ -175,14 +174,14 @@ void cpu_exec(uint8_t const op)
             switch (opL)
             {
                 case 0: /* JMP and CPU operations */
-                    if (op == 0x0)  { NOP(); }
-                    if (op == 0x10) { STOP(); }
+                    if (op == 0x0)  { NOP; }
+                    if (op == 0x10) { STOP; }
                 break;
                 case 1: /* 16-bit load, LDrr */
                     LDrr (arg1, arg1 + 1); break;
                 case 2: /* 8-bit load, LDrrmA or LDHLIA */
                     if (op == 0x02 || op == 0x12) { LDrrmA (arg1, arg1 + 1); }
-                    if (op == 0x22) { LDHLIA (); }
+                    if (op == 0x22) { LDHLIA; }
                 break;
                 case 3: /* 16-bit increment */
                     INCrr (arg1, arg1 + 1); break;
@@ -196,29 +195,34 @@ void cpu_exec(uint8_t const op)
                 case 0xE: /* Load 8-bit immediate */
                     LDrn (arg1); break;
                 case 7: /* Bit and flag operations */
+                    if (op == 0x07) { RLCA; }
+                    if (op == 0x17) { RLA; }
                 break;
                 case 8: /* JMP and load operations */
+                    if (op == 0x08) { LDimSP; }
                 break;  
                 case 9: /* 16-bit add */
                 break;
                 case 0xA:
+                    if (op == 0x2A) { LDAHLI }
+                    if (op == 0x3A) { LDAHLD }
                 break;
                 case 0xB: /* 16-bit decrement */
                     if (opHh <= 5) { DECrr (arg1 - 1, arg1); } break;
                 case 0xF: /* Other CPU/etc ops */
-                    if (op == 0x3F) { CCF(); } 
+                    if (op == 0x3F) { CCF; } 
                 break;
             }
         break;
         case 6:
-            if (op == 0x30) { JRNC (); }
-            if (op == 0x31) { LDSP (); }
-            if (op == 0x32) { LDHLDA (); }
-            if (op == 0x33) { INCSP (); }
+            if (op == 0x30) { JRNC; }
+            if (op == 0x31) { LDSP; }
+            if (op == 0x32) { LDHLDA; }
+            if (op == 0x33) { INCSP; }
             if (op == 0x34) { }
             if (op == 0x35) { }
-            if (op == 0x36) { LDHLn (); }
-            if (op == 0x37) { SCF (); }
+            if (op == 0x36) { LDHLn; }
+            if (op == 0x37) { SCF; }
         break;
         case 8 ... 0xD: case 0xF:
             /* 8-bit load, LD, LDrHL */
@@ -227,7 +231,7 @@ void cpu_exec(uint8_t const op)
         break;
         case 0xE:
             /* 8-bit load, LDHLr or HALT */
-            if (arg2 != 255) { LDHLr (arg2); } else { HALT(); }
+            if (arg2 != 255) { LDHLr (arg2); } else { HALT; }
         break;
         /* 8-bit arithmetic */
         case 0x10 ... 0x17:
@@ -238,24 +242,26 @@ void cpu_exec(uint8_t const op)
                     case 0: { ADD (arg2); } break;
                     case 1: { ADC (arg2); } break;
                     case 2: { SUB (arg2); } break;
-                    case 3: SBC (arg2); break;
-                    case 4: AND (arg2); break;
-                    case 5: XOR (arg2); break;
-                    case 6: OR (arg2); break;
-                    case 7: CP (arg2); break;
+                    case 3: { SBC (arg2); } break;
+                    case 4: { AND (arg2); } break;
+                    case 5: { XOR (arg2); } break;
+                    case 6: { OR (arg2); } break;
+                    case 7: { CP (arg2); } break;
                 }
             }
             else {
+                uint8_t hl = HL_ADDR_BYTE;
+
                 switch (opHh - 0x10)
                 {
-                    case 0: { ADHL (); } break;
-                    case 1: { ACHL (); } break;
-                    case 2: { SBHL (); } break;
-                    case 3: SCHL (); break;
-                    case 4: ANHL (); break;
-                    case 5: XRHL (); break;
-                    case 6: ORHL (); break;
-                    case 7: CPHL (); break;
+                    case 0: { ADHL; } break;
+                    case 1: { ACHL; } break;
+                    case 2: { SBHL; } break;
+                    case 3: { SCHL; } break;
+                    case 4: { ANHL; } break;
+                    case 5: { XRHL; } break;
+                    case 6: { ORHL; } break;
+                    case 7: { CPHL; } break;
                 }
             }
         break;
