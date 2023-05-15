@@ -67,8 +67,6 @@ MMU * mmu = &GB.mmu;
 #define PUSHF     OP(PUSHF); cpu->sp--; CPU_WB(cpu->sp, cpu->r[A]); cpu->sp--; CPU_WB(cpu->sp, cpu->flags); cpu->rm = 4;
 #define POPF      OP(POPF);  cpu->flags = CPU_RB(cpu->sp++); cpu->r[A] = CPU_RB(cpu->sp++); cpu->rm = 3;
 
-/* 8-bit arithmetic/logic instructions */
-
 /* Flag setting helpers */
 
 #define SET_ADD_CARRY(X,Y,T)    cpu->flags = __builtin_add_overflow (X, Y, T) << 4;
@@ -81,26 +79,28 @@ MMU * mmu = &GB.mmu;
 #define SET_ADD_FLAGS(T,X)  cpu->flags = (cpu->r[A] < T) ? FLAG_C : 0; SET_ZERO(cpu->r[A]); SET_HALF(cpu->r[A] ^ X ^ T);
 #define SET_SUB_FLAGS(T,X)  cpu->flags = (cpu->r[A] > T) ? FLAG_N | FLAG_C : FLAG_N; SET_ZERO(cpu->r[A]); SET_HALF(cpu->r[A] ^ X ^ T); 
 
-#define ADD(X)   OPX(ADD, X); uint8_t tmp = cpu->r[A]; cpu->r[A] += cpu->r[X]; SET_ADD_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
-#define ADC(X)   OPX(ADC, X); uint8_t tmp = cpu->r[A]; cpu->r[A] += cpu->r[X]; cpu->r[A] += (cpu->flags & FLAG_C) ? 1 : 0; SET_ADD_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
-#define ADHL     OP(ADHL);    uint8_t tmp = cpu->r[A]; cpu->r[A] += hl; SET_ADD_FLAGS(tmp, hl); cpu->rm = 2;
-#define ACHL     OP(ACHL);    uint8_t tmp = cpu->r[A]; cpu->r[A] += hl; cpu->r[A] += (cpu->flags & FLAG_C) ? 1 : 0; SET_SUB_FLAGS(tmp, hl); cpu->rm = 2; 
+/* 8-bit arithmetic/logic instructions */
+
+#define ADD(X)   OPX(ADD, X); cpu->r[A] += cpu->r[X]; SET_ADD_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
+#define ADC(X)   OPX(ADC, X); cpu->r[A] += cpu->r[X]; cpu->r[A] += (cpu->flags & FLAG_C) ? 1 : 0; SET_ADD_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
+#define ADHL     OP(ADHL);    cpu->r[A] += hl; SET_ADD_FLAGS(tmp, hl); cpu->rm = 2;
+#define ACHL     OP(ACHL);    cpu->r[A] += hl; cpu->r[A] += (cpu->flags & FLAG_C) ? 1 : 0; SET_SUB_FLAGS(tmp, hl); cpu->rm = 2; 
 #define ADDm     OP(ADDm);    uint8_t m = CPU_RB(cpu->pc++); uint8_t tmp = cpu->r[A]; cpu->r[A] += m; SET_ADD_FLAGS(tmp, m); cpu->rm = 2;
 
-#define SUB(X)   OPX(SUB, X); uint8_t tmp = cpu->r[A]; cpu->r[A] -= cpu->r[X]; SET_SUB_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
-#define SBC(X)   OPX(SBC, X); uint8_t tmp = cpu->r[A]; cpu->r[A] -= cpu->r[X]; cpu->r[A] -= (cpu->flags & FLAG_C) ? 1 : 0; SET_SUB_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
-#define SBHL     OP(SBHL);    uint8_t tmp = cpu->r[A]; cpu->r[A] -= hl; SET_SUB_FLAGS(tmp, hl); cpu->rm = 2;
-#define SCHL     OP(SCHL);    uint8_t tmp = cpu->r[A]; cpu->r[A] -= hl; cpu->r[A] -= (cpu->flags & FLAG_C) ? 1 : 0; SET_SUB_FLAGS(tmp, hl); cpu->rm = 2;
+#define SUB(X)   OPX(SUB, X); cpu->r[A] -= cpu->r[X]; SET_SUB_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
+#define SBC(X)   OPX(SBC, X); cpu->r[A] -= cpu->r[X]; cpu->r[A] -= (cpu->flags & FLAG_C) ? 1 : 0; SET_SUB_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
+#define SBHL     OP(SBHL);    cpu->r[A] -= hl; SET_SUB_FLAGS(tmp, hl); cpu->rm = 2;
+#define SCHL     OP(SCHL);    cpu->r[A] -= hl; cpu->r[A] -= (cpu->flags & FLAG_C) ? 1 : 0; SET_SUB_FLAGS(tmp, hl); cpu->rm = 2;
 #define SUBm     OP(SUBm);    uint8_t m = CPU_RB(cpu->pc++); uint8_t tmp = cpu->r[A]; cpu->r[A] -= m; SET_SUB_FLAGS(tmp, m); cpu->rm = 2;
-
-#define AND(X)   OPX(AND, X)  cpu->r[A] &= cpu->r[X]; cpu->flags = cpu->r[A] ? 0 : FLAG_Z; cpu->flags |= FLAG_H; cpu->rm = 1;
-#define XOR(X)   OPX(XOR, X)  cpu->r[A] ^= cpu->r[X]; cpu->flags = cpu->r[A] ? 0 : FLAG_Z; cpu->rm = 1;
-#define ANHL     OP(ANHL);    cpu->r[A] &= hl; cpu->flags = cpu->r[A] ? 0 : FLAG_Z; cpu->flags |= FLAG_H; cpu->rm = 2;
-#define XRHL     OP(XRHL);    cpu->r[A] ^= hl; cpu->flags = cpu->r[A] ? 0 : FLAG_Z; cpu->rm = 2;
-#define OR(X)    OPX(OR, X);  cpu->r[A] |= cpu->r[X]; cpu->flags = cpu->r[A] ? 0 : FLAG_Z; cpu->rm = 1;
-#define ORHL     OP(ORHL)     cpu->r[A] |= hl; cpu->flags = cpu->r[A] ? 0 : FLAG_Z; cpu->rm = 2;
-#define CP(X)    OPX(CP, X);  uint8_t tmp = cpu->r[A]; tmp -= cpu->r[X]; cpu->flags = (tmp < 0) ? 0x50 : FLAG_N; SET_ZERO(tmp); SET_HALF(cpu->r[A] ^ cpu->r[X] ^ tmp); cpu->rm = 1;
-#define CPHL     OP(CPHL);    uint8_t tmp = cpu->r[A]; tmp -= hl; cpu->flags = (tmp < 0) ? 0x50 : FLAG_N; SET_ZERO(tmp); SET_HALF(cpu->r[A] ^ hl ^ tmp); cpu->rm = 2;
+    
+#define AND(X)   OPX(AND, X)  cpu->r[A] &= cpu->r[X]; cpu->flags = 0; SET_ZERO(cpu->r[A]); cpu->flags |= FLAG_H; cpu->rm = 1;
+#define XOR(X)   OPX(XOR, X)  cpu->r[A] ^= cpu->r[X]; cpu->flags = 0; SET_ZERO(cpu->r[A]); cpu->rm = 1;
+#define ANHL     OP(ANHL);    cpu->r[A] &= hl;        cpu->flags = 0; SET_ZERO(cpu->r[A]); cpu->flags |= FLAG_H; cpu->rm = 2;
+#define XRHL     OP(XRHL);    cpu->r[A] ^= hl;        cpu->flags = 0; SET_ZERO(cpu->r[A]); cpu->rm = 2;
+#define OR(X)    OPX(OR, X);  cpu->r[A] |= cpu->r[X]; cpu->flags = 0; SET_ZERO(cpu->r[A]); cpu->rm = 1;
+#define ORHL     OP(ORHL)     cpu->r[A] |= hl;        cpu->flags = 0; SET_ZERO(cpu->r[A]); cpu->rm = 2;
+#define CP(X)    OPX(CP, X);  tmp -= cpu->r[X]; cpu->flags = (tmp < 0) ? 0x50 : FLAG_N; SET_ZERO(tmp); SET_HALF(cpu->r[A] ^ cpu->r[X] ^ tmp); cpu->rm = 1;
+#define CPHL     OP(CPHL);    tmp -= hl; cpu->flags = (tmp < 0) ? 0x50 : FLAG_N; SET_ZERO(tmp); SET_HALF(cpu->r[A] ^ hl ^ tmp); cpu->rm = 2;
 
 #define INC(X)   OPX(INC, X); cpu->r[X]++; cpu->flags = cpu->r[X] ? 0 : 0x80; cpu->rm = 1;
 #define DEC(X)   OPX(DEC, X); cpu->r[X]--; cpu->flags = cpu->r[X] ? 0 : 0x80; cpu->rm = 1;
@@ -132,6 +132,9 @@ MMU * mmu = &GB.mmu;
 
 #define JRNC    NYI("JRNC"); cpu->ni++; cpu->rm = 1;
 
+#define RET     OP(RET);  cpu->pc = CPU_RW (cpu->sp); cpu->sp += 2; cpu->rm = 4;
+#define RETI    OP(RETI); cpu->pc = CPU_RW (cpu->sp); cpu->sp += 2; cpu->ime = 1; cpu->rm = 4;
+
 #define RST(N)  OPN(RST, N); cpu->sp -= 2; mmu_ww (mmu, cpu->sp, cpu->pc); cpu->pc = N; cpu->rm = 3;
 
 /* Rotate and shift instructions */
@@ -141,6 +144,11 @@ MMU * mmu = &GB.mmu;
 #define RLCA    OP(RLCA);  cpu->r[A] = (cpu->r[A] << 1) | (cpu->r[A] >> 7); cpu->flags = (cpu->r[A] & 1) * 0x10; cpu->rm = 1;
 #define RRCA    OP(RRCA);  cpu->flags = (cpu->r[A] & 1) * 0x10; cpu->r[A] = (cpu->r[A] >> 1) | (cpu->r[A] << 7); cpu->rm = 1;
 
+/* Misc instructions */
+
+#define PREFIX    OP(PREFIX)   uint8_t cb = CPU_RB (cpu->pc++); cpu_exec_cb (cb);
+#define INVALID   OP(INVALID); cpu->invalid = 1; cpu->rm = 1;
+
 /* CPU related functions */
 
 inline void cpu_init()
@@ -148,6 +156,7 @@ inline void cpu_init()
     strcpy(cpu->reg_names, "ABCDEHL");
     cpu->ni = 0;
     cpu->ime = 0;
+    cpu->invalid = 0;
 }
 
 void cpu_print_regs()
@@ -182,6 +191,9 @@ void cpu_boot_reset()
     cpu->r[L]	= 0x4D;
     cpu->sp     = 0xFFFE;
     cpu->pc     = 0x0100;
+
+    cpu->ime = 0;
+    cpu->invalid = 0;
 }
 
 #ifdef EXEC_TEST
@@ -190,7 +202,7 @@ void cpu_exec(uint8_t const op) { }
 
 #else
 
-void cpu_exec(uint8_t const op)
+void cpu_exec (uint8_t const op)
 {
     cpu->rm = 0;
 
@@ -276,10 +288,11 @@ void cpu_exec(uint8_t const op)
             /* 8-bit load, LDHLr or HALT */
             if (arg2 != 255) { LDHLr (arg2); } else { HALT; }
         break;
-        /* 8-bit arithmetic */
         case 0x10 ... 0x17:
+            /* 8-bit arithmetic */
             if (arg2 != 255)
             {
+                uint8_t tmp = cpu->r[A]; 
                 switch (opHh - 0x10)
                 {
                     case 0: { ADD (arg2); } break;
@@ -294,6 +307,7 @@ void cpu_exec(uint8_t const op)
             }
             else {
                 uint8_t hl = HL_ADDR_BYTE;
+                uint8_t tmp = cpu->r[A]; 
 
                 switch (opHh - 0x10)
                 {
@@ -312,22 +326,39 @@ void cpu_exec(uint8_t const op)
 
             /* Used for PUSH and POP instructions */
             arg1 = (opHh - 0x18 >= 0x6) ? A : B + (opHh - 0x18);
-
-            if (opL == 1) { if (arg1 != A) { POP  (arg1, arg1 + 1) } else { POPF; }}
-            if (opL == 5) { if (arg1 != A) { PUSH (arg1, arg1 + 1) } else { PUSHF; }}
-
-            if (opL == 6) 
+            switch (opL)
             {
-                if (op == 0xC6) { ADDm; }
-                if (op == 0xD6) { SUBm; }
+                case 1: /* POP operations */
+                    if (arg1 != A) { POP  (arg1, arg1 + 1) } else { POPF; }
+                break;
+                case 3:
+                    if (op == 0xF3) { DI; }
+                break;
+                case 4:
+                break;
+                case 5: /* PUSH operations */
+                    if (arg1 != A) { PUSH (arg1, arg1 + 1) } else { PUSHF; }
+                break;
+                case 6:
+                    if (op == 0xC6) { ADDm; }
+                    if (op == 0xD6) { SUBm; }
+                break;
+                case 0x07 : case 0x0f: /* Call to address xx */
+                    { uint16_t n = (opHh - 0x18) * 0x08; RST(n); }
+                break;
+                case 8:
+                    if (op == 0xE8) { ADDSPm; }
+                break;
+                case 9:
+                    if (op == 0xC9) { RET; }
+                    if (op == 0xD9) { RETI; }
+                break;
+                case 0xB:
+                    if (op == 0xCB) { PREFIX; }
+                    else if (op == 0xFB) { EI; }
+                    else { INVALID; }
+                break;
             }
-            if (opL == 0x07 || opL == 0x0f)
-            {
-                uint16_t n = (opHh - 0x18) * 0x08; RST(n);
-            }
-            if (op == 0xE8) { ADDSPm; }
-            if (op == 0xF3) { DI; }
-            if (op == 0xFB) { EI; }
         break;
         default:
             cpu->rm = 0;
@@ -338,6 +369,11 @@ void cpu_exec(uint8_t const op)
 }
 
 #endif
+
+void cpu_exec_cb (uint8_t const op)
+{
+    cpu->rm = 2;
+}
 
 void cpu_clock()
 {   

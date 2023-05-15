@@ -19,6 +19,7 @@ typedef struct CPU_struct
     uint64_t clock_m, clock_t;
 
     uint8_t stop, halt;
+    uint8_t invalid;
     char reg_names[7];
 
     /* Interrupt */
@@ -37,6 +38,8 @@ void cpu_init ();
 void cpu_print_regs ();
 void cpu_boot_reset ();
 void cpu_clock ();
-void cpu_exec (uint8_t const);
+
+void cpu_exec    (uint8_t const);
+void cpu_exec_cb (uint8_t const);
 
 #endif
