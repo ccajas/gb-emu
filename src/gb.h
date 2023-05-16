@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "mmu.h"
 #include "cpu.h"
+#include "cart.h"
 
 #define GB_TESTING
 
@@ -16,8 +17,9 @@
 typedef struct GB_struct 
 {
     /* Game Boy components */
-    CPU      cpu;
-    MMU      mmu;
+    CPU       cpu;
+    MMU       mmu;
+    Cartridge cart;
 
     /* Controller */
     uint8_t controller;
@@ -33,6 +35,9 @@ inline void gb_reset(GameBoy * const gb)
     mmu_reset (&gb->mmu);
     cpu_boot_reset (&gb->cpu);
 }
+
+void gb_load_cart   (GameBoy * const);
+void gb_unload_cart (GameBoy * const);
 
 extern GameBoy GB;
 extern CPU * cpu;

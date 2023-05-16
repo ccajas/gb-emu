@@ -17,8 +17,10 @@ int main (int argc, char** argv)
     LOG_("Hello! This is GB-Emu.\n");
 
     gb_reset(&GB);
-    mmu_load(&GB.mmu);
+    gb_load_cart(&GB);
     cpu_init();
     cpu_clock();
+    gb_unload_cart(&GB);
+
     return 0;
 }

@@ -35,30 +35,6 @@ void mmu_reset (MMU * const mmu)
     mmu->inBios = 0;
 }
 
-void mmu_load (MMU * const mmu)
-{
-    uint64_t size = file_size("test/03-op sp,hl.gb");
-
-    if (size == -1)
-        LOG_("MMU: Failed to load file! .\n");
-    else
-    {
-        uint8_t * filebuf = (uint8_t*) read_file ("test/03-op sp,hl.gb");
-        
-        if (filebuf == NULL)
-        {
-            LOG_("MMU: File load failed\n");
-            return;
-        }
-
-        vc_init (&mmu->rom, size);
-        vc_push_array (&mmu->rom, filebuf, size, 0);
-
-        free(filebuf);
-        LOG_("MMU: ROM loaded (%d bytes)\n", vc_size(&mmu->rom));
-    }
-}
-
 uint8_t mmu_rb (MMU * const mmu, uint16_t const addr) 
 { 
     /* Hardcode $FF44 for testing */
