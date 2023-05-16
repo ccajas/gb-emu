@@ -36,8 +36,36 @@ typedef struct Cartridge_struct
             uint8_t    checksum_header;   /* 0x14D */
             uint16_t   checksum_rom;      /* 0x14E */
         };
+
         uint8_t    header[GB_HEADER_SIZE];
     };
+    /* Memory bank controller */
+    enum
+    {
+        NO_MBC = 0,
+        MBC1,
+        MBC2,
+        MBC3,
+        MBC5,
+        MBC6,
+        MBC7,
+        MMM01,
+        TAMA5,
+        HUC1,
+        HUC3
+    }
+    mapper;
+    /* Available hardware in cart */
+    enum
+    {
+        RAM = 1,
+        BATTERY = 2,
+        TIMER = 4,
+        RUMBLE = 8
+    }
+    hardware;
+
+    uint16_t  num_rom_banks;
 }
 Cartridge;
 

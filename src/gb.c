@@ -25,21 +25,61 @@ void gb_load_cart (GameBoy * const gb)
         memcpy (&gb->cart.header, filebuf + 0x100, GB_HEADER_SIZE);
 
         free(filebuf);
-        LOG_("GB: ROM loaded (%d bytes)\n", gb->cart.cart_type);//vc_size(&mmu->rom));
+        gb_print_logo(gb, 177);
+
+        LOG_("GB: ROM loaded (%s, %d KiB)\n", gb->cart.title, CART_MIN_SIZE_KB << gb->cart.rom_size);
+        LOG_("GB: Cart type: %d\n", gb->cart.cart_type);
+
+        const uint8_t type = gb->cart.cart_type;
+
+        gb->cart.mapper =   
+            (type == 0)    ? NO_MBC :
+            (type <= 0x3)  ? MBC1 :
+            (type == 0x5 || type == 0x6)   ? MBC2 :
+            (type >= 0xB && type <= 0xD)   ? MMM01 :
+            (type <= 0x13)                 ? MBC3 :
+            (type >= 0x19 && type <= 0x1E) ? MBC5 :
+            (type == 0x20) ? MBC6 :
+            (type == 0x22) ? MBC7 : NO_MBC;
     }
+}
+
+void gb_print_logo (GameBoy * const gb, const uint8_t charCode)
+{
+    int i = 0;
+    const uint8_t rows = 8, cols = 24;
+    char logoImg[(cols * 4 + 1) * 8]; /* Extra chars for line breaks */
+
+    memset(logoImg, 0, (cols * 4 + 1) * 8);
+
+    int x;
+    for (x = 0; x < rows; x++)
+    {
+        uint8_t mask   = (x % 2) ? 0x0f : 0xf0;
+        uint8_t offset = (x % 4 < 2) ? 0 : 1; 
+
+        int j = 0;
+        for (j = 0; j < cols; j += 2)
+        {
+            uint8_t bits = (uint8_t)gb->cart.logo[j + offset + (cols * (x > 3))] & mask;
+
+            int b;
+            for (b = 0; b < 4; b++)
+            {
+                logoImg[i] = (bits & ((mask == 0xf0) ? 0x80 : 0x08)) ? charCode : ' ';
+                logoImg[i + 1] = logoImg[i];
+                i += 2;
+                bits <<= 1;
+            }
+        }
+        if (x < 7) logoImg[i++] = '\n';
+    }
+
+    LOG_("\n%s\n\n",logoImg);
 }
 
 void gb_unload_cart (GameBoy * const gb)
 {
     vc_free (&gb->mmu.rom);
-
-    LOG_("GB: ROM loaded (%08x)\n", gb->cart.entry);
-    int i;
-    for (i = 0; i < 48; i++)
-    {
-        LOG_("%02x ", gb->cart.logo[i]);
-        if ((i & 0xf) == 0xf)
-            LOG_("\n");
-    }
     memset(&gb->cart.header, 0, GB_HEADER_SIZE);
 }

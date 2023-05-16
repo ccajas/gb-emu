@@ -14,6 +14,9 @@
     #define LOG_(f_, ...)
 #endif
 
+#define GB_BIOS_SIZE      0x100
+#define CART_MIN_SIZE_KB  0x20
+
 typedef struct GB_struct 
 {
     /* Game Boy components */
@@ -38,6 +41,7 @@ inline void gb_reset(GameBoy * const gb)
 
 void gb_load_cart   (GameBoy * const);
 void gb_unload_cart (GameBoy * const);
+void gb_print_logo  (GameBoy * const, const uint8_t);
 
 extern GameBoy GB;
 extern CPU * cpu;
