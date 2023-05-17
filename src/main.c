@@ -19,7 +19,7 @@ int main (int argc, char** argv)
     gb_reset(&GB);
     gb_load_cart(&GB);
     cpu_init();
-    //cpu_clock();
+    cpu_clock();
     gb_unload_cart(&GB);
 
     return 0;

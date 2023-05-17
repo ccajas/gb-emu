@@ -19,10 +19,10 @@ MMU * mmu = &GB.mmu;
 #define ADDR_HL       ((cpu->r[H] << 8) + cpu->r[L])
 #define ADDR_XY(X,Y)  ((cpu->r[X] << 8) + cpu->r[Y])
 #define INCR_HL       cpu->r[L]++; if (!cpu->r[L]) cpu->r[H]++
-#define DECR_HL       cpu->r[L]--; if (cpu->r[L] == 255) cpu->r[H]--;
-#define HL_ADDR_BYTE  mmu_rb (mmu, ADDR_HL);
+#define DECR_HL       cpu->r[L]--; if (cpu->r[L] == 255) cpu->r[H]--
+#define HL_ADDR_BYTE  mmu_rb (mmu, ADDR_HL)
 
-#ifdef DEBUG_OP_PRINT
+#ifdef GB_DEBUG
 
 #define NYI(S)           LOG_("Instruction not implemented! (%s)", S); cpu->ni++;
 #define OP(name)         LOG_("%s", #name);
@@ -36,6 +36,7 @@ MMU * mmu = &GB.mmu;
 #define OP(name)
 #define OPX(name, X)
 #define OPXY(name, X, Y)
+#define OPN(name, N)
 
 #endif
 
@@ -76,16 +77,61 @@ MMU * mmu = &GB.mmu;
 #define SET_HALF_S(X)  if (X) cpu->flags |= FLAG_H; else cpu->flags &= ~(FLAG_H);
 #define SET_CARRY(X)   if (X) cpu->flags |= FLAG_C; else cpu->flags &= ~(FLAG_C);
 
-#define SET_ADD_FLAGS(T,X)  cpu->flags = (cpu->r[A] < T) ? FLAG_C : 0; SET_ZERO(cpu->r[A]); SET_HALF(cpu->r[A] ^ X ^ T);
+#define SET_ADD_FLAGS(T,X) {\
+    cpu->flags = (cpu->r[A] < T) ? FLAG_C : 0;\
+    SET_ZERO(cpu->r[A]);\
+    SET_HALF(cpu->r[A] ^ X ^ T);\
+}
+
 #define SET_SUB_FLAGS(T,X)  cpu->flags = (cpu->r[A] > T) ? FLAG_N | FLAG_C : FLAG_N; SET_ZERO(cpu->r[A]); SET_HALF(cpu->r[A] ^ X ^ T); 
 
 /* 8-bit arithmetic/logic instructions */
 
-#define ADD(X)   OPX(ADD, X); cpu->r[A] += cpu->r[X]; SET_ADD_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
-#define ADC(X)   OPX(ADC, X); cpu->r[A] += cpu->r[X]; cpu->r[A] += (cpu->flags & FLAG_C) ? 1 : 0; SET_ADD_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
-#define ADHL     OP(ADHL);    cpu->r[A] += hl; SET_ADD_FLAGS(tmp, hl); cpu->rm = 2;
-#define ACHL     OP(ACHL);    cpu->r[A] += hl; cpu->r[A] += (cpu->flags & FLAG_C) ? 1 : 0; SET_SUB_FLAGS(tmp, hl); cpu->rm = 2; 
-#define ADDm     OP(ADDm);    uint8_t m = CPU_RB(cpu->pc++); uint8_t tmp = cpu->r[A]; cpu->r[A] += m; SET_ADD_FLAGS(tmp, m); cpu->rm = 2;
+/* SET_ADD_FLAGS(tmp, X);*/
+#define ADD_A_X(X) {\
+    cpu->r[A] += X;\
+    SET_ADD_FLAGS(tmp, X);\
+}
+
+#define ADD_AC_X(X) {\
+    cpu->r[A] += X;\
+    cpu->r[A] += (cpu->flags & FLAG_C) ? 1 : 0;\
+    SET_ADD_FLAGS(tmp, X);\
+}
+
+#define ADD(X) {\
+    ADD_A_X(cpu->r[X]);\
+    cpu->rm = 1;\
+    OPX(ADD, X);\
+}
+
+/*cpu->r[A] += hl;\
+SET_ADD_FLAGS(tmp, hl); */
+#define ADHL {\
+    ADD_A_X(hl);\
+    cpu->rm = 2;\
+    OP(ADHL);\
+}
+
+#define ADC(X) {\
+    ADD_AC_X(cpu->r[X]);\
+    cpu->rm = 1;\
+    OPX(ADC, X);\
+}
+
+#define ACHL {\
+    ADD_AC_X(hl);\
+    cpu->rm = 2;\
+    OP(ACHL);\
+}
+
+#define ADDm {\
+    uint8_t m = CPU_RB(cpu->pc++);\
+    uint8_t tmp = cpu->r[A];\
+    ADD_A_X(m);\
+    cpu->rm = 2;\
+    OP(ADDm);\
+}
 
 #define SUB(X)   OPX(SUB, X); cpu->r[A] -= cpu->r[X]; SET_SUB_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
 #define SBC(X)   OPX(SBC, X); cpu->r[A] -= cpu->r[X]; cpu->r[A] -= (cpu->flags & FLAG_C) ? 1 : 0; SET_SUB_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
@@ -130,6 +176,9 @@ MMU * mmu = &GB.mmu;
 
 /* Jump and call instructions */
 
+#define JPNN    OP("JPNN"); cpu->pc = CPU_RW(cpu->pc); cpu->rm = 3;
+#define JPHL    OP("JPHL"); cpu->pc = ADDR_HL; cpu->rm = 1;
+
 #define JRNC    NYI("JRNC"); cpu->ni++; cpu->rm = 1;
 
 #define RET     OP(RET);  cpu->pc = CPU_RW (cpu->sp); cpu->sp += 2; cpu->rm = 4;
@@ -161,22 +210,24 @@ inline void cpu_init()
 
 void cpu_print_regs()
 {
+#ifdef GB_DEBUG
     int i;
     for (i = A; i < L; i++)
         LOG_("%d ", cpu->r[i]);
-
-    /*LOG_(" . %llu\n", cpu->clock_m);*/
+#endif
 }
 
 void cpu_state()
 {
+#ifndef GB_DEBUG
     const uint16_t pc = cpu->pc;
 
-    LOG_("A:%02x F:%02x B:%02x C:%02x D:%02x E:%02x H:%02x L:%02x SP:%04x PC:%04x PCMEM:%02x,%02x,%02x,%02x\n",
+    printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",
         cpu->r[A], cpu->flags, cpu->r[B], cpu->r[C], cpu->r[D], cpu->r[E], cpu->r[H], cpu->r[L], 
         cpu->sp, cpu->pc, 
         CPU_RB (pc), CPU_RB (pc+1), CPU_RB (pc+2), CPU_RB (pc+3)
     );
+#endif
 }
 
 void cpu_boot_reset()
@@ -288,7 +339,10 @@ void cpu_exec (uint8_t const op)
             /* 8-bit load, LDHLr or HALT */
             if (arg2 != 255) { LDHLr (arg2); } else { HALT; }
         break;
-        case 0x10 ... 0x17:
+        /*case 0x10:
+            if (arg2 != 255) { ADD (arg2); } else { ADHL; }
+        break;*/
+        case 0x11 ... 0x17:
             /* 8-bit arithmetic */
             if (arg2 != 255)
             {
@@ -332,7 +386,9 @@ void cpu_exec (uint8_t const op)
                     if (arg1 != A) { POP  (arg1, arg1 + 1) } else { POPF; }
                 break;
                 case 3:
-                    if (op == 0xF3) { DI; }
+                    if      (op == 0xC3) { JPNN; }
+                    else if (op == 0xF3) { DI; }
+                    else    { INVALID; }
                 break;
                 case 4:
                 break;
@@ -352,11 +408,12 @@ void cpu_exec (uint8_t const op)
                 case 9:
                     if (op == 0xC9) { RET; }
                     if (op == 0xD9) { RETI; }
+                    if (op == 0xE9) { JPHL; }
                 break;
                 case 0xB:
-                    if (op == 0xCB) { PREFIX; }
+                    if      (op == 0xCB) { PREFIX; }
                     else if (op == 0xFB) { EI; }
-                    else { INVALID; }
+                    else    { INVALID; }
                 break;
             }
         break;
@@ -395,7 +452,7 @@ void cpu_clock()
         /*LOG_("Read op %02x at PC %04x\n", op, cpu->pc);*/
 
         cpu_exec(op);
-        //cpu_state();
+        cpu_state();
     }
     
     /*LOG_("Ran CPU. (%lld clocks)\n", cpu->clock_m);*/
