@@ -11,6 +11,7 @@ void gb_load_cart (GameBoy * const gb)
         LOG_("GB: Failed to load file! .\n");
     else
     {
+        LOG_("GB: Loaded file\n");
         uint8_t * filebuf = (uint8_t*) read_file ("test/03-op sp,hl.gb");
         
         if (filebuf == NULL)
@@ -25,11 +26,11 @@ void gb_load_cart (GameBoy * const gb)
         memcpy (&gb->cart.header, filebuf + 0x100, GB_HEADER_SIZE);
 
         free(filebuf);
-        gb_print_logo(gb, 177);
+        //gb_print_logo(gb, 177);
 
         LOG_("GB: ROM loaded (%s, %d KiB)\n", gb->cart.title, CART_MIN_SIZE_KB << gb->cart.rom_size);
         LOG_("GB: Cart type: %d\n", gb->cart.cart_type);
-
+/*
         const uint8_t type = gb->cart.cart_type;
 
         gb->cart.mapper =   
@@ -40,12 +41,13 @@ void gb_load_cart (GameBoy * const gb)
             (type <= 0x13)                 ? MBC3 :
             (type >= 0x19 && type <= 0x1E) ? MBC5 :
             (type == 0x20) ? MBC6 :
-            (type == 0x22) ? MBC7 : NO_MBC;
+            (type == 0x22) ? MBC7 : NO_MBC;*/
     }
 }
 
 void gb_print_logo (GameBoy * const gb, const uint8_t charCode)
 {
+#ifdef GB_DEBUG
     int i = 0;
     const uint8_t rows = 8, cols = 24;
     char logoImg[(cols * 4 + 1) * 8]; /* Extra chars for line breaks */
@@ -76,6 +78,7 @@ void gb_print_logo (GameBoy * const gb, const uint8_t charCode)
     }
 
     LOG_("\n%s\n\n",logoImg);
+#endif
 }
 
 void gb_unload_cart (GameBoy * const gb)

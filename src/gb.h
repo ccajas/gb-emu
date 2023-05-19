@@ -6,15 +6,15 @@
 #include "cpu.h"
 #include "cart.h"
 
-#define GB_TESTING
+#define GB_DEBUG_
 
-#ifdef GB_TESTING
+#ifdef GB_DEBUG
     #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
 #else
     #define LOG_(f_, ...)
 #endif
 
-#define GB_BIOS_SIZE      0x100
+#define BOOT_CODE_SIZE    0x100
 #define CART_MIN_SIZE_KB  0x20
 
 typedef struct GB_struct 
