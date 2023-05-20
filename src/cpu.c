@@ -42,25 +42,22 @@ MMU * mmu = &GB.mmu;
 
 /* 8-bit load instructions */   
 
+/* Load function templates */
 /* Used for LDrr, LDrn, LDrHL */
-#define LD__(X,Y) OPXY(LD__, X, Y); cpu->r[X] = Y; cpu->rm = 1; /* 2 for (HL),n */ 
+#define LD_X_Y(X,Y) OPXY(LD_X_Y, X, Y); cpu->r[X] = Y; cpu->rm = 1; /* 2 for (HL),n */ 
 
 /* Used for LDHLr, LDHLn */
-#define LDHL__(X) OPX(LDHL__, X); CPU_WB (ADDR_HL, X); cpu->rm = 2; /* 3 for LDHLn */
+#define LDHL_X(X) OPX(LDHL_X, X); CPU_WB (ADDR_HL, X); cpu->rm = 2; /* 3 for LDHLn */
 
 /* Used for LDArrm, LDAIOm, LDAIOC */
-#define LDA__(X)  OPX(LDA__, X);  cpu->r[A] = CPU_RB (X); cpu->rm = 2; /* 3 for LDAIOm */
+#define LDA_X(X)  OPX(LDA_X, X);  cpu->r[A] = CPU_RB (X); cpu->rm = 2; /* 3 for LDAIOm */
 
-#define LDArrm(X,Y)  OPXY(LDArrm, X, Y); cpu->r[A] = CPU_RB (ADDR_XY(X,Y)); cpu->rm = 2; //0A, 1A
-#define LDAIOm       OP(LDAIOm);         cpu->r[A] = CPU_RB (0xFF00 + CPU_RB (cpu->pc++)); cpu->rm = 3;
-#define LDAIOC       OP(LDAIOC);         cpu->r[A] = CPU_RB (0xFF00 + cpu->r[C]); cpu->rm = 2;
 
 #define LDAmm        OP(LDAmm);          cpu->r[A] = CPU_RB (CPU_RW (cpu->pc)); /*cpu->pc += 2;*/ cpu->rm = 4;
 
 #define LDrrmA(X,Y)  OPXY(LDrrmA, X, Y); CPU_WB (ADDR_XY(X,Y), cpu->r[A]); cpu->rm = 2;  //02, 12
 
 #define LDmmA     OP(LDmmA);  CPU_WB (CPU_RW (cpu->pc), cpu->r[A]);  cpu->pc += 2; cpu->rm = 4;
-
 #define LDIOmA    OP(LDIOmA); CPU_WB (0xFF00 + CPU_RB (cpu->pc++), cpu->r[A]); cpu->rm = 3;
 
 #define LDHLIA    OP(LDHLIA); CPU_WB (ADDR_HL, cpu->r[A]); INCR_HL; cpu->rm=2; //22
@@ -93,61 +90,21 @@ MMU * mmu = &GB.mmu;
 #define KEEP_CARRY      cpu->flags &= 0x10;
 #define KEEP_ZERO_CARRY cpu->flags &= 0x90;
 
-#define SET_ADD_FLAGS(T,X) {\
-    cpu->flags = (cpu->r[A] < T) ? FLAG_C : 0;\
-    SET_ZERO(cpu->r[A]);\
-    SET_HALF(cpu->r[A] ^ X ^ T);\
-}
-
+#define SET_ADD_FLAGS(T,X)  cpu->flags = (cpu->r[A] < T) ? FLAG_C : 0; SET_ZERO(cpu->r[A]); SET_HALF(cpu->r[A] ^ X ^ T);
 #define SET_SUB_FLAGS(T,X)  cpu->flags = (cpu->r[A] > T) ? FLAG_N | FLAG_C : FLAG_N; SET_ZERO(cpu->r[A]); SET_HALF(cpu->r[A] ^ X ^ T); 
 
 /* 8-bit arithmetic/logic instructions */
 
-/* SET_ADD_FLAGS(tmp, X);*/
-#define ADD_A_X(X) {\
-    cpu->r[A] += X;\
-    SET_ADD_FLAGS(tmp, X);\
-}
+/* Add function templates */
+#define ADD_A_X(X)  cpu->r[A] += X; SET_ADD_FLAGS(tmp, X);
+#define ADD_AC_X(X) cpu->r[A] += X; cpu->r[A] += (cpu->flags & FLAG_C) ? 1 : 0; SET_ADD_FLAGS(tmp, X);
 
-#define ADD_AC_X(X) {\
-    cpu->r[A] += X;\
-    cpu->r[A] += (cpu->flags & FLAG_C) ? 1 : 0;\
-    SET_ADD_FLAGS(tmp, X);\
-}
+#define ADD(X)   OPX(ADD, X); ADD_A_X(cpu->r[X]);
+#define ADHL     OP(ADHL);    ADD_A_X(hl);
+#define ADDm     OP(ADDm);    uint8_t m = CPU_RB(cpu->pc++); uint8_t tmp = cpu->r[A]; ADD_A_X(m);
 
-#define ADD(X) {\
-    ADD_A_X(cpu->r[X]);\
-    cpu->rm = 1;\
-    OPX(ADD, X);\
-}
-
-/*cpu->r[A] += hl;\
-SET_ADD_FLAGS(tmp, hl); */
-#define ADHL {\
-    ADD_A_X(hl);\
-    cpu->rm = 2;\
-    OP(ADHL);\
-}
-
-#define ADC(X) {\
-    ADD_AC_X(cpu->r[X]);\
-    cpu->rm = 1;\
-    OPX(ADC, X);\
-}
-
-#define ACHL {\
-    ADD_AC_X(hl);\
-    cpu->rm = 2;\
-    OP(ACHL);\
-}
-
-#define ADDm {\
-    uint8_t m = CPU_RB(cpu->pc++);\
-    uint8_t tmp = cpu->r[A];\
-    ADD_A_X(m);\
-    cpu->rm = 2;\
-    OP(ADDm);\
-}
+#define ADC(X)   OPX(ADC, X); ADD_AC_X(cpu->r[X]);
+#define ACHL     OP(ACHL);    ADD_AC_X(hl);
 
 #define SUB(X)   OPX(SUB, X); cpu->r[A] -= cpu->r[X]; SET_SUB_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
 #define SBC(X)   OPX(SBC, X); cpu->r[A] -= cpu->r[X]; cpu->r[A] -= (cpu->flags & FLAG_C) ? 1 : 0; SET_SUB_FLAGS(tmp, cpu->r[X]); cpu->rm = 1;
@@ -183,8 +140,8 @@ SET_ADD_FLAGS(tmp, hl); */
 
 /* CPU control instructions */
 
-#define CCF     OP(CCF);  uint8_t ci = (cpu->flags & 0x10) ^ 0x10; cpu->flags &= 0x80; cpu->flags |= ci; cpu->rm = 1;
-#define SCF     OP(SCF);  cpu->flags &= 0x80; cpu->flags |= 0x10; cpu->rm = 1;
+#define CCF     OP(CCF);  KEEP_ZERO; uint8_t ci = (cpu->flags & 0x10) ^ 0x10; cpu->flags |= ci; cpu->rm = 1;
+#define SCF     OP(SCF);  KEEP_ZERO; cpu->flags |= 0x10; cpu->rm = 1;
 #define HALT    OP(HALT); cpu->halt = 1; cpu->rm = 1;
 #define STOP    OP(STOP); cpu->stop = 1; cpu->rm = 1;
 #define NOP     OP(NOP);  cpu->rm = 1;
@@ -389,7 +346,7 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
                     DEC (r1); break;
                 case 6:
                 case 0xE: /* Load 8-bit immediate, LDrm */
-                    LD__(r1, CPU_RB (cpu->pc++)); break;
+                    LD_X_Y (r1, CPU_RB (cpu->pc++)); break;
                 case 7: /* Bit and flag operations */
                     if (op == 0x07) { RLCA; }
                     if (op == 0x17) { RLA; }
@@ -404,7 +361,7 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
                     if (opHh <= 5) { ADHLrr (r1 - 1, r1); } else { ADHLSP; } break;
                 break;
                 case 0xA:
-                    if (op < 0x2A)  { LDA__(ADDR_XY(cpu->r[r1 - 1], cpu->r[r1])); /* LDArrm */ }
+                    if (op < 0x2A)  { LDA_X (ADDR_XY(cpu->r[r1 - 1], cpu->r[r1])); /* LDArrm */ }
                     if (op == 0x2A) { LDAHLI }
                     if (op == 0x3A) { LDAHLD }
                 break;
@@ -425,17 +382,17 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
             if (op == 0x33) { INCSP; }
             if (op == 0x34) { INCHL; }
             if (op == 0x35) { DECHL; }
-            if (op == 0x36) { LDHL__(CPU_RB (cpu->pc++)); /* LDHLm */ }
+            if (op == 0x36) { LDHL_X (CPU_RB (cpu->pc++)); /* LDHLm */ }
             if (op == 0x37) { SCF; }
         break;
         case 8 ... 0xD: case 0xF:
             /* 8-bit load, LD or LDrHL */
             r1 = (opHh == 0xF) ? A : B + (opHh - 8);
-            if (r2 != 255) { LD__(r1, cpu->r[r2]); } else {  LD__(r1, HL_ADDR_BYTE); }
+            if (r2 != 255) { LD_X_Y (r1, cpu->r[r2]); } else {  LD_X_Y (r1, HL_ADDR_BYTE); }
         break;
         case 0xE:
             /* 8-bit load, LDHLr or HALT */
-            if (r2 != 255) { LDHL__(cpu->r[r2]); } else { HALT; }
+            if (r2 != 255) { LDHL_X (cpu->r[r2]); } else { HALT; }
         break;
         /*case 0x10:
             if (r2 != 255) { ADD (r2); } else { ADHL; }
@@ -482,13 +439,13 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
             {
                 case 0: /* RET and LD IO operations */
                     if (op == 0xE0) { LDIOmA; }
-                    if (op == 0xF0) { LDA__(0xFF00 + CPU_RB (cpu->pc++)); /* LDAIOm */ }
+                    if (op == 0xF0) { LDA_X (0xFF00 + CPU_RB (cpu->pc++)); /* LDAIOm */ }
                 break;
                 case 1: /* POP operations */
                     if (r1 != A) { POP  (r1, r1 + 1) } else { POPF; }
                 break;  
                 case 2: /* JP and LD IO operations */
-                    if (op == 0xF2) { LDA__(0xFF00 + cpu->r[C]); /* LDAIOC */ }
+                    if (op == 0xF2) { LDA_X (0xFF00 + cpu->r[C]); /* LDAIOC */ }
                 break;
                 case 3:
                     if      (op == 0xC3) { JPNN; }
