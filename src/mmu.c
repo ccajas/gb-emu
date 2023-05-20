@@ -74,12 +74,8 @@ uint8_t mmu_rb (MMU * const mmu, uint16_t const addr)
         /* External RAM */
             return mmu->eram[addr & 0x1FFF];
         break;
-        case 0xC000:
-        /* Work RAM lower 4KB */
-            return mmu->wram[addr & 0xFFF];
-        break;
-        case 0xD000:
-        /* Work RAM upper 4KB */
+        case 0xC000: case 0xD000:
+        /* Work RAM */
             return mmu->wram[addr & 0x1FFF];
         break;
         case 0xE000:
@@ -99,7 +95,7 @@ uint8_t mmu_rb (MMU * const mmu, uint16_t const addr)
                         return 0;
                 case 0xF:
                     if (addr >= 0xFF80) /* Zero page */
-                        return mmu->zram[addr & 0x7F];
+                        return mmu->hram[addr & 0x7F];
                     else
                         return 0;
                 break;
@@ -119,5 +115,30 @@ uint16_t mmu_rw (MMU * const mmu, uint16_t const addr)
     return mmu_rb (mmu, addr) + (mmu_rb (mmu, addr + 1) << 8);
 }
 
-void mmu_wb (MMU * const mmu, uint16_t const addr, uint8_t val) { /* Write 8-bit byte to a given address */ }
-void mmu_ww (MMU * const mmu, uint16_t const addr, uint16_t val) { /* Write 16-bit word to a given address */ }
+void mmu_wb (MMU * const mmu, uint16_t const addr, uint8_t val) 
+{ 
+    /* Write 8-bit byte to a given address */ 
+    switch (addr & 0xF000)
+    {
+        case 0xA000: case 0xB000:
+        /* External RAM */
+            mmu->eram[addr & 0x1FFF] = val;
+	    break;
+        case 0xC000: case 0xD000:
+        /* Work RAM and echo */
+            mmu->wram[addr & 0x1FFF] = val;
+        break;
+        case 0xE000:
+            /* Echo RAM */
+            mmu->wram[addr & 0x1FFF] = val;
+	    break;
+    }
+}
+void mmu_ww (MMU * const mmu, uint16_t const addr, uint16_t val)
+{
+    /* Write 16-bit word to a given address */
+
+    LOG_(" ..Writing word at %04x, %04x\n", addr, addr + 1); 
+    mmu_wb (mmu, addr, val);
+    mmu_wb (mmu, addr + 1, val >> 8);
+}

@@ -7,7 +7,7 @@
 #define VRAM_SIZE    0x2000 /* Video RAM*/
 #define ERAM_SIZE    0x2000 /* External RAM */
 #define WRAM_SIZE    0x2000 /* Work RAM */
-#define ZRAM_SIZE    0x80   /* Zero page RAM */
+#define HRAM_SIZE    0x80   /* High RAM */
 
 typedef struct MMU_struct
 {
@@ -20,7 +20,7 @@ typedef struct MMU_struct
     uint8_t vram[VRAM_SIZE];
     uint8_t eram[ERAM_SIZE];
     uint8_t wram[WRAM_SIZE];
-    uint8_t zram[ZRAM_SIZE];
+    uint8_t hram[HRAM_SIZE];
 }
 MMU;
 

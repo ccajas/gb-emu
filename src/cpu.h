@@ -39,7 +39,7 @@ void cpu_print_regs ();
 void cpu_boot_reset ();
 void cpu_clock ();
 
-void cpu_exec    (uint8_t const);
+void cpu_exec    (uint8_t const, uint32_t const);
 void cpu_exec_cb (uint8_t const);
 
 #endif
