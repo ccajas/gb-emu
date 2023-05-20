@@ -1,4 +1,5 @@
 #include <string.h>
+#include <profileapi.h>
 #include "gb.h"
 #include "ops.h"
 
@@ -32,12 +33,10 @@ const int8_t opTicks[256] = {
 
 /* CPU related functions */
 
-inline void cpu_init()
+void cpu_init()
 {
     strcpy(cpu->reg_names, "ABCDEHL");
     cpu->ni = 0;
-    cpu->ime = 0;
-    cpu->invalid = 0;
 }
 
 void cpu_print_regs()
@@ -88,6 +87,7 @@ void cpu_exec(uint8_t const op) { }
 void cpu_exec (uint8_t const op, uint32_t const cl)
 {
     cpu->rm = 0;
+    cpu->rt = 0;
 
     /* LOG_("Running op %02x:\n", op); */
     uint8_t opL = op & 0xf;
@@ -180,7 +180,7 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
                     if (opHh <= 5) { ADHLrr (r1 - 1, r1); } else { ADHLSP; } break;
                 break;
                 case 0xA:
-                    if (op < 0x2A)  { LDA_X (ADDR_XY(cpu->r[r1 - 1], cpu->r[r1])); /* LDArrm */ }
+                    if (op < 0x2A)  { LDArrm (r1 - 1, r1); }
                     if (op == 0x2A) { LDAHLI }
                     if (op == 0x3A) { LDAHLD }
                 break;
@@ -207,7 +207,7 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
         case 8 ... 0xD: case 0xF:
             /* 8-bit load, LD or LDrHL */
             r1 = (opHh == 0xF) ? A : B + (opHh - 8);
-            if (r2 != 255) { LD_X_Y (r1, cpu->r[r2]); } else {  LD_X_Y (r1, HL_ADDR_BYTE); }
+            if (r2 != 255) { LD_X_Y (r1, cpu->r[r2]); } else { LD_X_Y (r1, HL_ADDR_BYTE); }
         break;
         case 0xE:
             /* 8-bit load, LDHLr or HALT */
@@ -272,13 +272,21 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
                     else    { INVALID; }
                 break;
                 case 4:
+                case 0xC:
+                    if (op == 0xC4) { CALLNZ; }
+                    else if (op == 0xCC) { CALLZ; }
+                    else if (op == 0xD4) { CALLNC; }
+                    else if (op == 0xDC) { CALLC;  }
+                    else    { INVALID; }
                 break;
                 case 5: /* PUSH operations */
                     if (r1 != A) { PUSH (r1, r1 + 1) } else { PUSHF; }
                 break;
-                case 6:
+                case 6: /* 8-bit operations, immediate */
                     if (op == 0xC6) { ADDm; }
                     if (op == 0xD6) { SUBm; }
+                    if (op == 0xE6) { ANDm; }
+                    if (op == 0xF6) { ORm;  }                    
                 break;
                 case 0x07 : case 0x0f: /* Call to address xx */
                     { uint16_t n = (opHh - 0x18) * 0x08; RST(n); }
@@ -302,6 +310,11 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
                 case 0xD:
                     if   (op == 0xCD) { CALLm; }
                     else { INVALID; }
+                break;
+                case 0xE:
+                    if (op == 0xEE) { XORm; }
+                    if (op == 0xFE) { CPm; }
+                break;
             }
         break;
         default:
@@ -310,7 +323,7 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
     }
 #endif
 
-    cpu->rt = opTicks[op];
+    cpu->rt += opTicks[op];
     cpu->clock_t += cpu->rt;
     cpu->clock_m += (cpu->rt >> 2);
 
@@ -326,27 +339,15 @@ void cpu_exec_cb (uint8_t const op)
 
 void cpu_clock()
 {   
-/*    cpu->r[A] = 1; cpu->r[B] = 2;
-
-    cpu_print_regs();*/
-    cpu_boot_reset();
-    cpu_state();
-
     /*Load next op and execute */
     uint16_t i;   
     for (i = 0; i < 50000; i++)
     {
-        cpu->clock_m += cpu->rm;
-        cpu->clock_t += (cpu->rm << 2);
-
         uint8_t op = mmu_rb(mmu, cpu->pc++);
-        //LOG_("Test op %02x... ", op);
-        /*LOG_("Read op %02x at PC %04x\n", op, cpu->pc);*/
+        LOG_("Test op %02x... ", op);
 
         cpu_exec(op, i+1);
         cpu_state();
     }
-    
-    /*LOG_("Ran CPU. (%lld clocks)\n", cpu->clock_m);*/
-    LOG_("%d%% of 256 instructions done.\n", ((256 - cpu->ni) * 100) / 256);
 }
+ 
