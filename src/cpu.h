@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-enum registers { A = 0, B, C, D, E, H, L, F = 10 };
-
 #define FLAG_Z   0x80
 #define FLAG_N   0x40
 #define FLAG_H   0x20
@@ -12,6 +10,8 @@ enum registers { A = 0, B, C, D, E, H, L, F = 10 };
 
 typedef struct CPU_struct
 {
+    enum { A = 0, B, C, D, E, H, L, F = 10 } registers;
+
     uint8_t r[7];     /* A-E, H, L - 8-bit registers */
     uint8_t rm, rt;
     uint8_t flags;

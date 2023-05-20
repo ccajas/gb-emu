@@ -38,24 +38,36 @@ MMU * mmu = &GB.mmu;
 #define OPXY(name, X, Y)
 #define OPN(name, N)
 
-#endif
+#endif  
 
 /* 8-bit load instructions */   
 
-#define LD(X,Y)   OPXY(LD, X, Y); cpu->r[X] = cpu->r[Y]; cpu->rm = 1;     
-#define LDrn(X)   OPX(LDrn, X);   cpu->r[X] = CPU_RB (cpu->pc); cpu->pc++; cpu->rm = 2;
-#define LDrHL(X)  OPX(LDrHL, X);  cpu->r[X] = HL_ADDR_BYTE; cpu->rm = 2;
-#define LDHLr(X)  OPX(LDHLr, X);  CPU_WB (ADDR_HL, cpu->r[X]); cpu->rm = 2; /* 70 ... 77 */
-#define LDHLn     OP(LDHLn);      CPU_WB ((cpu->r[H] << 8) + cpu->r[L], CPU_RB (cpu->pc)); cpu->pc++; cpu->rm = 3;
-#define LDHL      OP(LDHL);       CPU_WB (ADDR_HL, cpu->pc); cpu->pc++; cpu->rm = 3;
+/* Used for LDrr, LDrn, LDrHL */
+#define LD__(X,Y) OPXY(LD__, X, Y); cpu->r[X] = Y; cpu->rm = 1; /* 2 for (HL),n */ 
 
-#define LDHLIA    OP(LDHLIA); CPU_WB (ADDR_HL, cpu->r[A]); INCR_HL;  cpu->rm=2; //22
-#define LDAHLI    OP(LDAHLI); cpu->r[A] = HL_ADDR_BYTE; INCR_HL; cpu->rm=2; //2A
-#define LDHLDA    OP(LDHLDA); CPU_WB (ADDR_HL, cpu->r[A]); DECR_HL;  cpu->rm=2; //32
-#define LDAHLD    OP(LDAHLD); cpu->r[A] = HL_ADDR_BYTE; DECR_HL; cpu->rm=2; //3A
+/* Used for LDHLr, LDHLn */
+#define LDHL__(X) OPX(LDHL__, X); CPU_WB (ADDR_HL, X); cpu->rm = 2; /* 3 for LDHLn */
+
+/* Used for LDArrm, LDAIOm, LDAIOC */
+#define LDA__(X)  OPX(LDA__, X);  cpu->r[A] = CPU_RB (X); cpu->rm = 2; /* 3 for LDAIOm */
 
 #define LDArrm(X,Y)  OPXY(LDArrm, X, Y); cpu->r[A] = CPU_RB (ADDR_XY(X,Y)); cpu->rm = 2; //0A, 1A
+#define LDAIOm       OP(LDAIOm);         cpu->r[A] = CPU_RB (0xFF00 + CPU_RB (cpu->pc++)); cpu->rm = 3;
+#define LDAIOC       OP(LDAIOC);         cpu->r[A] = CPU_RB (0xFF00 + cpu->r[C]); cpu->rm = 2;
+
+#define LDAmm        OP(LDAmm);          cpu->r[A] = CPU_RB (CPU_RW (cpu->pc)); /*cpu->pc += 2;*/ cpu->rm = 4;
+
 #define LDrrmA(X,Y)  OPXY(LDrrmA, X, Y); CPU_WB (ADDR_XY(X,Y), cpu->r[A]); cpu->rm = 2;  //02, 12
+
+#define LDmmA     OP(LDmmA);  CPU_WB (CPU_RW (cpu->pc), cpu->r[A]);  cpu->pc += 2; cpu->rm = 4;
+
+#define LDIOmA    OP(LDIOmA); CPU_WB (0xFF00 + CPU_RB (cpu->pc++), cpu->r[A]); cpu->rm = 3;
+
+#define LDHLIA    OP(LDHLIA); CPU_WB (ADDR_HL, cpu->r[A]); INCR_HL; cpu->rm=2; //22
+#define LDHLDA    OP(LDHLDA); CPU_WB (ADDR_HL, cpu->r[A]); DECR_HL; cpu->rm=2; //32
+
+#define LDAHLI    OP(LDAHLI); cpu->r[A] = HL_ADDR_BYTE;    INCR_HL; cpu->rm=2; //2A
+#define LDAHLD    OP(LDAHLD); cpu->r[A] = HL_ADDR_BYTE;    DECR_HL; cpu->rm=2; //3A
 
 /* 16-bit load instructions */
 
@@ -153,14 +165,14 @@ SET_ADD_FLAGS(tmp, hl); */
 #define CPHL     OP(CPHL);    tmp -= hl; cpu->flags = (tmp < 0) ? 0x50 : FLAG_N; SET_ZERO(tmp); SET_HALF(cpu->r[A] ^ hl ^ tmp); cpu->rm = 2;
 
 
-#define INC(X)   OPX(INC, X); cpu->r[X]++; KEEP_CARRY; cpu->flags |= cpu->r[X] ? 0 : 0x80; cpu->rm = 1;
-#define DEC(X)   OPX(DEC, X); cpu->r[X]--; KEEP_CARRY; cpu->flags |= cpu->r[X] ? 0 : 0x80; cpu->rm = 1;
+#define INC(X)   OPX(INC, X); cpu->r[X]++; KEEP_CARRY; cpu->flags |= (cpu->r[X] & 0xF) ? 0 : 0x20; cpu->flags |= cpu->r[X] ? 0 : 0x80; cpu->rm = 1;
+#define DEC(X)   OPX(DEC, X); cpu->r[X]--; KEEP_CARRY; cpu->flags |= ((cpu->r[X] & 0xF) == 0xF) ? 0x20 : 0; cpu->flags |= cpu->r[X] ? 0 : 0x80; cpu->flags |= 0x40; cpu->rm = 1;
 #define INCHL    OP(INCHL);   uint8_t tmp = CPU_RB(ADDR_HL) + 1; CPU_WB(ADDR_HL, tmp); SET_ZERO(tmp); SET_HALF_S((tmp & 0x0F) == 0); cpu->flags &= ~(0x40); cpu->rm = 3;
 #define DECHL    OP(DECHL);   uint8_t tmp = CPU_RB(ADDR_HL) - 1; CPU_WB(ADDR_HL, tmp); SET_ZERO(tmp); SET_HALF_S((tmp & 0x0F) == 0xF); cpu->flags |= 0x40; cpu->rm = 3;
 #define CPL      OP(CPL);     cpu->r[A] ^= 0xFF; cpu->flags |= 0x60; cpu->rm = 1;
 
 /* 16-bit arithmetic instructions */
-
+    
 #define ADHLrr(X,Y) OPXY(ADHLrr, X, Y); uint16_t tmp = hl; hl += ADDR_XY(X,Y); if (hl < tmp) cpu->flags |= FLAG_C; else cpu->flags &= 0xEF; cpu->r[H] = (hl >> 8); cpu->r[L] = hl & 0xFF; cpu->rm = 2;
 #define ADHLSP      OP(ADHLSP);         uint16_t tmp = hl; hl += cpu->sp;      if (hl < tmp) cpu->flags |= FLAG_C; else cpu->flags &= 0xEF; cpu->r[H] = (hl >> 8); cpu->r[L] = hl & 0xFF; cpu->rm = 2;
 #define ADDSPm      OP(ADDSPm);         int8_t i = (int8_t) CPU_RB(cpu->pc++); cpu->flags = 0; SET_HALF_S ((cpu->sp & 0xF) + (i & 0xF) > 0xF); SET_CARRY ((cpu->sp & 0xFF) + (i & 0xFF) > 0xFF); cpu->sp += i; cpu->rm = 4;
@@ -183,6 +195,9 @@ SET_ADD_FLAGS(tmp, hl); */
 
 #define JPNN    OP(JPNN); cpu->pc = CPU_RW(cpu->pc); cpu->rm = 3;
 #define JPHL    OP(JPHL); cpu->pc = ADDR_HL; cpu->rm = 1;
+#define JRm     OP(JRm);  cpu->pc += (int8_t) CPU_RB (cpu->pc); cpu->pc++; cpu->rm = 3;
+#define JRZm    NYI("JRZm"); cpu->rm = 1;
+#define JRCm    NYI("JRCm"); cpu->rm = 1;
 
 #define JRNZ {\
     cpu->rm = 2;\
@@ -197,8 +212,10 @@ SET_ADD_FLAGS(tmp, hl); */
 }
 #define JRNC    NYI("JRNC"); cpu->ni++; cpu->rm = 1;
 
-#define RET     OP(RET);  cpu->pc = CPU_RW (cpu->sp); cpu->sp += 2; cpu->rm = 4;
-#define RETI    OP(RETI); cpu->pc = CPU_RW (cpu->sp); cpu->sp += 2; cpu->ime = 1; cpu->rm = 4;
+#define CALLm   OP(CALLm); uint16_t tmp = CPU_RW (cpu->pc); cpu->pc += 2; cpu->sp -= 2; CPU_WW(cpu->sp, cpu->pc); cpu->pc = tmp; cpu->rm = 6;
+
+#define RET     OP(RET);   cpu->pc = CPU_RW (cpu->sp); cpu->sp += 2; cpu->rm = 4;
+#define RETI    OP(RETI);  cpu->pc = CPU_RW (cpu->sp); cpu->sp += 2; cpu->ime = 1; cpu->rm = 4;
 
 #define RST(N)  OPN(RST, N); cpu->sp -= 2; mmu_ww (mmu, cpu->sp, cpu->pc); cpu->pc = N; cpu->rm = 3;
 
@@ -292,7 +309,7 @@ void cpu_exec(uint8_t const op) { }
 
 #else
 
-void cpu_exec (uint8_t const op)
+void cpu_exec (uint8_t const op, uint32_t const cl)
 {
     cpu->rm = 0;
 
@@ -307,6 +324,7 @@ void cpu_exec (uint8_t const op)
     r1 = (opHh == 0x7) ? A : B + (opHh & 7); 
     r2 = ((opL & 7) == 7) ? A : ((opL & 7) < 6) ? B + (opL & 7) : 255;
 
+#ifdef TABLE
     switch (op)
     {
         case 0x0:                        NOP; break;
@@ -341,13 +359,8 @@ void cpu_exec (uint8_t const op)
         break;
     }
 
-    cpu->rt = opTicks[op];
-    cpu->clock_t += cpu->rt;
-    cpu->clock_m += (cpu->rt >> 2);
+#else
 
-    if (cpu->rt == 0) { LOG_("*N/A (%02x)*\n", op); cpu->ni++; } else { LOG_("\n"); }
-
-#ifdef TABLE
     switch (opHh)
     {
         case 0 ... 5: case 0x7:
@@ -375,20 +388,23 @@ void cpu_exec (uint8_t const op)
                 case 0xD: /* 8-bit decrement */
                     DEC (r1); break;
                 case 6:
-                case 0xE: /* Load 8-bit immediate */
-                    LDrn (r1); break;
+                case 0xE: /* Load 8-bit immediate, LDrm */
+                    LD__(r1, CPU_RB (cpu->pc++)); break;
                 case 7: /* Bit and flag operations */
                     if (op == 0x07) { RLCA; }
                     if (op == 0x17) { RLA; }
                 break;
                 case 8: /* JMP and load operations */
                     if (op == 0x08) { LDimSP; }
+                    if (op == 0x18) { JRm; }
+                    if (op == 0x28) { JRZm; }
+                    if (op == 0x38) { JRCm; }
                 break;  
                 case 9: /* 16-bit add */
                     if (opHh <= 5) { ADHLrr (r1 - 1, r1); } else { ADHLSP; } break;
                 break;
                 case 0xA:
-                    if (op < 0x2A)  { LDArrm (r1 - 1, r1); }
+                    if (op < 0x2A)  { LDA__(ADDR_XY(cpu->r[r1 - 1], cpu->r[r1])); /* LDArrm */ }
                     if (op == 0x2A) { LDAHLI }
                     if (op == 0x3A) { LDAHLD }
                 break;
@@ -409,17 +425,17 @@ void cpu_exec (uint8_t const op)
             if (op == 0x33) { INCSP; }
             if (op == 0x34) { INCHL; }
             if (op == 0x35) { DECHL; }
-            if (op == 0x36) { LDHLn; }
+            if (op == 0x36) { LDHL__(CPU_RB (cpu->pc++)); /* LDHLm */ }
             if (op == 0x37) { SCF; }
         break;
         case 8 ... 0xD: case 0xF:
-            /* 8-bit load, LD, LDrHL */
+            /* 8-bit load, LD or LDrHL */
             r1 = (opHh == 0xF) ? A : B + (opHh - 8);
-            if (r2 != 255) { LD (r1, r2); } else { LDrHL (r1); }
+            if (r2 != 255) { LD__(r1, cpu->r[r2]); } else {  LD__(r1, HL_ADDR_BYTE); }
         break;
         case 0xE:
             /* 8-bit load, LDHLr or HALT */
-            if (r2 != 255) { LDHLr (r2); } else { HALT; }
+            if (r2 != 255) { LDHL__(cpu->r[r2]); } else { HALT; }
         break;
         /*case 0x10:
             if (r2 != 255) { ADD (r2); } else { ADHL; }
@@ -464,8 +480,15 @@ void cpu_exec (uint8_t const op)
             r1 = (opHh - 0x18 >= 0x6) ? A : B + (opHh - 0x18);
             switch (opL)
             {
+                case 0: /* RET and LD IO operations */
+                    if (op == 0xE0) { LDIOmA; }
+                    if (op == 0xF0) { LDA__(0xFF00 + CPU_RB (cpu->pc++)); /* LDAIOm */ }
+                break;
                 case 1: /* POP operations */
                     if (r1 != A) { POP  (r1, r1 + 1) } else { POPF; }
+                break;  
+                case 2: /* JP and LD IO operations */
+                    if (op == 0xF2) { LDA__(0xFF00 + cpu->r[C]); /* LDAIOC */ }
                 break;
                 case 3:
                     if      (op == 0xC3) { JPNN; }
@@ -488,15 +511,21 @@ void cpu_exec (uint8_t const op)
                     if (op == 0xE8) { ADDSPm; }
                 break;
                 case 9:
-                    if (op == 0xC9) { RET; }
+                    if (op == 0xC9) { RET;  }
                     if (op == 0xD9) { RETI; }
                     if (op == 0xE9) { JPHL; }
                 break;
+                case 0xA:
+                    if (op == 0xEA) { LDmmA; }
+                    if (op == 0xFA) { LDAmm; }
                 case 0xB:
                     if      (op == 0xCB) { PREFIX; }
                     else if (op == 0xFB) { EI; }
                     else    { INVALID; }
                 break;
+                case 0xD:
+                    if   (op == 0xCD) { CALLm; }
+                    else { INVALID; }
             }
         break;
         default:
@@ -504,6 +533,12 @@ void cpu_exec (uint8_t const op)
         break;
     }
 #endif
+
+    cpu->rt = opTicks[op];
+    cpu->clock_t += cpu->rt;
+    cpu->clock_m += (cpu->rt >> 2);
+
+    if (cpu->rt == 0) { LOG_("*N/A (%02x)*\n", op); cpu->ni++; } else { LOG_("\n"); }
 }
 
 #endif
@@ -523,7 +558,7 @@ void cpu_clock()
 
     /*Load next op and execute */
     uint16_t i;   
-    for (i = 0; i < 256; i++)
+    for (i = 0; i < 50000; i++)
     {
         cpu->clock_m += cpu->rm;
         cpu->clock_t += (cpu->rm << 2);
@@ -532,7 +567,7 @@ void cpu_clock()
         //LOG_("Test op %02x... ", op);
         /*LOG_("Read op %02x at PC %04x\n", op, cpu->pc);*/
 
-        cpu_exec(op);
+        cpu_exec(op, i+1);
         cpu_state();
     }
     
