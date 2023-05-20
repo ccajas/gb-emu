@@ -8,6 +8,8 @@
 #define FLAG_H   0x20
 #define FLAG_C   0x10
 
+#define CPU_FREQ 4194304
+
 typedef struct CPU_struct
 {
     enum { A = 0, B, C, D, E, H, L, F = 10 } registers;
@@ -37,8 +39,9 @@ typedef struct GB_struct GameBoy;
 void cpu_init ();
 void cpu_print_regs ();
 void cpu_boot_reset ();
-void cpu_clock ();
+void cpu_state ();
 
+void cpu_clock ();
 void cpu_exec    (uint8_t const, uint32_t const);
 void cpu_exec_cb (uint8_t const);
 

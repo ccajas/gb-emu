@@ -6,7 +6,7 @@
 #include "cpu.h"
 #include "cart.h"
 
-#define GB_DEBUG_
+#define GB_DEBUG__
 
 #ifdef GB_DEBUG
     #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
@@ -30,6 +30,17 @@ typedef struct GB_struct
 
     /* Master clock */
     uint64_t clockCount;
+
+    /* Emulation status */
+    union 
+    {
+        struct
+        {
+            uint8_t running : 1;
+            uint8_t romLoaded : 1;
+        };
+        uint8_t status;
+    };
 }
 GameBoy;
 
@@ -37,6 +48,11 @@ inline void gb_reset(GameBoy * const gb)
 {
     mmu_reset (&gb->mmu);
     cpu_boot_reset (&gb->cpu);
+}
+
+inline uint8_t gb_running(GameBoy * const gb)
+{
+    return gb->running;
 }
 
 void gb_load_cart   (GameBoy * const);
