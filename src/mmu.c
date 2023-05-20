@@ -31,6 +31,8 @@ void mmu_reset (MMU * const mmu)
         mmu->vram[i] = 0;
     for (i = 0; i < ERAM_SIZE; i++)
         mmu->eram[i] = 0;
+    for (i = 0; i < WRAM_SIZE; i++)
+        mmu->wram[i] = 0;
 
     mmu->inBios = 0;
 }
@@ -132,6 +134,23 @@ void mmu_wb (MMU * const mmu, uint16_t const addr, uint8_t val)
             /* Echo RAM */
             mmu->wram[addr & 0x1FFF] = val;
 	    break;
+        case 0xF000:
+            switch ((addr & 0x0F00) >> 8)
+		    {
+                case 0 ... 0xD: /* Work RAM echo */
+                    mmu->wram[addr & 0x1FFF] = val;
+                break;
+                case 0xE:
+                    if (addr < 0xFEA0)
+                        /* Write to OAM */
+                break;
+                case 0xF:
+                    if (addr >= 0xFF80) /* Zero page */
+                        mmu->hram[addr & 0x7F] = val;
+                    else
+                        {}
+                break;
+            }
     }
 }
 void mmu_ww (MMU * const mmu, uint16_t const addr, uint16_t val)
