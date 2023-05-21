@@ -9,6 +9,8 @@
 #define WRAM_SIZE    0x2000 /* Work RAM */
 #define HRAM_SIZE    0x80   /* High RAM */
 
+#define USING_DYNAMIC_ARRAY_
+
 typedef struct MMU_struct
 {
     uint8_t bios[256];
@@ -17,9 +19,13 @@ typedef struct MMU_struct
 
     struct VArray rom;
 
+#ifdef USING_DYNAMIC_ARRAY_
+    struct VArray vram, eram, wram;
+#else
     uint8_t vram[VRAM_SIZE];
     uint8_t eram[ERAM_SIZE];
     uint8_t wram[WRAM_SIZE];
+#endif
     uint8_t hram[HRAM_SIZE];
 }
 MMU;

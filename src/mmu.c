@@ -3,6 +3,16 @@
 #include "gb.h"
 #include "utils/fileread.h"
 
+#ifdef USING_DYNAMIC_ARRAY_
+    #define VRAM_DATA_(N)   mmu->vram.data[N & 0x1FFF]
+    #define ERAM_DATA_(N)   mmu->eram.data[N & 0x1FFF]
+    #define WRAM_DATA_(N)   mmu->wram.data[N & 0x1FFF]
+#else
+    #define VRAM_DATA_(N)   mmu->vram[N & 0x1FFF]
+    #define ERAM_DATA_(N)   mmu->eram[N & 0x1FFF]
+    #define WRAM_DATA_(N)   mmu->wram[N & 0x1FFF]
+#endif
+
 MMU newMMU = {
     {
         0x31, 0xFE, 0xFF, 0xAF, 0x21, 0xFF, 0x9F, 0x32, 0xCB, 0x7C, 0x20, 0xFB, 0x21, 0x26, 0xFF, 0x0E,
@@ -26,13 +36,15 @@ MMU newMMU = {
 
 void mmu_reset (MMU * const mmu)
 {
-    int i;
-    for (i = 0; i < VRAM_SIZE; i++)
-        mmu->vram[i] = 0;
-    for (i = 0; i < ERAM_SIZE; i++)
-        mmu->eram[i] = 0;
-    for (i = 0; i < WRAM_SIZE; i++)
-        mmu->wram[i] = 0;
+#ifdef USING_DYNAMIC_ARRAY_
+    vc_init (&mmu->vram, VRAM_SIZE);
+    vc_init (&mmu->eram, VRAM_SIZE);
+    vc_init (&mmu->wram, VRAM_SIZE);
+#else
+    memset(mmu->vram, 0, VRAM_SIZE);
+    memset(mmu->eram, 0, ERAM_SIZE);
+    memset(mmu->wram, 0, WRAM_SIZE);
+#endif
 
     mmu->inBios = 0;
 }
@@ -50,7 +62,6 @@ uint8_t mmu_rb (MMU * const mmu, uint16_t const addr)
             if (mmu->inBios)
             {
                 if (addr < 0x0100) return mmu->bios[addr];
-
                 /*else if(cpu->r.pc == 0x0100)
                 {
                     mmu->inBios = 0;
@@ -70,25 +81,25 @@ uint8_t mmu_rb (MMU * const mmu, uint16_t const addr)
         break;
         case 0x8000: case 0x9000:
         /* Video RAM */
-            return mmu->vram[addr & 0x1FFF];
+            return VRAM_DATA_(addr);
         break;
         case 0xA000: case 0xB000:
         /* External RAM */
-            return mmu->eram[addr & 0x1FFF];
+            return ERAM_DATA_(addr);
         break;
         case 0xC000: case 0xD000:
         /* Work RAM */
-            return mmu->wram[addr & 0x1FFF];
+            return WRAM_DATA_(addr);
         break;
         case 0xE000:
         /* Work RAM echo */
-            return mmu->wram[addr & 0x1FFF];
+            return WRAM_DATA_(addr);
         break;
         case 0xF000:
             switch ((addr & 0x0F00) >> 8)
 		    {
                 case 0 ... 0xD: /* Work RAM echo */
-                    return mmu->wram[addr & 0x1FFF];
+                    return WRAM_DATA_(addr);
                 case 0xE:
                     if (addr < 0xFEA0)
                         /* return OAM */
@@ -122,23 +133,26 @@ void mmu_wb (MMU * const mmu, uint16_t const addr, uint8_t val)
     /* Write 8-bit byte to a given address */ 
     switch (addr & 0xF000)
     {
+        case 0x8000: case 0x9000:
+        /* Video RAM */
+        break;
         case 0xA000: case 0xB000:
         /* External RAM */
-            mmu->eram[addr & 0x1FFF] = val;
+            ERAM_DATA_(addr) = val;
 	    break;
         case 0xC000: case 0xD000:
         /* Work RAM and echo */
-            mmu->wram[addr & 0x1FFF] = val;
+            WRAM_DATA_(addr) = val;
         break;
         case 0xE000:
             /* Echo RAM */
-            mmu->wram[addr & 0x1FFF] = val;
+            WRAM_DATA_(addr) = val;
 	    break;
         case 0xF000:
             switch ((addr & 0x0F00) >> 8)
 		    {
                 case 0 ... 0xD: /* Work RAM echo */
-                    mmu->wram[addr & 0x1FFF] = val;
+                    WRAM_DATA_(addr) = val;
                 break;
                 case 0xE:
                     if (addr < 0xFEA0)

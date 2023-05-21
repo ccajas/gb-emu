@@ -17,7 +17,7 @@ struct VArray
 
 inline void vc_init (struct VArray * const v, uint32_t initialSize) 
 {
-    v->data = malloc (initialSize * sizeof(uint8_t));
+    v->data = calloc (initialSize, sizeof(uint8_t));
     v->total = 0;
     v->capacity = initialSize;
 }
