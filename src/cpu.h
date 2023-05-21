@@ -16,11 +16,11 @@ typedef struct CPU_struct
         /* data */
         struct 
         {
-            uint8_t f_z  : 1;
-            uint8_t f_n  : 1;
-            uint8_t f_h  : 1;
-            uint8_t f_c  : 1;
             uint8_t f_lb : 4; /* Unused */
+            uint8_t f_c  : 1;
+            uint8_t f_h  : 1;
+            uint8_t f_n  : 1;
+            uint8_t f_z  : 1;
         };
         uint8_t flags;
     };
@@ -48,7 +48,7 @@ void cpu_init ();
 void cpu_boot_reset ();
 void cpu_state ();
 
-void cpu_clock ();
+void cpu_step ();
 void cpu_exec    (uint8_t const, uint32_t const);
 void cpu_exec_cb (uint8_t const);
 

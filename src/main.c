@@ -23,7 +23,7 @@ int main (int argc, char** argv)
 
     //while (gb_running(&GB))
     //{
-        cpu_clock();
+        cpu_step();
     //}
     gb_unload_cart(&GB);
     

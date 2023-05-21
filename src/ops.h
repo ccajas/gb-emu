@@ -129,19 +129,23 @@
 
 #define INC      OP(INC);     cpu->r[r1]++; KEEP_CARRY; cpu->flags |= (cpu->r[r1] & 0xF) ? 0 : FLAG_H;          cpu->flags |= cpu->r[r1] ? 0 : FLAG_Z; 
 #define DEC      OP(DEC);     cpu->r[r1]--; KEEP_CARRY; cpu->flags |= ((cpu->r[r1] & 0xF) == 0xF) ? FLAG_H : 0; cpu->flags |= cpu->r[r1] ? 0 : FLAG_Z; cpu->flags |= FLAG_N; 
-#define INCHL    OP(INCHL);   { uint8_t tmp = CPU_RB(ADDR_HL) + 1; CPU_WB(ADDR_HL, tmp); SET_FLAG_Z(tmp); SET_FLAG_H_S((tmp & 0x0F) == 0); cpu->flags &= ~(FLAG_N); }
-#define DECHL    OP(DECHL);   { uint8_t tmp = CPU_RB(ADDR_HL) - 1; CPU_WB(ADDR_HL, tmp); SET_FLAG_Z(tmp); SET_FLAG_H_S((tmp & 0x0F) == 0xF); cpu->flags |= FLAG_N; }
+#define INCHL    OP(INCHL);   { uint8_t tmp = CPU_RB(ADDR_HL) + 1; CPU_WB(ADDR_HL, tmp); SET_FLAG_Z(tmp); SET_FLAG_H_S((tmp & 0xF) == 0); cpu->flags &= ~(FLAG_N); }
+#define DECHL    OP(DECHL);   { uint8_t tmp = CPU_RB(ADDR_HL) - 1; CPU_WB(ADDR_HL, tmp); SET_FLAG_Z(tmp); SET_FLAG_H_S((tmp & 0xF) == 0xF); cpu->flags |= FLAG_N; }
 #define CPL      OP(CPL);     cpu->r[A] ^= 0xFF; cpu->flags |= 0x60; 
 
 /** 16-bit arithmetic instructions **/
     
-#define ADHLrr   OP(ADHLrr);  { uint16_t tmp = hl; hl += ADDR_XY(r1 - 1, r1);\
-    if (hl < tmp) cpu->flags |= FLAG_C; else cpu->flags &= 0xEF;\
+#define ADHLrr   OP(ADHLrr);  {\
+    uint16_t tmp = hl; hl += ADDR_XY(r1 - 1, r1);\
+    KEEP_ZERO; if (hl < tmp) cpu->flags |= FLAG_C;\
+    if (hl & 0x1000) cpu->flags |= FLAG_H;\
     cpu->r[H] = (hl >> 8); cpu->r[L] = hl & 0xFF;\
 }
 
-#define ADHLSP   OP(ADHLSP);  { uint16_t tmp = hl; hl += cpu->sp;\
-    if (hl < tmp) cpu->flags |= FLAG_C; else cpu->flags &= 0xEF;\
+#define ADHLSP   OP(ADHLSP);  {\
+    uint16_t tmp = hl; hl += cpu->sp;\
+    KEEP_ZERO; if (hl < tmp) cpu->flags |= FLAG_C;\
+    if (hl & 0x1000) cpu->flags |= FLAG_H;\
     cpu->r[H] = (hl >> 8); cpu->r[L] = hl & 0xFF;\
 }
 
@@ -175,8 +179,8 @@
 /** Jump and call instructions **/
 
     /* Jump and call function templates */
-    #define JR_X(X)   if (X) { cpu->pc += (int8_t) CPU_RB (cpu->pc); cpu->rt += 4; } cpu->pc++;   
-    #define CALL_X(X) if (X) { cpu->sp -= 2; CPU_WW (cpu->sp, cpu->pc + 2); cpu->pc = CPU_RW (cpu->pc); cpu->rt += 12; } else cpu->pc += 2;
+    #define JR_IF(X)   if (X) { cpu->pc += (int8_t) CPU_RB (cpu->pc); cpu->rt += 4; } cpu->pc++;   
+    #define CALL_IF(X) if (X) { cpu->sp -= 2; CPU_WW (cpu->sp, cpu->pc + 2); cpu->pc = CPU_RW (cpu->pc); cpu->rt += 12; } else cpu->pc += 2;
 
 /* Jump to | relative jump */
 #define JPNN    OP(JPNN); cpu->pc = CPU_RW (cpu->pc);
@@ -189,40 +193,66 @@
 #define JPNC    NYI("JPNC");
 
 /* Conditional relative jump */
-#define JRZ     OP(JRZ);  JR_X (cpu->flags & FLAG_Z);
-#define JRNZ    OP(JRNZ); JR_X (!(cpu->flags & FLAG_Z));
-#define JRC     OP(JRC);  JR_X (cpu->flags & FLAG_C);
-#define JRNC    OP(JRNC); JR_X (!(cpu->flags & FLAG_C));
+#define JRZ     OP(JRZ);  JR_IF (cpu->flags & FLAG_Z);
+#define JRNZ    OP(JRNZ); JR_IF (!(cpu->flags & FLAG_Z));
+#define JRC     OP(JRC);  JR_IF (cpu->flags & FLAG_C);
+#define JRNC    OP(JRNC); JR_IF (!(cpu->flags & FLAG_C));
 
 /* Calls */
 #define CALLm   OP(CALLm);  { uint16_t tmp = CPU_RW (cpu->pc); cpu->pc += 2; cpu->sp -= 2; CPU_WW(cpu->sp, cpu->pc); cpu->pc = tmp; }
-#define CALLZ   OP(CALLZ);  CALL_X (cpu->flags & FLAG_Z);
-#define CALLNZ  OP(CALLNZ); CALL_X (!(cpu->flags & FLAG_Z));
-#define CALLC   OP(CALLC);  CALL_X (cpu->flags & FLAG_C);
-#define CALLNC  OP(CALLNC); CALL_X (!(cpu->flags & FLAG_C));
+#define CALLZ   OP(CALLZ);  CALL_IF (cpu->flags & FLAG_Z);
+#define CALLNZ  OP(CALLNZ); CALL_IF (!(cpu->flags & FLAG_Z));
+#define CALLC   OP(CALLC);  CALL_IF (cpu->flags & FLAG_C);
+#define CALLNC  OP(CALLNC); CALL_IF (!(cpu->flags & FLAG_C));
 
-#define RET     OP(RET);   cpu->pc = CPU_RW (cpu->sp); cpu->sp += 2;
-#define RETI    OP(RETI);  cpu->pc = CPU_RW (cpu->sp); cpu->sp += 2; cpu->ime = 1;
+    /* Return function templates */
+    #define RET__     cpu->pc = CPU_RW (cpu->sp); cpu->sp += 2;
+    #define RET_IF(X) if (X) { RET__; cpu->rt += 12; }
+
+#define RET     OP(RET);   RET__;
+#define RETI    OP(RETI);  RET__; cpu->ime = 1;
+#define RETZ    OP(RETZ);  RET_IF (cpu->flags & FLAG_Z);
+#define RETNZ   OP(RETNZ); RET_IF (!(cpu->flags & FLAG_Z));
+#define RETC    OP(RETC);  RET_IF (cpu->flags & FLAG_C);
+#define RETNC   OP(RETNC); RET_IF (!(cpu->flags & FLAG_C));
+
 #define RST     OP(RST);   uint16_t n = (opHh - 0x18) << 3; cpu->sp -= 2; mmu_ww (mmu, cpu->sp, cpu->pc); cpu->pc = n;
 
 /* Rotate and shift instructions */
 
-#define RLA   	OP(RLA);   { uint8_t tmp = cpu->r[A]; cpu->r[A] = (cpu->r[A] << 1) | (cpu->flags & FLAG_C ? 1 : 0); cpu->flags = (tmp & 1) * FLAG_C; }
-#define RRA     OP(RRA);   { uint8_t tmp = cpu->r[A]; cpu->r[A] = (cpu->r[A] >> 1) | ((cpu->flags & FLAG_C ? 1 : 0) << 7); cpu->flags = (tmp & 1) * FLAG_C; }
+#define RLA   	OP(RLA);   { uint8_t tmp = cpu->r[A]; cpu->r[A] = (cpu->r[A] << 1) | (cpu->f_c);      cpu->flags = (tmp & 1) * FLAG_C; }
+#define RRA     OP(RRA);   { uint8_t tmp = cpu->r[A]; cpu->r[A] = (cpu->r[A] >> 1) | (cpu->f_c << 7); cpu->flags = (tmp & 1) * FLAG_C; }
 #define RLCA    OP(RLCA);  cpu->r[A] = (cpu->r[A] << 1) | (cpu->r[A] >> 7); cpu->flags = (cpu->r[A] & 1) * FLAG_C; 
 #define RRCA    OP(RRCA);  cpu->flags = (cpu->r[A] & 1) * FLAG_C; cpu->r[A] = (cpu->r[A] >> 1) | (cpu->r[A] << 7); 
 
 #define RLC     NYI("RLC");
 #define RLCHL   NYI("RLCHL");
-#define RL      NYI("RL");
+
+#define RL      OP(RR); {\
+    uint8_t tmp = cpu->r[r];\
+    cpu->r[r] <<= 1; cpu->r[r] |= cpu->f_c;\
+    cpu->flags = (!cpu->r[r]) * FLAG_Z;\
+    cpu->f_c = tmp >> 7;\
+}
+
 #define RLHL    NYI("RLHL");
-#define RRC     NYI("RRC");
+
+#define RRC     OP(RRC); {\
+    uint8_t tmp = cpu->r[r];\
+    cpu->r[r] >>= 1; cpu->r[r] |= (tmp << 7);\
+    cpu->flags = (!cpu->r[r]) * FLAG_Z;\
+    cpu->f_c = tmp & 1;\
+}
+
 #define RRCHL   NYI("RRCHL");
 
 #define RR      OP(RR); {\
-    uint8_t ci = (cpu->flags & FLAG_C) ? 0x80 : 0; uint8_t co = (cpu->r[r] & 1) ? 0x10 : 0;\
-    cpu->r[r] >>= 1; cpu->r[r] += ci; cpu->flags = (cpu->r[r]) ? 0: FLAG_C; cpu->flags = (cpu->flags & 0xEF) + co;\
+    uint8_t tmp = cpu->r[r];\
+    cpu->r[r] >>= 1; cpu->r[r] |= cpu->f_c << 7;\
+    cpu->flags = (!cpu->r[r]) * FLAG_Z;\
+    cpu->f_c = tmp & 1;\
 }
+
 #define RRHL    NYI("RRHL");
 
 #define SRL     OP(SRL);   { uint8_t co = (cpu->r[r] & 1) ? 0x10 : 0; cpu->r[r] >>= 1; cpu->flags = (cpu->r[r]) ? 0 : FLAG_Z; cpu->flags = (cpu->flags & 0xEF) + co; }
