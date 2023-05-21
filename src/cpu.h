@@ -11,7 +11,20 @@ typedef struct CPU_struct
 
     uint8_t r[7];     /* A-E, H, L - 8-bit registers */
     uint8_t rm, rt;
-    uint8_t flags;
+    union
+    {
+        /* data */
+        struct 
+        {
+            uint8_t f_z  : 1;
+            uint8_t f_n  : 1;
+            uint8_t f_h  : 1;
+            uint8_t f_c  : 1;
+            uint8_t f_lb : 4; /* Unused */
+        };
+        uint8_t flags;
+    };
+    
     uint16_t pc, sp;
     uint64_t clock_m, clock_t;
 

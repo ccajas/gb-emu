@@ -112,7 +112,7 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
                 case 0x0F: RRCA    break; case 0x10: STOP    break;
                 case 0x17: RLA     break; case 0x18: JRm     break;
                 case 0x1F: RRA     break; case 0x20: JRNZ    break;
-                case 0x22: LDHLIA  break; case 0x27: /* DAA */ break;
+                case 0x22: LDHLIA  break; case 0x27:/*DAA*/  break;
                 case 0x28: JRZ     break; case 0x2A: LDAHLI  break;
                 case 0x2F: CPL     break; 
                 case 0x30: JRNC    break; case 0x31: LDSP    break;
@@ -191,16 +191,42 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
 
 void cpu_exec_cb (uint8_t const op)
 {   
-    uint8_t opL = op & 0xf;
-    uint8_t r = ((opL & 7) == 7) ? A : ((opL & 7) < 6) ? B + (opL & 7) : 255;
+    uint8_t opL  = op & 0xf;
+    uint8_t opHh = op >> 3; /* Octal divisions */
 
-    switch (op)
+    uint8_t r = ((opL & 7) == 7) ? A : ((opL & 7) < 6) ? B + (opL & 7) : 255;
+    uint8_t r_bit  = opHh & 7;
+
+    /* Fetch value at address (HL) if it's needed */
+    uint8_t hl = (opL == 0x6 || opL == 0xE) ? HL_ADDR_BYTE : 0;
+
+    switch (opHh)
     {
-        case 0x00      ... 0x05:  case 0x07: RLC     break;
-        case 0x08      ... 0x0D:  case 0x0F: RRC     break;
-        case 0x10      ... 0x15:  case 0x17: RL      break;
-        case 0x18      ... 0x1D:  case 0x1F: RR      break;
-        case 0x38      ... 0x3D:  case 0x3F: SRL     break;
+        case 0 ... 7:
+            switch (op)
+            {
+                case 0x00      ... 0x05:  case 0x07: RLC     break;
+                case 0x08      ... 0x0D:  case 0x0F: RRC     break;
+                case 0x06: RLCHL   break; case 0x0E: RRCHL   break;
+                case 0x10      ... 0x15:  case 0x17: RL      break;
+                case 0x18      ... 0x1D:  case 0x1F: RR      break;
+                case 0x16: RLHL   break;  case 0x1E: RRHL    break;
+                
+                case 0x38      ... 0x3D:  case 0x3F: SRL     break;
+            }
+        break;
+        case 8 ... 0xF:
+            /* Bit test */
+            if (opL == 0x6 || opL == 0xE ) { BITHL } else { BIT }
+        break;
+        case 0x10 ... 0x17:
+            /* Bit reset */
+            if (opL == 0x6 || opL == 0xE ) { RESHL } else { RES }
+        break;
+        case 0x18 ... 0x1F:
+            /* Bit set */
+            if (opL == 0x6 || opL == 0xE ) { SETHL } else { SET }
+        break;
     }
 }
 
