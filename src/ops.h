@@ -31,40 +31,37 @@
 
 /** 8-bit load instructions **/   
 
-/* Load function templates */
-/* Used for LDrr, LDrn, LDrHL */
-#define LD_X_Y(X,Y) OPXY(LD_X_Y, X, Y); cpu->r[X] = Y;
+#define LD        OP(LD);     cpu->r[r1] = cpu->r[r2];
+#define LDrm      OP(LDrm);   cpu->r[r1] = CPU_RB (cpu->pc++);
+#define LDrHL     OP(LDrHL);  cpu->r[r1] = CPU_RB (ADDR_HL);
 
-/* Used for LDHLr, LDHLn */
-#define LDHL_X(X) OPX(LDHL_X, X); CPU_WB (ADDR_HL, X);
+#define LDHLr     OP(LDHLr);  CPU_WB (ADDR_HL, cpu->r[r2]);
+#define LDHLm     OP(LDHLm);  CPU_WB (ADDR_HL, CPU_RB (cpu->pc++));
 
-/* Used for LDArrm, LDAIOm, LDAIOC */
-#define LDA_X(X)  OPX(LDA_X, X);  cpu->r[A] = CPU_RB (X);
-
-#define LDrHL(X)     OPX(LDrHL, X);      cpu->r[X] = CPU_RB (ADDR_HL);
-#define LDAmm        OP(LDAmm);          cpu->r[A] = CPU_RB (CPU_RW (cpu->pc)); cpu->pc += 2;
-#define LDArrm(X,Y)  OPXY(LDArrm, X, Y); cpu->r[A] = CPU_RB (ADDR_XY(X,Y));
-#define LDrrmA(X,Y)  OPXY(LDrrmA, X, Y); CPU_WB (ADDR_XY (X,Y), cpu->r[A]);
-
+#define LDArrm    OP(LDArrm); cpu->r[A] = CPU_RB (ADDR_XY(r1 - 1, r1));
+#define LDAmm     OP(LDAmm);  cpu->r[A] = CPU_RB (CPU_RW (cpu->pc)); cpu->pc += 2;
+#define LDrrmA    OP(LDrrmA); CPU_WB (ADDR_XY (r1, r1 + 1), cpu->r[A]);
 #define LDmmA     OP(LDmmA);  CPU_WB (CPU_RW (cpu->pc), cpu->r[A]);  cpu->pc += 2;
+
 #define LDIOmA    OP(LDIOmA); CPU_WB (0xFF00 + CPU_RB (cpu->pc++), cpu->r[A]);
+#define LDAIOm    OP(LDAIOm); cpu->r[A] = CPU_RB (0xFF00 + CPU_RB (cpu->pc++)); 
+#define LDAIOC    OP(LDAIOC); cpu->r[A] = CPU_RB (0xFF00 + cpu->r[C]); 
 
 #define LDHLIA    OP(LDHLIA); CPU_WB (ADDR_HL, cpu->r[A]); INCR_HL;
 #define LDHLDA    OP(LDHLDA); CPU_WB (ADDR_HL, cpu->r[A]); DECR_HL;
-
-#define LDAHLI    OP(LDAHLI); cpu->r[A] = HL_ADDR_BYTE;    INCR_HL;
-#define LDAHLD    OP(LDAHLD); cpu->r[A] = HL_ADDR_BYTE;    DECR_HL;
+#define LDAHLI    OP(LDAHLI); cpu->r[A] = HL_ADDR_BYTE; INCR_HL;
+#define LDAHLD    OP(LDAHLD); cpu->r[A] = HL_ADDR_BYTE; DECR_HL;
 
 /** 16-bit load instructions **/
 
-#define LDrr(X,Y) OPXY(LDrr, X, Y); cpu->r[Y] = CPU_RB (cpu->pc); cpu->r[X] = CPU_RB (cpu->pc + 1); cpu->pc += 2;
+#define LDrr      OP(LDrr);   cpu->r[r1 + 1] = CPU_RB (cpu->pc); cpu->r[r1] = CPU_RB (cpu->pc + 1); cpu->pc += 2;
 #define LDimSP    OP(LDimSP); uint16_t val = CPU_RW (cpu->pc); CPU_WW (val, cpu->sp); cpu->pc += 2;
 #define LDSP      OP(LDSP);   cpu->sp = CPU_RW (cpu->pc); cpu->pc += 2;
 
-#define PUSH(X,Y) OPXY(PUSH, X, Y); cpu->sp--;   CPU_WB(cpu->sp, cpu->r[X]); cpu->sp--; CPU_WB(cpu->sp, cpu->r[Y]);
-#define PUSHF     OP(PUSHF);        cpu->sp--;   CPU_WB(cpu->sp, cpu->r[A]); cpu->sp--; CPU_WB(cpu->sp, cpu->flags);
-#define POP(X,Y)  OPXY(POP, X, Y);  cpu->r[Y]  = CPU_RB(cpu->sp++); cpu->r[X] = CPU_RB(cpu->sp++);
-#define POPF      OP(POPF);         cpu->flags = CPU_RB(cpu->sp++); cpu->r[A] = CPU_RB(cpu->sp++);
+#define PUSH      OP(PUSH);   cpu->sp--; CPU_WB (cpu->sp, cpu->r[r1]); cpu->sp--; CPU_WB (cpu->sp, cpu->r[r1 + 1]);
+#define PUSHF     OP(PUSHF);  cpu->sp--; CPU_WB (cpu->sp, cpu->r[A]);  cpu->sp--; CPU_WB (cpu->sp, cpu->flags);
+#define POP       OP(POP);    cpu->r[r1 + 1]  = CPU_RB (cpu->sp++); cpu->r[r1] = CPU_RB (cpu->sp++);
+#define POPF      OP(POPF);   cpu->flags = CPU_RB (cpu->sp++); cpu->r[A] = CPU_RB (cpu->sp++);
 
 /* Flag setting helpers */
 
@@ -82,11 +79,11 @@
 
 /** 8-bit arithmetic/logic instructions **/
 
-/* Add function templates */
-#define ADD_A_X(X)  cpu->r[A] += X; SET_ADD_FLAGS(tmp, X);
-#define ADD_AC_X(X) cpu->r[A] += X; cpu->r[A] += (cpu->flags & FLAG_C) ? 1 : 0; SET_ADD_FLAGS(tmp, X);
-#define SUB_A_X(X)  cpu->r[A] -= X; SET_SUB_FLAGS(tmp, X);
-#define SUB_AC_X(X) cpu->r[A] -= X; cpu->r[A] -= (cpu->flags & FLAG_C) ? 1 : 0; SET_SUB_FLAGS(tmp, X); 
+    /* Add function templates */
+    #define ADD_A_X(X)  cpu->r[A] += X; SET_ADD_FLAGS(tmp, X);
+    #define ADD_AC_X(X) cpu->r[A] += X; cpu->r[A] += (cpu->flags & FLAG_C) ? 1 : 0; SET_ADD_FLAGS(tmp, X);
+    #define SUB_A_X(X)  cpu->r[A] -= X; SET_SUB_FLAGS(tmp, X);
+    #define SUB_AC_X(X) cpu->r[A] -= X; cpu->r[A] -= (cpu->flags & FLAG_C) ? 1 : 0; SET_SUB_FLAGS(tmp, X); 
 
 /* Add and subtract */
 #define ADD(X)   OPX(ADD, X); ADD_A_X(cpu->r[X]);
@@ -145,9 +142,9 @@
 
 /** Jump and call instructions **/
 
-/* Jump and call function templates */
-#define JR_X(X)   if (X) { cpu->pc += (int8_t) CPU_RB (cpu->pc); cpu->rt += 4; } cpu->pc++;
-#define CALL_X(X) if (X) { cpu->sp -= 2; CPU_WW (cpu->sp, cpu->pc + 2); cpu->pc = CPU_RW (cpu->pc); cpu->rt += 12; } else cpu->pc += 2;
+    /* Jump and call function templates */
+    #define JR_X(X)   if (X) { cpu->pc += (int8_t) CPU_RB (cpu->pc); cpu->rt += 4; } cpu->pc++;
+    #define CALL_X(X) if (X) { cpu->sp -= 2; CPU_WW (cpu->sp, cpu->pc + 2); cpu->pc = CPU_RW (cpu->pc); cpu->rt += 12; } else cpu->pc += 2;
 
 /* Jump to | relative jump */
 #define JPNN    OP(JPNN); cpu->pc = CPU_RW(cpu->pc);

@@ -134,7 +134,6 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
                  
         break;
     }
-
 #else
 
     switch (opHh)
@@ -150,9 +149,9 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
                     if (op == 0x20) { JRNZ; }
                 break;
                 case 1: /* 16-bit load, LDrr */
-                    LDrr (r1, r1 + 1); break;
+                    LDrr; break;
                 case 2: /* 8-bit load, LDrrmA or LDHLIA */
-                    if (op == 0x02 || op == 0x12) { LDrrmA (r1, r1 + 1); }
+                    if (op == 0x02 || op == 0x12) { LDrrmA; }
                     if (op == 0x22) { LDHLIA; }
                 break;
                 case 3: /* 16-bit increment */
@@ -165,7 +164,7 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
                     DEC (r1); break;
                 case 6:
                 case 0xE: /* Load 8-bit immediate, LDrm */
-                    LD_X_Y (r1, CPU_RB (cpu->pc++)); break;
+                    LDrm; break;
                 case 7: /* Bit and flag operations */
                     if (op == 0x07) { RLCA; }
                     if (op == 0x17) { RLA; }
@@ -180,7 +179,7 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
                     if (opHh <= 5) { ADHLrr (r1 - 1, r1); } else { ADHLSP; } break;
                 break;
                 case 0xA:
-                    if (op < 0x2A)  { LDArrm (r1 - 1, r1); }
+                    if (op < 0x2A)  { LDArrm; }
                     if (op == 0x2A) { LDAHLI }
                     if (op == 0x3A) { LDAHLD }
                 break;
@@ -201,17 +200,17 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
             if (op == 0x33) { INCSP; }
             if (op == 0x34) { INCHL; }
             if (op == 0x35) { DECHL; }
-            if (op == 0x36) { LDHL_X (CPU_RB (cpu->pc++)); /* LDHLm */ }
+            if (op == 0x36) { LDHLm; }
             if (op == 0x37) { SCF; }
         break;
         case 8 ... 0xD: case 0xF:
             /* 8-bit load, LD or LDrHL */
             r1 = (opHh == 0xF) ? A : B + (opHh - 8);
-            if (r2 != 255) { LD_X_Y (r1, cpu->r[r2]); } else { LD_X_Y (r1, HL_ADDR_BYTE); }
+            if (r2 != 255) { LD; } else { LDrHL; }
         break;
         case 0xE:
             /* 8-bit load, LDHLr or HALT */
-            if (r2 != 255) { LDHL_X (cpu->r[r2]); } else { HALT; }
+            if (r2 != 255) { LDHLr; } else { HALT; }
         break;
         /*case 0x10:
             if (r2 != 255) { ADD (r2); } else { ADHL; }
@@ -258,13 +257,14 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
             {
                 case 0: /* RET and LD IO operations */
                     if (op == 0xE0) { LDIOmA; }
-                    if (op == 0xF0) { LDA_X (0xFF00 + CPU_RB (cpu->pc++)); /* LDAIOm */ }
+                    if (op == 0xF0) { LDAIOm; }
                 break;
                 case 1: /* POP operations */
-                    if (r1 != A) { POP  (r1, r1 + 1) } else { POPF; }
+                    if (r1 != A) { POP; } else { POPF; }
                 break;  
                 case 2: /* JP and LD IO operations */
-                    if (op == 0xF2) { LDA_X (0xFF00 + cpu->r[C]); /* LDAIOC */ }
+                    if (op == 0xE2) { }
+                    if (op == 0xF2) { LDAIOC; }
                 break;
                 case 3:
                     if      (op == 0xC3) { JPNN; }
@@ -280,7 +280,7 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
                     else    { INVALID; }
                 break;
                 case 5: /* PUSH operations */
-                    if (r1 != A) { PUSH (r1, r1 + 1) } else { PUSHF; }
+                    if (r1 != A) { PUSH; } else { PUSHF; }
                 break;
                 case 6: /* 8-bit operations, immediate */
                     if (op == 0xC6) { ADDm; }
