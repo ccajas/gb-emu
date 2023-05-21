@@ -32,7 +32,6 @@ typedef struct GB_struct GameBoy;
 
 /* Function definitions */
 void cpu_init ();
-void cpu_print_regs ();
 void cpu_boot_reset ();
 void cpu_state ();
 

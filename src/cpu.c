@@ -39,15 +39,6 @@ void cpu_init()
     cpu->ni = 0;
 }
 
-void cpu_print_regs()
-{
-#ifdef GB_DEBUG
-    int i;
-    for (i = A; i < L; i++)
-        LOG_("%d ", cpu->r[i]);
-#endif
-}
-
 void cpu_state()
 {
 #ifndef GB_DEBUG
@@ -64,7 +55,7 @@ void cpu_state()
 void cpu_boot_reset()
 {
     cpu->r[A]	= 0x01;
-    cpu->flags	= 0xB0; /* (Z-HC) */
+    cpu->flags	= FLAG_Z | FLAG_H | FLAG_C;
     cpu->r[B]	= 0x0;
     cpu->r[C]	= 0x13;
     cpu->r[D]	= 0x0;
@@ -78,12 +69,6 @@ void cpu_boot_reset()
     cpu->invalid = 0;
 }
 
-#ifdef EXEC_TEST
-
-void cpu_exec(uint8_t const op) { }
-
-#else
-
 void cpu_exec (uint8_t const op, uint32_t const cl)
 {
     cpu->rm = 0;
@@ -91,12 +76,11 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
 
     uint8_t  opL = op & 0xf;
     uint8_t  opHh = op >> 3; /* Octal divisions */
-    uint8_t  r1 = 0, r2 = 0;
     uint16_t hl = ADDR_HL;
 
     /* Default values for operands (can be overridden for other opcodes) */
-    r1 = (opHh == 0x7)    ? A : B + (opHh & 7); 
-    r2 = ((opL & 7) == 7) ? A : ((opL & 7) < 6) ? B + (opL & 7) : 255;
+    uint8_t  r1 = ((opHh & 7) == 7) ? A : B + (opHh & 7);
+    uint8_t  r2 = ((opL & 7)  == 7) ? A : ((opL & 7) < 6) ? B + (opL & 7) : 255;
 
     uint8_t tmp = cpu->r[A]; 
 
@@ -104,8 +88,7 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
     {
         case 0 ... 7:
         case 0x18 ... 0x1F:
-     
-            r1 = ((opHh & 7) == 7) ? A : B + (opHh & 7);
+
             switch (op)
             {
                 case 0x0:  NOP     break; 
@@ -174,12 +157,11 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
         break;
         case 8 ... 0xD: case 0xF:
             /* 8-bit load, LD or LDrHL */
-            r1 = (opHh == 0xF) ? A : B + (opHh - 8);
-            if (opL == 0x6 || opL == 0xE ) { LDrHL; } else { LD; }
+            if (opL == 0x6 || opL == 0xE ) { LDrHL } else { LD }
         break;
         case 0xE:
             /* 8-bit load, LDHLr or HALT */
-            if (opL != 0x6) { LDHLr; } else { HALT; }
+            if (opL != 0x6) { LDHLr } else { HALT }
         break;
         case 0x10 ... 0x17:
             /* 8-bit arithmetic */
@@ -205,15 +187,21 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
     cpu->rt += opTicks[op];
     cpu->clock_t += cpu->rt;
     cpu->clock_m += (cpu->rt >> 2);
-
-    /*if (cpu->rt == 0) { LOG_("*N/A (%02x)*\n", op); cpu->ni++; } else { LOG_("\n"); }*/
 }
 
-#endif
-
 void cpu_exec_cb (uint8_t const op)
-{
-    cpu->rm = 2;
+{   
+    uint8_t opL = op & 0xf;
+    uint8_t r = ((opL & 7) == 7) ? A : ((opL & 7) < 6) ? B + (opL & 7) : 255;
+
+    switch (op)
+    {
+        case 0x00      ... 0x05:  case 0x07: RLC     break;
+        case 0x08      ... 0x0D:  case 0x0F: RRC     break;
+        case 0x10      ... 0x15:  case 0x17: RL      break;
+        case 0x18      ... 0x1D:  case 0x1F: RR      break;
+        case 0x38      ... 0x3D:  case 0x3F: SRL     break;
+    }
 }
 
 void cpu_clock()

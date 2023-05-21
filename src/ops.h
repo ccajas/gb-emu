@@ -119,9 +119,12 @@
 #define XORm     OP(XORm);    cpu->r[A] ^= CPU_RB(cpu->pc++); cpu->flags = 0; SET_ZERO(cpu->r[A]);
 #define ORm      OP(ORm);     cpu->r[A] |= CPU_RB(cpu->pc++); cpu->flags = 0; SET_ZERO(cpu->r[A]);
 
-#define CP       OP(CP);      tmp -= cpu->r[r2]; cpu->flags = (tmp < 0) ? 0x50 : FLAG_N; SET_ZERO(tmp); SET_HALF(cpu->r[A] ^ cpu->r[r2] ^ tmp);
-#define CPHL     OP(CPHL);    tmp -= hl; cpu->flags = (tmp < 0) ? 0x50 : FLAG_N; SET_ZERO(tmp); SET_HALF(cpu->r[A] ^ hl ^ tmp);
-#define CPm      OP(CPm);     uint8_t tmp = cpu->r[A]; uint8_t m = CPU_RB(cpu->pc++); tmp -= m; cpu->flags = (tmp < 0) ? 0x50 : FLAG_N; SET_ZERO(tmp); SET_HALF(cpu->r[A] ^ tmp ^ m);
+    /* Flag template for CP instructions */
+    #define FLAGS_CP_X(X)  cpu->flags = (tmp < 0) ? 0x50 : FLAG_N; SET_ZERO(tmp); SET_HALF(cpu->r[A] ^ X ^ tmp);
+
+#define CP       OP(CP);      tmp -= cpu->r[r2]; FLAGS_CP_X(cpu->r[r2]);
+#define CPHL     OP(CPHL);    tmp -= hl;         FLAGS_CP_X(hl);
+#define CPm      OP(CPm);     uint8_t m = CPU_RB(cpu->pc++); tmp -= m; FLAGS_CP_X(m);
 
 #define INC      OP(INC);     cpu->r[r1]++; KEEP_CARRY; cpu->flags |= (cpu->r[r1] & 0xF) ? 0 : FLAG_H; cpu->flags |= cpu->r[r1] ? 0 : FLAG_Z; 
 #define DEC      OP(DEC);     cpu->r[r1]--; KEEP_CARRY; cpu->flags |= ((cpu->r[r1] & 0xF) == 0xF) ? FLAG_H : 0; cpu->flags |= cpu->r[r1] ? 0 : FLAG_Z; cpu->flags |= FLAG_N; 
@@ -131,8 +134,14 @@
 
 /** 16-bit arithmetic instructions **/
     
-#define ADHLrr   OP(ADHLrr);  { uint16_t tmp = hl; hl += ADDR_XY(r1 - 1, r1); if (hl < tmp) cpu->flags |= FLAG_C; else cpu->flags &= 0xEF; cpu->r[H] = (hl >> 8); cpu->r[L] = hl & 0xFF; }
-#define ADHLSP   OP(ADHLSP);  { uint16_t tmp = hl; hl += cpu->sp; if (hl < tmp) cpu->flags |= FLAG_C; else cpu->flags &= 0xEF; cpu->r[H] = (hl >> 8); cpu->r[L] = hl & 0xFF; }
+#define ADHLrr   OP(ADHLrr);  { uint16_t tmp = hl; hl += ADDR_XY(r1 - 1, r1);\
+    if (hl < tmp) cpu->flags |= FLAG_C; else cpu->flags &= 0xEF;\
+    cpu->r[H] = (hl >> 8); cpu->r[L] = hl & 0xFF;\
+}
+#define ADHLSP   OP(ADHLSP);  { uint16_t tmp = hl; hl += cpu->sp;\
+    if (hl < tmp) cpu->flags |= FLAG_C; else cpu->flags &= 0xEF;\
+    cpu->r[H] = (hl >> 8); cpu->r[L] = hl & 0xFF;\
+}
 #define ADDSPm   OP(ADDSPm);  { int8_t i = (int8_t) CPU_RB (cpu->pc++); cpu->flags = 0; SET_HALF_S ((cpu->sp & 0xF) + (i & 0xF) > 0xF); SET_CARRY ((cpu->sp & 0xFF) + (i & 0xFF) > 0xFF); cpu->sp += i; }
 #define LDHLSP   OP(LDHLSP);  { int8_t i = (int8_t) CPU_RB (cpu->pc++);\
     i += cpu->sp; cpu->r[H] = (i >> 8) & 0xFF; cpu->r[L] = i & 0xFF;\
@@ -184,7 +193,7 @@
 
 #define RET     OP(RET);   cpu->pc = CPU_RW (cpu->sp); cpu->sp += 2;
 #define RETI    OP(RETI);  cpu->pc = CPU_RW (cpu->sp); cpu->sp += 2; cpu->ime = 1;
-#define RST     OP(RST);   uint16_t n = (opHh - 0x18) * 0x08; cpu->sp -= 2; mmu_ww (mmu, cpu->sp, cpu->pc); cpu->pc = n;
+#define RST     OP(RST);   uint16_t n = (opHh - 0x18) << 3; cpu->sp -= 2; mmu_ww (mmu, cpu->sp, cpu->pc); cpu->pc = n;
 
 /* Rotate and shift instructions */
 
@@ -193,6 +202,14 @@
 #define RLCA    OP(RLCA);  cpu->r[A] = (cpu->r[A] << 1) | (cpu->r[A] >> 7); cpu->flags = (cpu->r[A] & 1) * FLAG_C; 
 #define RRCA    OP(RRCA);  cpu->flags = (cpu->r[A] & 1) * FLAG_C; cpu->r[A] = (cpu->r[A] >> 1) | (cpu->r[A] << 7); 
 
+#define RLC     NYI("RLC");
+#define RL      NYI("RL");
+#define RRC     NYI("RRC");
+#define RR      OP(RR); {\
+    uint8_t ci = (cpu->flags & FLAG_C) ? 0x80 : 0; uint8_t co = (cpu->r[r] & 1) ? 0x10 : 0;\
+    cpu->r[r] >>= 1; cpu->r[r] += ci; cpu->flags = (cpu->r[r]) ? 0: FLAG_C; cpu->flags = (cpu->flags & 0xEF) + co;\
+}
+#define SRL     OP(SRL);   { uint8_t co = (cpu->r[r] & 1) ? 0x10 : 0; cpu->r[r] >>= 1; cpu->flags = (cpu->r[r]) ? 0 : FLAG_Z; cpu->flags = (cpu->flags & 0xEF) + co; }
 /* Misc instructions */
 
 #define PREFIX    OP(PREFIX)   { uint8_t cb = CPU_RB (cpu->pc++); cpu_exec_cb (cb); }
