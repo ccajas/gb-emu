@@ -89,245 +89,124 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
     cpu->rm = 0;
     cpu->rt = 0;
 
-    /* LOG_("Running op %02x:\n", op); */
-    uint8_t opL = op & 0xf;
-    /* uint8_t opH  = op >> 4; */
-    uint8_t opHh = op >> 3; /* Octal divisions */
-    uint8_t r1 = 0, r2 = 0;
+    uint8_t  opL = op & 0xf;
+    uint8_t  opHh = op >> 3; /* Octal divisions */
+    uint8_t  r1 = 0, r2 = 0;
     uint16_t hl = ADDR_HL;
 
-    /* Default values for opcode arguments (can be overridden for other opcodes) */
-    r1 = (opHh == 0x7) ? A : B + (opHh & 7); 
+    /* Default values for operands (can be overridden for other opcodes) */
+    r1 = (opHh == 0x7)    ? A : B + (opHh & 7); 
     r2 = ((opL & 7) == 7) ? A : ((opL & 7) < 6) ? B + (opL & 7) : 255;
 
-#ifdef TABLE
-    switch (op)
-    {
-        case 0x0:                        NOP; break;
-        case 0x01: case 0x11: case 0x21: LDrr   (r1, r1 + 1); break;
-        case 0x02: case 0x12:            LDrrmA (r1, r1 + 1); break;
-        case 0x03: case 0x13: case 0x23: INCrr  (r1, r1 + 1); break; /* 16-bit increment */
-        case 0x04: case 0x14: case 0x24:
-        case 0x0C: case 0x1C: case 0x2C: case 0x3C: INC (r1) break;
-        case 0x05: case 0x15: case 0x25:
-        case 0x0D: case 0x1D: case 0x2D: case 0x3D: DEC (r1) break;
-        case 0x06: case 0x16: case 0x26:
-        case 0x0E: case 0x1E: case 0x2E: case 0x3E: LDrn (r1) break;
-        case 0x07: RLCA;   break;        case 0x08: LDimSP; break;
-        case 0x09: case 0x19: case 0x29: { ADHLrr (r1 - 1, r1); break; }
-        case 0x39: ADHLSP; break;        /* 16-bit add */
-        case 0x0A: case 0x1A:            LDArrm (r1 - 1, r1); break;
-        case 0x0B: case 0x1B: case 0x2B: DECrr  (r1 - 1, r1); break; /* 16-bit decrement */
-        case 0x10: STOP;   break;        case 0x20: JRNZ; break;
-
-        case 0x2A: LDAHLI; break;
-        case 0x3A: LDAHLD; break;
-
-        case 0x40 ...   0x45: case 0x47: case 0x50 ...   0x55: case 0x57:  
-        case 0x60 ...   0x65: case 0x67: case 0x70 ...   0x75: case 0x77:
-        case 0x48 ...   0x4D: case 0x4F: case 0x58 ...   0x5D: case 0x5F:  
-        case 0x68 ...   0x6D: case 0x6F:  
-        case 0x78 ...   0x7D: case 0x7F: LD (r1, r2); break;
-        case 0x46: case 0x56: case 0x66: 
-        case 0x4E: case 0x5E: case 0x6E: case 0x7E: LDrHL (r1); break;
-        case 0x76: HALT; break;
-                 
-        break;
-    }
-#else
+    uint8_t tmp = cpu->r[A]; 
 
     switch (opHh)
     {
-        case 0 ... 5: case 0x7:
-
-            r1 = (opHh == 0x7) ? A : B + opHh; 
-            switch (opL)
+        case 0 ... 7:
+        case 0x18 ... 0x1F:
+     
+            r1 = ((opHh & 7) == 7) ? A : B + (opHh & 7);
+            switch (op)
             {
-                case 0: /* JMP and CPU operations */
-                    if (op == 0x0)  { NOP; }
-                    if (op == 0x10) { STOP; }
-                    if (op == 0x20) { JRNZ; }
-                break;
-                case 1: /* 16-bit load, LDrr */
-                    LDrr; break;
-                case 2: /* 8-bit load, LDrrmA or LDHLIA */
-                    if (op == 0x02 || op == 0x12) { LDrrmA; }
-                    if (op == 0x22) { LDHLIA; }
-                break;
-                case 3: /* 16-bit increment */
-                    INCrr (r1, r1 + 1); break;
-                case 4: 
-                case 0xC: /* 8-bit increment */
-                    INC (r1); break;
-                case 5:
-                case 0xD: /* 8-bit decrement */
-                    DEC (r1); break;
-                case 6:
-                case 0xE: /* Load 8-bit immediate, LDrm */
-                    LDrm; break;
-                case 7: /* Bit and flag operations */
-                    if (op == 0x07) { RLCA; }
-                    if (op == 0x17) { RLA; }
-                break;
-                case 8: /* JMP and load operations */
-                    if (op == 0x08) { LDimSP; }
-                    if (op == 0x18) { JRm; }
-                    if (op == 0x28) { JRZ; }
-                    if (op == 0x38) { JRC; }
-                break;  
-                case 9: /* 16-bit add */
-                    if (opHh <= 5) { ADHLrr (r1 - 1, r1); } else { ADHLSP; } break;
-                break;
-                case 0xA:
-                    if (op < 0x2A)  { LDArrm; }
-                    if (op == 0x2A) { LDAHLI }
-                    if (op == 0x3A) { LDAHLD }
-                break;
-                case 0xB: /* 16-bit decrement */
-                    if (opHh <= 5) { DECrr (r1 - 1, r1); } else { DECSP; } break;
-                case 0xF: /* Other CPU/etc ops */
-                    if (op == 0x0F) { RRCA; }
-                    if (op == 0x1F) { RRA; }
-                    if (op == 0x2F) { CPL; }
-                    if (op == 0x3F) { CCF; } 
-                break;
+                case 0x0:  NOP     break; 
+                case 0x01:   case 0x11:   case 0x21: LDrr    break;
+                case 0x02:                case 0x12: LDrrmA  break; 
+                case 0x03:   case 0x13:   case 0x23: INCrr   break; 
+                case 0x04:   case 0x14:   case 0x24:
+                case 0x0C:   case 0x1C:   case 0x2C:     
+                case 0x3C:                           INC     break;   
+                case 0x05:   case 0x15:   case 0x25:
+                case 0x0D:   case 0x1D:   case 0x2D:
+                case 0x3D:                           DEC     break;
+                case 0x06:   case 0x16:   case 0x26:
+                case 0x0E:   case 0x1E:   case 0x2E:
+                case 0x3E:                           LDrm    break;
+                case 0x07: RLCA    break; case 0x08: LDmSP   break;
+                case 0x09:                case 0x19:
+                case 0x29: ADHLrr  break;
+                case 0x0A:                case 0x1A: LDArrm  break;
+                case 0x0B:   case 0x1B:   case 0x2B: DECrr   break;
+                case 0x0F: RRCA    break; case 0x10: STOP    break;
+                case 0x17: RLA     break; case 0x18: JRm     break;
+                case 0x1F: RRA     break; case 0x20: JRNZ    break;
+                case 0x22: LDHLIA  break; case 0x27: /* DAA */ break;
+                case 0x28: JRZ     break; case 0x2A: LDAHLI  break;
+                case 0x2F: CPL     break; 
+                case 0x30: JRNC    break; case 0x31: LDSP    break;
+                case 0x32: LDHLDA  break; case 0x33: INCSP   break;
+                case 0x34: INCHL   break; case 0x35: DECHL   break;
+                case 0x36: LDHLm   break; case 0x37: SCF     break;
+                case 0x38: JRC     break;
+                case 0x39: ADHLSP  break; case 0x3A: LDAHLD  break;
+                case 0x3B: DECSP   break; case 0x3F: CCF     break;
+                /* ... */
+                case 0xC0:/*RETNZ*/break;
+                case 0xC1:   case 0xD1:   case 0xE1: POP     break;
+                case 0xC2:/*JPNZ*/ break; case 0xC3: JPNN    break;
+                case 0xC4: CALLNZ  break;
+                case 0xC5:   case 0xD5:   case 0xE5: PUSH    break;
+                case 0xC6: ADDm    break;
+                case 0xC7:   case 0xCF:   case 0xD7:
+                case 0xDF:   case 0xE7:   case 0xEF:
+                case 0xF7:   case 0xFF:              RST     break;
+                case 0xC8:/*RETZ*/ break; case 0xC9: RET     break;
+                case 0xCA:/*JPZ*/  break; case 0xCB: PREFIX  break;
+                case 0xCC: CALLZ   break; case 0xCD: CALLm   break;
+                case 0xCE: ADCm    break;
+                case 0xD0:/*RETNC*/break; case 0xD2:/*JPNC*/ break;
+                case 0xD4: CALLNC  break;
+                case 0xD6: SUBm    break;
+                case 0xD8:/*RETC*/ break; case 0xD9: RETI    break;
+                case 0xDA:/*JPC*/  break; case 0xDC: CALLC   break;
+                case 0xDE: SBCm    break;
+                case 0xE0: LDIOmA  break; case 0xE2: LDIOCA  break;
+                case 0xE6: ANDm    break; case 0xE8: ADDSPm  break;
+                case 0xE9: JPHL    break; case 0xEA: LDmmA   break;
+                case 0xEE: XORm    break;
+                case 0xF0: LDAIOm  break; case 0xF1: POPF    break;
+                case 0xF2: LDAIOC  break; case 0xF3: DI      break;
+                case 0xF5: PUSHF   break; case 0xF6: ORm     break;
+                case 0xF8: LDHLSP  break; case 0xF9: LDSPHL  break;
+                case 0xFA: LDAmm   break; case 0xFB: EI      break;
+                case 0xFE: CPm     break;
+                default:   INVALID;
             }
-        break;
-        case 6:
-            if (op == 0x30) { JRNC; }
-            if (op == 0x31) { LDSP; }
-            if (op == 0x32) { LDHLDA; }
-            if (op == 0x33) { INCSP; }
-            if (op == 0x34) { INCHL; }
-            if (op == 0x35) { DECHL; }
-            if (op == 0x36) { LDHLm; }
-            if (op == 0x37) { SCF; }
         break;
         case 8 ... 0xD: case 0xF:
             /* 8-bit load, LD or LDrHL */
             r1 = (opHh == 0xF) ? A : B + (opHh - 8);
-            if (r2 != 255) { LD; } else { LDrHL; }
+            if (opL == 0x6 || opL == 0xE ) { LDrHL; } else { LD; }
         break;
         case 0xE:
             /* 8-bit load, LDHLr or HALT */
-            if (r2 != 255) { LDHLr; } else { HALT; }
+            if (opL != 0x6) { LDHLr; } else { HALT; }
         break;
-        /*case 0x10:
-            if (r2 != 255) { ADD (r2); } else { ADHL; }
-        break;*/
-        case 0x11 ... 0x17:
+        case 0x10 ... 0x17:
             /* 8-bit arithmetic */
-            if (r2 != 255)
+            hl = HL_ADDR_BYTE;
+            switch (op)
             {
-                uint8_t tmp = cpu->r[A]; 
-                switch (opHh - 0x10)
-                {
-                    case 0: { ADD (r2); } break;
-                    case 1: { ADC (r2); } break;
-                    case 2: { SUB (r2); } break;
-                    case 3: { SBC (r2); } break;
-                    case 4: { AND (r2); } break;
-                    case 5: { XOR (r2); } break;
-                    case 6: { OR (r2); } break;
-                    case 7: { CP (r2); } break;
-                }
+                case 0x80      ... 0x85:  case 0x87: ADD     break;
+                case 0x88      ... 0x8D:  case 0x8F: ADC     break;
+                case 0x86: ADHL    break; case 0x8E: ACHL    break;
+                case 0x90      ... 0x95:  case 0x97: SUB     break;
+                case 0x98      ... 0x9D:  case 0x9F: SBC     break;
+                case 0x96: SBHL    break; case 0x9E: SCHL    break;
+                case 0xA0      ... 0xA5:  case 0xA7: AND     break;
+                case 0xA8      ... 0xAD:  case 0xAF: XOR     break;
+                case 0xA6: ANHL    break; case 0xAE: XRHL    break; 
+                case 0xB0      ... 0xB5:  case 0xB7: OR      break;
+                case 0xB8      ... 0xBD:  case 0xBF: CP      break;
+                case 0xB6: ORHL    break; case 0xBE: CPHL    break; 
             }
-            else {
-                uint8_t hl = HL_ADDR_BYTE;
-                uint8_t tmp = cpu->r[A]; 
-
-                switch (opHh - 0x10)
-                {
-                    case 0: { ADHL; } break;
-                    case 1: { ACHL; } break;
-                    case 2: { SBHL; } break;
-                    case 3: { SCHL; } break;
-                    case 4: { ANHL; } break;
-                    case 5: { XRHL; } break;
-                    case 6: { ORHL; } break;
-                    case 7: { CPHL; } break;
-                }
-            }
-        break;
-        case 0x18 ... 0x1F:
-
-            /* Used for PUSH and POP instructions */
-            r1 = (opHh - 0x18 >= 0x6) ? A : B + (opHh - 0x18);
-            switch (opL)
-            {
-                case 0: /* RET and LD IO operations */
-                    if (op == 0xE0) { LDIOmA; }
-                    if (op == 0xF0) { LDAIOm; }
-                break;
-                case 1: /* POP operations */
-                    if (r1 != A) { POP; } else { POPF; }
-                break;  
-                case 2: /* JP and LD IO operations */
-                    if (op == 0xE2) { }
-                    if (op == 0xF2) { LDAIOC; }
-                break;
-                case 3:
-                    if      (op == 0xC3) { JPNN; }
-                    else if (op == 0xF3) { DI; }
-                    else    { INVALID; }
-                break;
-                case 4:
-                case 0xC:
-                    if (op == 0xC4) { CALLNZ; }
-                    else if (op == 0xCC) { CALLZ; }
-                    else if (op == 0xD4) { CALLNC; }
-                    else if (op == 0xDC) { CALLC;  }
-                    else    { INVALID; }
-                break;
-                case 5: /* PUSH operations */
-                    if (r1 != A) { PUSH; } else { PUSHF; }
-                break;
-                case 6: /* 8-bit operations, immediate */
-                    if (op == 0xC6) { ADDm; }
-                    if (op == 0xD6) { SUBm; }
-                    if (op == 0xE6) { ANDm; }
-                    if (op == 0xF6) { ORm;  }                    
-                break;
-                case 0x07 : case 0x0f: /* Call to address xx */
-                    { uint16_t n = (opHh - 0x18) * 0x08; RST(n); }
-                break;
-                case 8:
-                    if (op == 0xE8) { ADDSPm; }
-                break;
-                case 9:
-                    if (op == 0xC9) { RET;  }
-                    if (op == 0xD9) { RETI; }
-                    if (op == 0xE9) { JPHL; }
-                break;
-                case 0xA:
-                    if (op == 0xEA) { LDmmA; }
-                    if (op == 0xFA) { LDAmm; }
-                case 0xB:
-                    if      (op == 0xCB) { PREFIX; }
-                    else if (op == 0xFB) { EI; }
-                    else    { INVALID; }
-                break;
-                case 0xD:
-                    if   (op == 0xCD) { CALLm; }
-                    else { INVALID; }
-                break;
-                case 0xE:
-                    if (op == 0xEE) { XORm; }
-                    if (op == 0xFE) { CPm; }
-                break;
-            }
-        break;
-        default:
-            cpu->rm = 0;
         break;
     }
-#endif
 
     cpu->rt += opTicks[op];
     cpu->clock_t += cpu->rt;
     cpu->clock_m += (cpu->rt >> 2);
 
-    if (cpu->rt == 0) { LOG_("*N/A (%02x)*\n", op); cpu->ni++; } else { LOG_("\n"); }
+    /*if (cpu->rt == 0) { LOG_("*N/A (%02x)*\n", op); cpu->ni++; } else { LOG_("\n"); }*/
 }
 
 #endif
