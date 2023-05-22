@@ -125,7 +125,7 @@ void cpu_exec (uint8_t const op)
                 /* ... */
                 case 0xC0: RETNZ   break;
                 case 0xC1:   case 0xD1:   case 0xE1: POP     break;
-                case 0xC2:/*JPNZ*/ break; case 0xC3: JPNN    break;
+                case 0xC2: JPNZ    break; case 0xC3: JPNN    break;
                 case 0xC4: CALLNZ  break;
                 case 0xC5:   case 0xD5:   case 0xE5: PUSH    break;
                 case 0xC6: ADDm    break;
@@ -133,14 +133,14 @@ void cpu_exec (uint8_t const op)
                 case 0xDF:   case 0xE7:   case 0xEF:
                 case 0xF7:   case 0xFF:              RST     break;
                 case 0xC8: RETZ    break; case 0xC9: RET     break;
-                case 0xCA:/*JPZ*/  break; case 0xCB: PREFIX  break;
+                case 0xCA: JPZ     break; case 0xCB: PREFIX  break;
                 case 0xCC: CALLZ   break; case 0xCD: CALLm   break;
                 case 0xCE: ADCm    break;
-                case 0xD0: RETNC   break; case 0xD2:/*JPNC*/ break;
+                case 0xD0: RETNC   break; case 0xD2: JPNC    break;
                 case 0xD4: CALLNC  break;
                 case 0xD6: SUBm    break;
                 case 0xD8: RETC    break; case 0xD9: RETI    break;
-                case 0xDA:/*JPC*/  break; case 0xDC: CALLC   break;
+                case 0xDA: JPC     break; case 0xDC: CALLC   break;
                 case 0xDE: SBCm    break;
                 case 0xE0: LDIOmA  break; case 0xE2: LDIOCA  break;
                 case 0xE6: ANDm    break; case 0xE8: ADDSPm  break;

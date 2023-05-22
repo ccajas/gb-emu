@@ -183,6 +183,7 @@
 /** Jump and call instructions **/
 
     /* Jump and call function templates */
+    #define JP_IF(X)   if (X) { cpu->pc = CPU_RW (cpu->pc); cpu->rt += 4; } else cpu->pc += 2;
     #define JR_IF(X)   if (X) { cpu->pc += (int8_t) CPU_RB (cpu->pc); cpu->rt += 4; } cpu->pc++;   
     #define CALL_IF(X) if (X) { cpu->sp -= 2; CPU_WW (cpu->sp, cpu->pc + 2); cpu->pc = CPU_RW (cpu->pc); cpu->rt += 12; } else cpu->pc += 2;
 
@@ -191,16 +192,16 @@
 #define JPHL    OP(JPHL); cpu->pc = ADDR_HL; 
 #define JRm     OP(JRm);  cpu->pc += (int8_t) CPU_RB (cpu->pc); cpu->pc++;
 
-#define JPZ     NYI("JPZ");
-#define JPNZ    NYI("JPNZ");
-#define JPC     NYI("JPC");
-#define JPNC    NYI("JPNC");
+#define JPZ     OP(JPZ);  JP_IF (cpu->f_z);
+#define JPNZ    OP(JPNZ); JP_IF (!cpu->f_z);
+#define JPC     OP(JPC);  JP_IF (cpu->f_c);
+#define JPNC    OP(JPNC); JP_IF (!cpu->f_c);
 
 /* Conditional relative jump */
 #define JRZ     OP(JRZ);  JR_IF (cpu->f_z);
-#define JRNZ    OP(JRNZ); JR_IF (!(cpu->f_z));
+#define JRNZ    OP(JRNZ); JR_IF (!cpu->f_z);
 #define JRC     OP(JRC);  JR_IF (cpu->f_c);
-#define JRNC    OP(JRNC); JR_IF (!(cpu->f_c));
+#define JRNC    OP(JRNC); JR_IF (!cpu->f_c);
 
 /* Calls */
 #define CALLm   OP(CALLm);  { uint16_t tmp = CPU_RW (cpu->pc); cpu->pc += 2; cpu->sp -= 2; CPU_WW(cpu->sp, cpu->pc); cpu->pc = tmp; }
