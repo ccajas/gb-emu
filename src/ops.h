@@ -73,25 +73,25 @@
 #define FLAG_H   0x20
 #define FLAG_C   0x10
 
-#define SET_FLAG_Z(X)    if (!X) cpu->flags |= FLAG_Z; else cpu->flags &= ~(FLAG_Z);
-#define SET_FLAG_H(X)    if ((X) & 0x10) cpu->flags |= FLAG_H; else cpu->flags &= ~(FLAG_H);
-#define SET_FLAG_H_S(X)  if (X) cpu->flags |= FLAG_H; else cpu->flags &= ~(FLAG_H);
-#define SET_FLAG_C(X)    if (X) cpu->flags |= FLAG_C; else cpu->flags &= ~(FLAG_C);
+#define SET_FLAG_Z(X)    if (!X) cpu->f_z = 1; else cpu->f_z = 0;
+#define SET_FLAG_H_S(X)   if ((X) & 0x10) cpu->f_h = 1; else cpu->f_h = 0;
+#define SET_FLAG_H(X)    if (X) cpu->f_h = 1; else cpu->f_h = 0;
+#define SET_FLAG_C(X)    if (X) cpu->f_c = 1; else cpu->f_c = 0;
 
 #define KEEP_ZERO       cpu->flags &= FLAG_Z;
 #define KEEP_CARRY      cpu->flags &= FLAG_C;
 #define KEEP_ZERO_CARRY cpu->flags &= (FLAG_Z | FLAG_C);
 
-#define SET_ADD_FLAGS(T,X)  cpu->flags = (cpu->r[A] < T) ? FLAG_C : 0; SET_FLAG_Z(cpu->r[A]); SET_FLAG_H(cpu->r[A] ^ X ^ T);
-#define SET_SUB_FLAGS(T,X)  cpu->flags = (cpu->r[A] > T) ? FLAG_N | FLAG_C : FLAG_N; SET_FLAG_Z(cpu->r[A]); SET_FLAG_H(cpu->r[A] ^ X ^ T); 
+#define SET_ADD_FLAGS(T,X)  cpu->flags = (cpu->r[A] < T) ? FLAG_C : 0; SET_FLAG_Z(cpu->r[A]); SET_FLAG_H_S (cpu->r[A] ^ X ^ T);
+#define SET_SUB_FLAGS(T,X)  cpu->flags = (cpu->r[A] > T) ? FLAG_N | FLAG_C : FLAG_N; SET_FLAG_Z(cpu->r[A]); SET_FLAG_H_S (cpu->r[A] ^ X ^ T); 
 
 /** 8-bit arithmetic/logic instructions **/
 
     /* Add function templates */
     #define ADD_A_X(X)  cpu->r[A] += X; SET_ADD_FLAGS(tmp, X);
-    #define ADD_AC_X(X) cpu->r[A] += X; cpu->r[A] += (cpu->flags & FLAG_C) ? 1 : 0; SET_ADD_FLAGS(tmp, X);
+    #define ADD_AC_X(X) cpu->r[A] += X; cpu->r[A] += (cpu->f_c) ? 1 : 0; SET_ADD_FLAGS(tmp, X);
     #define SUB_A_X(X)  cpu->r[A] -= X; SET_SUB_FLAGS(tmp, X);
-    #define SUB_AC_X(X) cpu->r[A] -= X; cpu->r[A] -= (cpu->flags & FLAG_C) ? 1 : 0; SET_SUB_FLAGS(tmp, X); 
+    #define SUB_AC_X(X) cpu->r[A] -= X; cpu->r[A] -= (cpu->f_c) ? 1 : 0; SET_SUB_FLAGS(tmp, X); 
 
 /* Add and subtract */
 #define ADD      OP(ADD);     ADD_A_X(cpu->r[r2]);
@@ -105,60 +105,64 @@
 #define SCHL     OP(SCHL);    SUB_AC_X(hl);
 
 /* Bitwise logic */
-#define AND      OP(AND)      cpu->r[A] &= cpu->r[r2]; cpu->flags = 0; SET_FLAG_Z(cpu->r[A]); cpu->flags |= FLAG_H; 
-#define ANHL     OP(ANHL);    cpu->r[A] &= hl;         cpu->flags = 0; SET_FLAG_Z(cpu->r[A]); cpu->flags |= FLAG_H;
-#define XOR      OP(XOR)      cpu->r[A] ^= cpu->r[r2]; cpu->flags = 0; SET_FLAG_Z(cpu->r[A]);
-#define XRHL     OP(XRHL);    cpu->r[A] ^= hl;         cpu->flags = 0; SET_FLAG_Z(cpu->r[A]);
-#define OR       OP(OR);      cpu->r[A] |= cpu->r[r2]; cpu->flags = 0; SET_FLAG_Z(cpu->r[A]);  
-#define ORHL     OP(ORHL)     cpu->r[A] |= hl;         cpu->flags = 0; SET_FLAG_Z(cpu->r[A]);
+#define AND      OP(AND)      cpu->r[A] &= cpu->r[r2]; cpu->flags = 0; SET_FLAG_Z (cpu->r[A]); SET_FLAG_H (0);
+#define ANHL     OP(ANHL);    cpu->r[A] &= hl;         cpu->flags = 0; SET_FLAG_Z (cpu->r[A]); SET_FLAG_H (0);
+#define XOR      OP(XOR)      cpu->r[A] ^= cpu->r[r2]; cpu->flags = 0; SET_FLAG_Z (cpu->r[A]);
+#define XRHL     OP(XRHL);    cpu->r[A] ^= hl;         cpu->flags = 0; SET_FLAG_Z (cpu->r[A]);
+#define OR       OP(OR);      cpu->r[A] |= cpu->r[r2]; cpu->flags = 0; SET_FLAG_Z (cpu->r[A]);  
+#define ORHL     OP(ORHL)     cpu->r[A] |= hl;         cpu->flags = 0; SET_FLAG_Z (cpu->r[A]);
 
 #define ADDm     OP(ADDm);    { uint8_t m = IMM; uint8_t tmp = cpu->r[A]; ADD_A_X(m);  }
 #define ADCm     OP(ADCm)     { uint8_t m = IMM; uint8_t tmp = cpu->r[A]; ADD_AC_X(m); }
 #define SUBm     OP(SUBm);    { uint8_t m = IMM; uint8_t tmp = cpu->r[A]; SUB_A_X(m);  }
 #define SBCm     OP(SBCm)     { uint8_t m = IMM; uint8_t tmp = cpu->r[A]; SUB_AC_X(m); }
-#define ANDm     OP(ANDm);    cpu->r[A] &= IMM; cpu->flags = 0; SET_FLAG_Z(cpu->r[A]); cpu->flags |= FLAG_H;
-#define XORm     OP(XORm);    cpu->r[A] ^= IMM; cpu->flags = 0; SET_FLAG_Z(cpu->r[A]);
-#define ORm      OP(ORm);     cpu->r[A] |= IMM; cpu->flags = 0; SET_FLAG_Z(cpu->r[A]);
+#define ANDm     OP(ANDm);    cpu->r[A] &= IMM; cpu->flags = 0; SET_FLAG_Z (cpu->r[A]); cpu->flags |= FLAG_H;
+#define XORm     OP(XORm);    cpu->r[A] ^= IMM; cpu->flags = 0; SET_FLAG_Z (cpu->r[A]);
+#define ORm      OP(ORm);     cpu->r[A] |= IMM; cpu->flags = 0; SET_FLAG_Z (cpu->r[A]);
 
     /* Flag template for CP instructions */
-    #define FLAGS_CP_X(X)  cpu->flags = (tmp < 0) ? 0x50 : FLAG_N; SET_FLAG_Z(tmp); SET_FLAG_H(cpu->r[A] ^ X ^ tmp);
+    #define FLAGS_CP_X(X)  cpu->flags = FLAG_N; SET_FLAG_C (tmp > cpu->r[A]); SET_FLAG_Z (tmp); SET_FLAG_H ((tmp & 0xF) > (cpu->r[A] & 0xF));
 
-#define CP       OP(CP);      tmp -= cpu->r[r2]; FLAGS_CP_X(cpu->r[r2]);
-#define CPHL     OP(CPHL);    tmp -= hl;         FLAGS_CP_X(hl);
+#define CP       OP(CP);      tmp -= cpu->r[r2]; FLAGS_CP_X (cpu->r[r2]);
+#define CPHL     OP(CPHL);    tmp -= hl;         FLAGS_CP_X (hl);
 #define CPm      OP(CPm);     uint8_t m = IMM; tmp -= m; FLAGS_CP_X(m);
+/*{\
+    uint8_t ds = cpu->r[A] - CPU_RB (cpu->pc++);\
+    SET_FLAG_H ((ds & 0xF) > (cpu->r[A] & 0xF)); SET_FLAG_C (ds > cpu->r[A]); SET_FLAG_Z (ds); cpu->f_n = 1;\
+}*/
 
-#define INC      OP(INC);     cpu->r[r1]++; KEEP_CARRY; cpu->flags |= (cpu->r[r1] & 0xF) ? 0 : FLAG_H;          cpu->flags |= cpu->r[r1] ? 0 : FLAG_Z; 
-#define DEC      OP(DEC);     cpu->r[r1]--; KEEP_CARRY; cpu->flags |= ((cpu->r[r1] & 0xF) == 0xF) ? FLAG_H : 0; cpu->flags |= cpu->r[r1] ? 0 : FLAG_Z; cpu->flags |= FLAG_N; 
-#define INCHL    OP(INCHL);   { uint8_t tmp = CPU_RB(ADDR_HL) + 1; CPU_WB(ADDR_HL, tmp); SET_FLAG_Z(tmp); SET_FLAG_H_S((tmp & 0xF) == 0); cpu->flags &= ~(FLAG_N); }
-#define DECHL    OP(DECHL);   { uint8_t tmp = CPU_RB(ADDR_HL) - 1; CPU_WB(ADDR_HL, tmp); SET_FLAG_Z(tmp); SET_FLAG_H_S((tmp & 0xF) == 0xF); cpu->flags |= FLAG_N; }
+#define INC      OP(INC);     cpu->r[r1]++; KEEP_CARRY; SET_FLAG_H (!(cpu->r[r1] & 0xF));       SET_FLAG_Z (cpu->r[r1]); 
+#define DEC      OP(DEC);     cpu->r[r1]--; KEEP_CARRY; SET_FLAG_H ((cpu->r[r1] & 0xF) == 0xF); SET_FLAG_Z (cpu->r[r1]); cpu->f_n = 1; 
+#define INCHL    OP(INCHL);   { uint8_t tmp = CPU_RB (ADDR_HL) + 1; CPU_WB (ADDR_HL, tmp); SET_FLAG_Z (tmp); SET_FLAG_H ((tmp & 0xF) == 0);   cpu->f_n = 0; }
+#define DECHL    OP(DECHL);   { uint8_t tmp = CPU_RB (ADDR_HL) - 1; CPU_WB (ADDR_HL, tmp); SET_FLAG_Z (tmp); SET_FLAG_H ((tmp & 0xF) == 0xF); cpu->f_n = 1; }
 #define CPL      OP(CPL);     cpu->r[A] ^= 0xFF; cpu->flags |= 0x60; 
 
 /** 16-bit arithmetic instructions **/
     
 #define ADHLrr   OP(ADHLrr);  {\
     uint16_t tmp = hl; hl += ADDR_XY(r1 - 1, r1);\
-    KEEP_ZERO; if (hl < tmp) cpu->flags |= FLAG_C;\
-    if (hl & 0x1000) cpu->flags |= FLAG_H;\
+    KEEP_ZERO; if (hl < tmp) cpu->f_c = 1;\
+    if (hl & 0x1000) cpu->f_h = 1;\
     cpu->r[H] = (hl >> 8); cpu->r[L] = hl & 0xFF;\
 }
 
 #define ADHLSP   OP(ADHLSP);  {\
     uint16_t tmp = hl; hl += cpu->sp;\
-    KEEP_ZERO; if (hl < tmp) cpu->flags |= FLAG_C;\
-    if (hl & 0x1000) cpu->flags |= FLAG_H;\
+    KEEP_ZERO; if (hl < tmp) cpu->f_c = 1;\
+    if (hl & 0x1000) cpu->f_h = 1;\
     cpu->r[H] = (hl >> 8); cpu->r[L] = hl & 0xFF;\
 }
 
 #define ADDSPm   OP(ADDSPm);  { int8_t i = (int8_t) IMM;\
-    cpu->flags = 0; SET_FLAG_H_S ((cpu->sp & 0xF) + (i & 0xF) > 0xF);\
-    SET_FLAG_C ((cpu->sp & 0xFF) + (i & 0xFF) > 0xFF);\
+    cpu->flags = 0; cpu->f_h = ((cpu->sp & 0xF) + (i & 0xF) > 0xF);\
+    cpu->f_c = ((cpu->sp & 0xFF) + (i & 0xFF) > 0xFF);\
     cpu->sp += i;\
 }
 
 #define LDHLSP   OP(LDHLSP);  { int8_t i = (int8_t) IMM;\
     i += cpu->sp; cpu->r[H] = (i >> 8) & 0xFF; cpu->r[L] = i & 0xFF;\
-    cpu->flags = 0; SET_FLAG_H_S ((cpu->sp & 0xF) + (i & 0xF) > 0xF);\
-    SET_FLAG_C ((cpu->sp & 0xFF) + (i & 0xFF) > 0xFF);\
+    cpu->flags = 0; cpu->f_h = ((cpu->sp & 0xF) + (i & 0xF) > 0xF);\
+    cpu->f_c = ((cpu->sp & 0xFF) + (i & 0xFF) > 0xFF);\
 }
 
 #define INCrr    OP(INCrr);   cpu->r[r1 + 1]++; if (!cpu->r[r1 + 1]) cpu->r[r1]++;
@@ -169,7 +173,7 @@
 /** CPU control instructions **/
 
 #define CCF     OP(CCF);  KEEP_ZERO; cpu->flags |= (cpu->flags ^ FLAG_C); 
-#define SCF     OP(SCF);  KEEP_ZERO; cpu->flags |= FLAG_C; 
+#define SCF     OP(SCF);  KEEP_ZERO; cpu->f_c = 1; 
 #define HALT    OP(HALT); cpu->halt = 1; 
 #define STOP    OP(STOP); cpu->stop = 1; 
 #define NOP     OP(NOP);
@@ -193,17 +197,17 @@
 #define JPNC    NYI("JPNC");
 
 /* Conditional relative jump */
-#define JRZ     OP(JRZ);  JR_IF (cpu->flags & FLAG_Z);
-#define JRNZ    OP(JRNZ); JR_IF (!(cpu->flags & FLAG_Z));
-#define JRC     OP(JRC);  JR_IF (cpu->flags & FLAG_C);
-#define JRNC    OP(JRNC); JR_IF (!(cpu->flags & FLAG_C));
+#define JRZ     OP(JRZ);  JR_IF (cpu->f_z);
+#define JRNZ    OP(JRNZ); JR_IF (!(cpu->f_z));
+#define JRC     OP(JRC);  JR_IF (cpu->f_c);
+#define JRNC    OP(JRNC); JR_IF (!(cpu->f_c));
 
 /* Calls */
 #define CALLm   OP(CALLm);  { uint16_t tmp = CPU_RW (cpu->pc); cpu->pc += 2; cpu->sp -= 2; CPU_WW(cpu->sp, cpu->pc); cpu->pc = tmp; }
-#define CALLZ   OP(CALLZ);  CALL_IF (cpu->flags & FLAG_Z);
-#define CALLNZ  OP(CALLNZ); CALL_IF (!(cpu->flags & FLAG_Z));
-#define CALLC   OP(CALLC);  CALL_IF (cpu->flags & FLAG_C);
-#define CALLNC  OP(CALLNC); CALL_IF (!(cpu->flags & FLAG_C));
+#define CALLZ   OP(CALLZ);  CALL_IF (cpu->f_z);
+#define CALLNZ  OP(CALLNZ); CALL_IF (!(cpu->f_z));
+#define CALLC   OP(CALLC);  CALL_IF (cpu->f_c);
+#define CALLNC  OP(CALLNC); CALL_IF (!(cpu->f_c));
 
     /* Return function templates */
     #define RET__     cpu->pc = CPU_RW (cpu->sp); cpu->sp += 2;
@@ -211,10 +215,10 @@
 
 #define RET     OP(RET);   RET__;
 #define RETI    OP(RETI);  RET__; cpu->ime = 1;
-#define RETZ    OP(RETZ);  RET_IF (cpu->flags & FLAG_Z);
-#define RETNZ   OP(RETNZ); RET_IF (!(cpu->flags & FLAG_Z));
-#define RETC    OP(RETC);  RET_IF (cpu->flags & FLAG_C);
-#define RETNC   OP(RETNC); RET_IF (!(cpu->flags & FLAG_C));
+#define RETZ    OP(RETZ);  RET_IF (cpu->f_z);
+#define RETNZ   OP(RETNZ); RET_IF (!(cpu->f_z));
+#define RETC    OP(RETC);  RET_IF (cpu->f_c);
+#define RETNC   OP(RETNC); RET_IF (!(cpu->f_c));
 
 #define RST     OP(RST);   uint16_t n = (opHh - 0x18) << 3; cpu->sp -= 2; mmu_ww (mmu, cpu->sp, cpu->pc); cpu->pc = n;
 
