@@ -2,8 +2,9 @@
 #define GB_H
 
 #include <stdio.h>
-#include "mmu.h"
 #include "cpu.h"
+#include "mmu.h"
+#include "ppu.h"
 #include "cart.h"
 
 #define GB_DEBUG__
@@ -22,6 +23,7 @@ typedef struct GB_struct
     /* Game Boy components */
     CPU       cpu;
     MMU       mmu;
+    PPU       ppu;
     Cartridge cart;
 
     /* Controller */
