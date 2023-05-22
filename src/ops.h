@@ -147,10 +147,11 @@
 }
 
 #define ADHLSP   OP(ADHLSP);  {\
-    uint16_t tmp = hl; hl += cpu->sp;\
-    KEEP_ZERO; if (hl < tmp) cpu->f_c = 1;\
-    if (hl & 0x1000) cpu->f_h = 1;\
-    cpu->r[H] = (hl >> 8); cpu->r[L] = hl & 0xFF;\
+    uint16_t tmp = hl + cpu->sp;\
+    cpu->f_h = ((hl & 0xfff) > (tmp & 0xfff));\
+    cpu->f_c = (hl > tmp) ? 1 : 0;\
+    cpu->r[H] = (tmp >> 8); cpu->r[L] = tmp & 0xFF;\
+    cpu->f_n = 0;\
 }
 
 #define ADDSPm   OP(ADDSPm);  { int8_t i = (int8_t) IMM;\
