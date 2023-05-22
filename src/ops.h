@@ -121,11 +121,11 @@
 #define ORm      OP(ORm);     cpu->r[A] |= IMM; cpu->flags = 0; SET_FLAG_Z (cpu->r[A]);
 
     /* Flag template for CP instructions */
-    #define FLAGS_CP_X(X)  cpu->flags = FLAG_N; SET_FLAG_C (tmp > cpu->r[A]); SET_FLAG_Z (tmp); SET_FLAG_H ((tmp & 0xF) > (cpu->r[A] & 0xF));
+    #define FLAGS_CP  cpu->flags = FLAG_N; SET_FLAG_C (tmp > cpu->r[A]); SET_FLAG_Z (tmp); SET_FLAG_H ((tmp & 0xF) > (cpu->r[A] & 0xF));
 
-#define CP       OP(CP);      tmp -= cpu->r[r2]; FLAGS_CP_X (cpu->r[r2]);
-#define CPHL     OP(CPHL);    tmp -= hl;         FLAGS_CP_X (hl);
-#define CPm      OP(CPm);     uint8_t m = IMM; tmp -= m; FLAGS_CP_X(m);
+#define CP       OP(CP);      tmp -= cpu->r[r2]; FLAGS_CP;
+#define CPHL     OP(CPHL);    tmp -= hl;         FLAGS_CP;
+#define CPm      OP(CPm);     uint8_t m = IMM; tmp -= m; FLAGS_CP;
 /*{\
     uint8_t ds = cpu->r[A] - CPU_RB (cpu->pc++);\
     SET_FLAG_H ((ds & 0xF) > (cpu->r[A] & 0xF)); SET_FLAG_C (ds > cpu->r[A]); SET_FLAG_Z (ds); cpu->f_n = 1;\
@@ -168,7 +168,7 @@
 #define INCrr    OP(INCrr);   cpu->r[r1 + 1]++; if (!cpu->r[r1 + 1]) cpu->r[r1]++;
 #define INCSP    OP(INCSP);   cpu->sp++;
 #define DECrr    OP(DECrr);   cpu->r[r1]--; if (cpu->r[r1] == 0xff) cpu->r[r1 - 1]--;
-#define DECSP    OP(DECSP);   cpu->sp++;
+#define DECSP    OP(DECSP);   cpu->sp--;
 
 /** CPU control instructions **/
 
