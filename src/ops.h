@@ -96,19 +96,50 @@
     #define SUB_AC_X(X) cpu->r[A] -= X; cpu->r[A] -= (cpu->f_c) ? 1 : 0; SET_SUB_FLAGS(X); 
 
 /* Add and subtract */
-#define ADD      OP(ADD);     ADD_A_X(cpu->r[r2]);
+#define ADD      OP(ADD); {\
+    uint8_t tmp = cpu->r[A] + cpu->r[r2];\
+	cpu->f_c = (cpu->r[A] > tmp);\
+	cpu->f_h = ((cpu->r[A] ^ cpu->r[r2] ^ tmp) & 0x10) > 0;\
+	cpu->f_n = 0;\
+	cpu->f_z = ((tmp & 0xFF) == 0x00);\
+	cpu->r[A] = (tmp & 0xFF);\
+}
 #define ADHL     OP(ADHL);    ADD_A_X(hl);
-#define ADC      OP(ADC);     ADD_AC_X(cpu->r[r2]);
+
+#define ADC      OP(ADC); {\
+    uint16_t tmp = cpu->r[A] + cpu->r[r2] + cpu->f_c;\
+	cpu->f_c = (tmp & 0xFF00) ? 1 : 0;\
+	cpu->f_h = ((cpu->r[A] ^ cpu->r[r2] ^ tmp) & 0x10) > 0;\
+	cpu->f_n = 0;\
+	cpu->f_z = ((tmp & 0xFF) == 0x00);\
+	cpu->r[A] = (tmp & 0xFF);\
+}
+
 #define ACHL     OP(ACHL);    ADD_AC_X(hl);
 
-#define SUB      OP(SUB);     SUB_A_X(cpu->r[r2]);
+#define SUB      OP(SUB); {\
+    uint8_t tmp = cpu->r[A] - (cpu->r[r2]);\
+    cpu->f_c = (tmp > cpu->r[A]) ? 1 : 0;\
+    cpu->f_h = ((cpu->r[A] ^ cpu->r[r2] ^ tmp) & 0x10) > 0;\
+    cpu->f_n = 1;\
+    cpu->f_z = ((tmp & 0xFF) == 0x00);\
+    cpu->r[A] = (tmp & 0xFF);\
+}
 #define SBHL     OP(SBHL);    SUB_A_X(hl);
-#define SBC      OP(SBC);     SUB_AC_X(cpu->r[r2]); 
+
+#define SBC      OP(SBC); {\
+    uint16_t tmp = cpu->r[A] - (cpu->r[r2] + cpu->f_c);\
+    cpu->f_c = (tmp & 0xFF00) ? 1 : 0;\
+    cpu->f_h = ((cpu->r[A] ^ cpu->r[r2] ^ tmp) & 0x10) > 0;\
+    cpu->f_n = 1;\
+    cpu->f_z = ((tmp & 0xFF) == 0x00);\
+    cpu->r[A] = (tmp & 0xFF);\
+}
 #define SCHL     OP(SCHL);    SUB_AC_X(hl);
 
 /* Bitwise logic */
-#define AND      OP(AND)      cpu->r[A] &= cpu->r[r2]; cpu->flags = 0; SET_FLAG_Z (cpu->r[A]); SET_FLAG_H (0);
-#define ANHL     OP(ANHL);    cpu->r[A] &= hl;         cpu->flags = 0; SET_FLAG_Z (cpu->r[A]); SET_FLAG_H (0);
+#define AND      OP(AND)      cpu->r[A] &= cpu->r[r2]; cpu->flags = 0; SET_FLAG_Z (cpu->r[A]); SET_FLAG_H (1);
+#define ANHL     OP(ANHL);    cpu->r[A] &= hl;         cpu->flags = 0; SET_FLAG_Z (cpu->r[A]); SET_FLAG_H (1);
 #define XOR      OP(XOR)      cpu->r[A] ^= cpu->r[r2]; cpu->flags = 0; SET_FLAG_Z (cpu->r[A]);
 #define XRHL     OP(XRHL);    cpu->r[A] ^= hl;         cpu->flags = 0; SET_FLAG_Z (cpu->r[A]);
 #define OR       OP(OR);      cpu->r[A] |= cpu->r[r2]; cpu->flags = 0; SET_FLAG_Z (cpu->r[A]);  
@@ -172,8 +203,8 @@
 
 /** CPU control instructions **/
 
-#define CCF     OP(CCF);  KEEP_ZERO; cpu->flags |= (cpu->flags ^ FLAG_C); 
-#define SCF     OP(SCF);  KEEP_ZERO; cpu->f_c = 1; 
+#define CCF     OP(CCF);  cpu->f_c = !cpu->f_c; cpu->f_n = cpu->f_h = 0;
+#define SCF     OP(SCF);  cpu->f_c = 1; cpu->f_n = cpu->f_h = 0;
 #define HALT    OP(HALT); cpu->halt = 1; 
 #define STOP    OP(STOP); cpu->stop = 1; 
 #define NOP     OP(NOP);
@@ -225,7 +256,7 @@
 
 /* Rotate and shift instructions */
 
-#define RLA   	OP(RLA);   { uint8_t tmp = cpu->r[A]; cpu->r[A] = (cpu->r[A] << 1) | (cpu->f_c);      cpu->flags = (tmp & 1) * FLAG_C; }
+#define RLA   	OP(RLA);   { uint8_t tmp = cpu->r[A]; cpu->r[A] = (cpu->r[A] << 1) | (cpu->f_c);      cpu->flags = ((tmp >> 7) & 1) * FLAG_C; }
 #define RRA     OP(RRA);   { uint8_t tmp = cpu->r[A]; cpu->r[A] = (cpu->r[A] >> 1) | (cpu->f_c << 7); cpu->flags = (tmp & 1) * FLAG_C; }
 #define RLCA    OP(RLCA);  cpu->r[A] = (cpu->r[A] << 1) | (cpu->r[A] >> 7); cpu->flags = (cpu->r[A] & 1) * FLAG_C; 
 #define RRCA    OP(RRCA);  cpu->flags = (cpu->r[A] & 1) * FLAG_C; cpu->r[A] = (cpu->r[A] >> 1) | (cpu->r[A] << 7); 
