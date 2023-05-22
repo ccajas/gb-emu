@@ -22,7 +22,7 @@ int main (int argc, char** argv)
     cpu_state();
 
     uint32_t i;   
-    for (i = 0; i < 1100000; i++)
+    for (i = 0; i < 700000; i++)
     {
         cpu_step();
     }
