@@ -261,7 +261,13 @@
 #define RLCA    OP(RLCA);  cpu->r[A] = (cpu->r[A] << 1) | (cpu->r[A] >> 7); cpu->flags = (cpu->r[A] & 1) * FLAG_C; 
 #define RRCA    OP(RRCA);  cpu->flags = (cpu->r[A] & 1) * FLAG_C; cpu->r[A] = (cpu->r[A] >> 1) | (cpu->r[A] << 7); 
 
-#define RLC     NYI("RLC");
+#define RLC     OP(RLC); {\
+    uint8_t tmp = cpu->r[r];\
+    cpu->r[r] <<= 1; cpu->r[r] |= (tmp >> 7);\
+    cpu->flags = (!cpu->r[r]) * FLAG_Z;\
+    cpu->f_c = tmp >> 7;\
+}
+
 #define RLCHL   NYI("RLCHL");
 
 #define RL      OP(RR); {\

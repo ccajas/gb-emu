@@ -109,12 +109,12 @@ void cpu_exec (uint8_t const op)
                 case 0x29: ADHLrr  break;
                 case 0x0A:                case 0x1A: LDArrm  break;
                 case 0x0B:   case 0x1B:   case 0x2B: DECrr   break;
-                case 0x0F: RRCA    break; case 0x10: STOP    break;
-                case 0x17: RLA     break; case 0x18: JRm     break;
-                case 0x1F: RRA     break; case 0x20: JRNZ    break;
-                case 0x22: LDHLIA  break; case 0x27:/*DAA*/  break;
-                case 0x28: JRZ     break; case 0x2A: LDAHLI  break;
-                case 0x2F: CPL     break; 
+                case 0x0F: RRCA    break; 
+                case 0x10: STOP    break; case 0x17: RLA     break; 
+                case 0x18: JRm     break; case 0x1F: RRA     break; 
+                case 0x20: JRNZ    break; case 0x22: LDHLIA  break; 
+                case 0x27:/*DAA*/  break; case 0x28: JRZ     break; 
+                case 0x2A: LDAHLI  break; case 0x2F: CPL     break; 
                 case 0x30: JRNC    break; case 0x31: LDSP    break;
                 case 0x32: LDHLDA  break; case 0x33: INCSP   break;
                 case 0x34: INCHL   break; case 0x35: DECHL   break;
@@ -137,8 +137,7 @@ void cpu_exec (uint8_t const op)
                 case 0xCC: CALLZ   break; case 0xCD: CALLm   break;
                 case 0xCE: ADCm    break;
                 case 0xD0: RETNC   break; case 0xD2: JPNC    break;
-                case 0xD4: CALLNC  break;
-                case 0xD6: SUBm    break;
+                case 0xD4: CALLNC  break; case 0xD6: SUBm    break;
                 case 0xD8: RETC    break; case 0xD9: RETI    break;
                 case 0xDA: JPC     break; case 0xDC: CALLC   break;
                 case 0xDE: SBCm    break;
