@@ -69,7 +69,7 @@ void cpu_boot_reset()
     cpu->invalid = 0;
 }
 
-void cpu_exec (uint8_t const op, uint32_t const cl)
+void cpu_exec (uint8_t const op)
 {
     cpu->rm = 0;
     cpu->rt = 0;
@@ -165,7 +165,7 @@ void cpu_exec (uint8_t const op, uint32_t const cl)
         break;
         case 0x10 ... 0x17:
             /* 8-bit arithmetic */
-            hl = HL_ADDR_BYTE;
+            hl = CPU_RB (ADDR_HL);
             switch (op)
             {
                 case 0x80      ... 0x85:  case 0x87: ADD     break;
@@ -198,7 +198,7 @@ void cpu_exec_cb (uint8_t const op)
     uint8_t r_bit  = opHh & 7;
 
     /* Fetch value at address (HL) if it's needed */
-    uint8_t hl = (opL == 0x6 || opL == 0xE) ? HL_ADDR_BYTE : 0;
+    uint8_t hl = (opL == 0x6 || opL == 0xE) ? CPU_RB (ADDR_HL) : 0;
 
     switch (opHh)
     {
@@ -235,14 +235,10 @@ void cpu_step()
     /* Handle interrupts */
     
     /* Load next op and execute */
-    uint32_t i;   
-    for (i = 0; i < 250000; i++)
-    {
-        uint8_t op = mmu_rb(mmu, cpu->pc++);
-        LOG_("Test op %02x... ", op);
+    uint8_t op = mmu_rb(mmu, cpu->pc++);
+    LOG_("Test op %02x... ", op);
 
-        cpu_exec(op, i+1);
-        cpu_state();
-    }
+    cpu_exec(op);
+    cpu_state();
 }
  

@@ -21,10 +21,11 @@ int main (int argc, char** argv)
     cpu_init();
     cpu_state();
 
-    //while (gb_running(&GB))
-    //{
+    uint32_t i;   
+    for (i = 0; i < 1100000; i++)
+    {
         cpu_step();
-    //}
+    }
     gb_unload_cart(&GB);
     
     LOG_("Ran CPU. (%lld clocks)\n", cpu->clock_m);
