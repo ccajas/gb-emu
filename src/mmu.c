@@ -47,6 +47,9 @@ void mmu_reset (MMU * const mmu)
 #endif
 
     mmu->inBios = 0;
+    mmu->hram[0x50] = 0; /* Boot ROM not read */
+    /* Copy boot ROM */
+    memcpy(mmu->bios, newMMU.bios, sizeof(uint8_t) * 256);
 }
 
 uint8_t mmu_rb (MMU * const mmu, uint16_t const addr) 
@@ -59,15 +62,9 @@ uint8_t mmu_rb (MMU * const mmu, uint16_t const addr)
     {
         /* ROM bank 0 */
         case 0:
-            if (mmu->inBios)
-            {
-                if (addr < 0x0100) return mmu->bios[addr];
-                /*else if(cpu->r.pc == 0x0100)
-                {
-                    mmu->inBios = 0;
-                    LOG_('MMU: Leaving BIOS.');
-                }*/
-                return 0;
+            if (addr < 0x100 && !mmu->hram[0x50])
+            {   /* Read boot ROM */
+                return mmu->bios[addr];
             }
             else
                 return mmu->rom.data[addr];
@@ -107,9 +104,10 @@ uint8_t mmu_rb (MMU * const mmu, uint16_t const addr)
                     else
                         return 0;
                 case 0xF:
-                    if (addr >= 0xFF80) /* Zero page */
+                    if (addr >= 0xFF80) /* HRAM / IO */
                         return mmu->hram[addr & 0x7F];
                     else
+                        /* IO registers */
                         return 0;
                 break;
             }
@@ -159,7 +157,7 @@ void mmu_wb (MMU * const mmu, uint16_t const addr, uint8_t val)
                         /* Write to OAM */
                 break;
                 case 0xF:
-                    if (addr >= 0xFF80) /* Zero page */
+                    if (addr >= 0xFF80) /* HRAM / IO */
                         mmu->hram[addr & 0x7F] = val;
                     else
                         {}
