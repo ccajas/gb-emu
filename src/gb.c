@@ -84,28 +84,42 @@ void gb_print_logo (GameBoy * const gb, const uint8_t charCode)
 }
 #endif
 
-void gb_run (GameBoy * const gb)
-{
-    while (gb->running)
-    {
-        if (gb->stepCount > TEST_MAX_STEPS) 
-            gb->running = 0;
+#define CPU_FREQ          4194304    /* Equal to (1 << 20) * 4 */
+#define FRAME_CYCLES      70224
+#define TEST_MAX_STEPS    45000000
+#define TEST_MAX_CLOCKS   CPU_FREQ * 100
 
-        int8_t tCycles = cpu_step();
-        
-        gb->clockCount += tCycles;
-        gb->currClock += tCycles;
+uint8_t gb_step (GameBoy * const gb)
+{
+    if (gb->stepCount > TEST_MAX_STEPS) 
+        gb->running = 0;
+
+    int8_t tCycles = cpu_step();
+    
+    gb->clockCount += tCycles;
+    gb->frameClock += tCycles;
 #ifndef GB_DEBUG
-        /*cpu_state();*/
+    /*cpu_state();*/
 #endif
-        if (gb->currClock > CPU_FREQ)
-        {
-            /*printf("Seconds passed: %d (%d)\n", ++gb->seconds, gb->currClock);*/
-            gb->seconds++;
-            gb->currClock -= CPU_FREQ;
-        }
-        ppu_step (&gb->ppu, tCycles);
-        gb->stepCount++;
+    uint8_t frameDone = ppu_step (&gb->ppu, tCycles);
+
+    if (gb->frameClock >= FRAME_CYCLES)
+    {
+        //printf("Frames passed: %d (%d)\n", gb->frames, gb->frameClock);
+        gb->frames++;
+        gb->frameClock -= FRAME_CYCLES;
+    }
+    gb->stepCount++;
+
+    return frameDone;
+}
+
+void gb_frame (GameBoy * const gb)
+{
+    /* Returns 1 when frame is completed */
+    while (!gb_step(gb))
+    {
+        /* Do extra stuff in between steps */
     }
 }
 

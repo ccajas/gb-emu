@@ -15,12 +15,7 @@
     #define LOG_(f_, ...)
 #endif
 
-#define BOOT_CODE_SIZE    0x100
 #define CART_MIN_SIZE_KB  0x20
-
-#define CPU_FREQ          (1 << 20) * 4
-#define TEST_MAX_STEPS    45000000
-#define TEST_MAX_CLOCKS   CPU_FREQ * 1000
 
 typedef struct GB_struct 
 {
@@ -38,8 +33,9 @@ typedef struct GB_struct
     uint64_t clockCount;
     uint64_t stepCount;
 
-    uint32_t currClock;
-    uint32_t seconds;
+    /* Time keeping */
+    uint32_t frameClock;
+    uint32_t frames;
 
     /* Emulation status */
     union 
@@ -63,10 +59,11 @@ inline void gb_reset(GameBoy * const gb)
 void gb_init     (GameBoy * const, const char *);
 void gb_shutdown (GameBoy * const);
 
-void gb_run         (GameBoy * const);
-void gb_print_logo  (GameBoy * const, const uint8_t);
-void gb_load_cart   (GameBoy * const, const char *);
-void gb_unload_cart (GameBoy * const);
+uint8_t gb_step        (GameBoy * const);
+void    gb_frame       (GameBoy * const);
+void    gb_print_logo  (GameBoy * const, const uint8_t);
+void    gb_load_cart   (GameBoy * const, const char *);
+void    gb_unload_cart (GameBoy * const);
 
 extern GameBoy GB;
 extern CPU * cpu;
