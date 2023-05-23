@@ -44,12 +44,12 @@ CPU;
 typedef struct GB_struct GameBoy;
 
 /* Function definitions */
-void cpu_init ();
-void cpu_boot_reset ();
-void cpu_state ();
+void cpu_init       (CPU * const);
+void cpu_boot_reset (CPU * const);
+void cpu_state      (CPU * const);
 
-uint8_t cpu_step    ();
-void    cpu_exec    (uint8_t const op);
-void    cpu_exec_cb (uint8_t const op);
+uint8_t cpu_step    (CPU * const);
+void    cpu_exec    (CPU * const, uint8_t const op);
+void    cpu_exec_cb (CPU * const, uint8_t const op);
 
 #endif

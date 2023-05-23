@@ -7,7 +7,7 @@ void gb_init (GameBoy * const gb, const char * defaultROM)
     gb_reset (gb);
 
     gb_load_cart (gb, defaultROM);
-    cpu_state();
+    cpu_state (&gb->cpu);
 
     gb->stepCount = 0;
     gb->running = 1;
@@ -94,14 +94,14 @@ uint8_t gb_step (GameBoy * const gb)
     if (gb->stepCount > TEST_MAX_STEPS) 
         gb->running = 0;
 
-    int8_t tCycles = cpu_step();
+    const int8_t tCycles = cpu_step (&gb->cpu);
     
     gb->clockCount += tCycles;
     gb->frameClock += tCycles;
 #ifndef GB_DEBUG
     /*cpu_state();*/
 #endif
-    uint8_t frameDone = ppu_step (&gb->ppu, tCycles);
+    const uint8_t frameDone = ppu_step (&gb->ppu, tCycles);
 
     if (gb->frameClock >= FRAME_CYCLES)
     {

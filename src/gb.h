@@ -66,7 +66,6 @@ void    gb_load_cart   (GameBoy * const, const char *);
 void    gb_unload_cart (GameBoy * const);
 
 extern GameBoy GB;
-extern CPU * cpu;
 extern MMU * mmu;
 
 #endif

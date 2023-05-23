@@ -4,8 +4,6 @@
 #include "ops.h"
 
 GameBoy GB;
-
-CPU * cpu = &GB.cpu;
 MMU * mmu = &GB.mmu;
 
 const int8_t opTicks[256] = {
@@ -41,7 +39,7 @@ void cpu_init()
 }
 #endif
 
-void cpu_state()
+void cpu_state (CPU * const cpu)
 {
 #ifndef GB_DEBUG
     const uint16_t pc = cpu->pc;
@@ -54,7 +52,7 @@ void cpu_state()
 #endif
 }
 
-void cpu_boot_reset()
+void cpu_boot_reset (CPU * const cpu)
 {
     cpu->r[A]	= 0x01;
     cpu->flags	= FLAG_Z | FLAG_H | FLAG_C;
@@ -71,7 +69,7 @@ void cpu_boot_reset()
     cpu->invalid = 0;
 }
 
-void cpu_exec (uint8_t const op)
+void cpu_exec (CPU * const cpu, uint8_t const op)
 {
     cpu->rm = 0;
     cpu->rt = 0;
@@ -190,7 +188,7 @@ void cpu_exec (uint8_t const op)
     cpu->clock_m += (cpu->rt >> 2);
 }
 
-void cpu_exec_cb (uint8_t const op)
+void cpu_exec_cb (CPU * const cpu, uint8_t const op)
 {   
     uint8_t opL  = op & 0xf;
     uint8_t opHh = op >> 3; /* Octal divisions */
@@ -231,7 +229,7 @@ void cpu_exec_cb (uint8_t const op)
     }
 }
 
-uint8_t cpu_step()
+uint8_t cpu_step(CPU * const cpu)
 {   
     /* Handle interrupts */
     
@@ -239,7 +237,7 @@ uint8_t cpu_step()
     uint8_t op = mmu_rb(mmu, cpu->pc++);
     LOG_("Test op %02x... ", op);
 
-    cpu_exec(op);
+    cpu_exec(cpu, op);
     LOG_("\n");
 
     return cpu->rt;
