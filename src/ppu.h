@@ -3,6 +3,11 @@
 
 #include <stdint.h>
 
+#define CLOCKS_HBLANK      208
+#define CLOCKS_VBLANK      456 * 10
+#define CLOCKS_PIXEL_DRAW  172
+#define CLOCKS_OAM_READ    80
+
 typedef struct PPU_struct
 {
     enum {

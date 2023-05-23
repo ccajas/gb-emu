@@ -33,11 +33,13 @@ const int8_t opTicks[256] = {
 
 /* CPU related functions */
 
+#ifdef GB_DEBUG
 void cpu_init()
 {
     strcpy(cpu->reg_names, "ABCDEHL");
     cpu->ni = 0;
 }
+#endif
 
 void cpu_state()
 {

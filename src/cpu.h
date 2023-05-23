@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define CPU_FREQ 4194304
+#define CPU_FREQ  (2 << 10) * 4
 
 typedef struct CPU_struct
 {
@@ -30,13 +30,15 @@ typedef struct CPU_struct
 
     uint8_t stop, halt;
     uint8_t invalid;
-    char reg_names[7];
 
     /* Interrupt */
     uint8_t ime;
 
-    /* Testing */
+#ifdef GB_DEBUG
+    /* For testing purposes */
     uint16_t ni;
+    char reg_names[7];
+#endif
 }
 CPU;
 
