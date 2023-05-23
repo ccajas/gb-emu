@@ -1,62 +1,67 @@
 #include "ppu.h"
 
-void ppu_step (PPU * const ppu, uint8_t const cycles)
+uint8_t ppu_step (PPU * const ppu, uint8_t const cycles)
 {
     ppu->ticks += cycles;
+    uint8_t frame = 0;
 
 	switch(ppu->mode)
 	{
-	    case G_OAM_READ: /* Mode 2 - OAM read */
+	    case STAT_OAM_SEARCH: /* Mode 2 - OAM read */
             /* */
 	        if (ppu->ticks >= TICKS_OAM_READ)
             {
                 /* Enter pixel fetch/draw */
-                ppu->ticks = 0;
-                ppu->mode = G_PIXEL_DRAW;
+                ppu->ticks -= TICKS_OAM_READ;
+                ppu->mode = STAT_TRANSFER;
             }
 		break;
-	    case G_PIXEL_DRAW: /* Mode 3 - VRAM read */
+	    case STAT_TRANSFER: /* Mode 3 - VRAM read */
             /* VRAM inaccessible by CPU */
             /* Fetch pixel data */
-	        if(ppu->ticks >= TICKS_PIXEL_DRAW)
+	        if(ppu->ticks >= TICKS_LCDTRANSFER)
             {
                 /* Enter Hblank */
-                ppu->ticks = 0;
-                ppu->mode = G_HBLANK;
+                ppu->ticks -= TICKS_LCDTRANSFER;
+                ppu->mode = STAT_HBLANK;
             }
 		break;
-	    case G_HBLANK: /* Hblank */ 
+	    case STAT_HBLANK: /* Hblank */ 
             /* Image data gets sent to the frontend */
+
+            /* Move to next scanline */
 	        if(ppu->ticks >= TICKS_HBLANK)
             {
-                ppu->ticks = 0;
-                ppu->line++;
+                ppu->ticks -= TICKS_HBLANK;
+                ppu->line = (ppu->line + 1) % SCAN_LINES;
 
                 if(ppu->line == SCREEN_LINES)
                 {
                     /* Enter Vblank */
-                    ppu->mode = G_VBLANK;
+                    ppu->mode = STAT_VBLANK;
                 }
                 else
                 {
-                    ppu->mode = G_OAM_READ;
+                    ppu->mode = STAT_OAM_SEARCH;
                 }
             }
 		break;
-	    case G_VBLANK: /* Vblank */
+	    case STAT_VBLANK: /* Vblank */
         	/* Advance though 10 lines below the screen */
 	        if(ppu->ticks >= TICKS_VBLANK)
             {
-                ppu->ticks = 0;
-                ppu->line++;
+                ppu->ticks -= TICKS_VBLANK;
+                ppu->line = (ppu->line + 1) % SCAN_LINES;
 
-                if(ppu->line > SCAN_LINES)
+                if (ppu->line == 0)
                 {
                     /* Return to top line and OAM read */
-                    ppu->mode = G_OAM_READ;
-                    ppu->line = 0;
+                    ppu->mode = STAT_OAM_SEARCH;
+                    frame = 1;
                 }
 		    }
 		break;
 	}
+
+    return frame;
 }

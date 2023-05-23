@@ -5,7 +5,7 @@
 
 #define TICKS_HBLANK      208
 #define TICKS_VBLANK      456
-#define TICKS_PIXEL_DRAW  172
+#define TICKS_LCDTRANSFER 172
 #define TICKS_OAM_READ    80
 
 #define SCREEN_LINES      144
@@ -14,10 +14,10 @@
 typedef struct PPU_struct
 {
     enum {
-        G_HBLANK = 0,
-        G_VBLANK,
-        G_OAM_READ,
-        G_PIXEL_DRAW,
+        STAT_HBLANK = 0,
+        STAT_VBLANK,
+        STAT_OAM_SEARCH,
+        STAT_TRANSFER,
     }
     modes;
     uint8_t mode;
@@ -48,6 +48,6 @@ typedef struct PPU_struct
 }
 PPU;
 
-void ppu_step (PPU * const, uint8_t const cycles);
+uint8_t ppu_step (PPU * const, uint8_t const cycles);
 
 #endif
