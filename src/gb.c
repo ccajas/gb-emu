@@ -18,35 +18,37 @@ void gb_load_cart (GameBoy * const gb, const char * defaultROM)
     MMU * mmu = &gb->mmu;
     const char * testRom = defaultROM;
 
-    /* Test file size */
-    uint64_t size = file_size(testRom);
 
-    if (!size)
+    LOG_("GB: Loading file \"%s\"...\n", testRom);
+    uint8_t * filebuf = (uint8_t*) read_file (testRom);
+    
+    if (filebuf == NULL)
+    {
         LOG_("GB: Failed to load file! .\n");
+
+        /* Fallback: load boot ROM */
+        vc_init (&mmu->rom, CART_MIN_SIZE_KB);
+        vc_push_array (&mmu->rom, mmu->bios, 256, 0);
+
+        memset (gb->cart.logo, 0xFF, 48);
+    }
     else
     {
-        LOG_("GB: Loaded file \"%s\"\n", testRom);
-        uint8_t * filebuf = (uint8_t*) read_file (testRom);
-        
-        if (filebuf == NULL)
-        {
-            LOG_("GB: File load failed\n");
-            return;
-        }
-
-        vc_init (&mmu->rom, size);
-        vc_push_array (&mmu->rom, filebuf, size, 0);
+        const uint32_t romSize = CART_MIN_SIZE_KB << gb->cart.romSize;
+        vc_init (&mmu->rom, romSize);
+        vc_push_array (&mmu->rom, filebuf, romSize, 0);
 
         memcpy (&gb->cart.header, filebuf + 0x100, GB_HEADER_SIZE);
 
         free(filebuf);
-#ifdef GB_DEBUG
-        gb_print_logo(gb, 177);
-#endif
 
-        LOG_("GB: ROM loaded (%s, %d KiB)\n", gb->cart.title, CART_MIN_SIZE_KB << gb->cart.rom_size);
-        LOG_("GB: Cart type: %d\n", gb->cart.cart_type);
+        LOG_("GB: ROM loaded (%s, %d KiB)\n", gb->cart.title, romSize);
+        LOG_("GB: Cart type: %d\n", gb->cart.cartType);
     }
+
+#ifdef GB_DEBUG
+    gb_print_logo(gb, 177);
+#endif
 }
 #ifdef GB_DEBUG
 void gb_print_logo (GameBoy * const gb, const uint8_t charCode)
