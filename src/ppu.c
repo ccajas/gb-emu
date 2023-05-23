@@ -2,5 +2,5 @@
 
 void ppu_step (PPU * const ppu)
 {
-    
+
 }

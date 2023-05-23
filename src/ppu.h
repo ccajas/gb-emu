@@ -8,12 +8,32 @@ typedef struct PPU_struct
     enum {
         G_HBLANK = 0,
         G_VBLANK,
-        G_VRAM_READ,
+        G_PIXEL_DRAW,
         G_OAM_READ
     }
     modes;
-
     uint8_t mode;
+
+    struct LCD_control
+    {
+        union
+        {
+            /* LCDC bits */
+            struct
+            {
+                uint8_t BG_win_enable  : 1;
+                uint8_t OBJ_enable     : 1;
+                uint8_t OBJ_size       : 1;
+                uint8_t BG_tilemap     : 1;
+                uint8_t BG_win_data    : 1;
+                uint8_t Window_enable  : 1;
+                uint8_t Win_tilemap    : 1;
+                uint8_t LCD_PPU_enable : 1;
+            };
+            uint8_t r;
+        };
+    }
+    LCDC;
 }
 PPU;
 
