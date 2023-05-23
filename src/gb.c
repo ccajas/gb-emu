@@ -9,7 +9,7 @@ void gb_load_cart (GameBoy * const gb)
     /* Test file size */
     uint64_t size = file_size(testRom);
 
-    if (size == -1)
+    if (!size)
         LOG_("GB: Failed to load file! .\n");
     else
     {
@@ -28,16 +28,17 @@ void gb_load_cart (GameBoy * const gb)
         memcpy (&gb->cart.header, filebuf + 0x100, GB_HEADER_SIZE);
 
         free(filebuf);
+#ifdef GB_DEBUG
         gb_print_logo(gb, 177);
+#endif
 
         LOG_("GB: ROM loaded (%s, %d KiB)\n", gb->cart.title, CART_MIN_SIZE_KB << gb->cart.rom_size);
         LOG_("GB: Cart type: %d\n", gb->cart.cart_type);
     }
 }
-
+#ifdef GB_DEBUG
 void gb_print_logo (GameBoy * const gb, const uint8_t charCode)
 {
-#ifdef GB_DEBUG
     int i = 0;
     const uint8_t rows = 8, cols = 24;
     char logoImg[(cols * 4 + 1) * 8]; /* Extra chars for line breaks */
@@ -68,8 +69,8 @@ void gb_print_logo (GameBoy * const gb, const uint8_t charCode)
     }
 
     LOG_("\n%s\n\n",logoImg);
-#endif
 }
+#endif
 
 void gb_unload_cart (GameBoy * const gb)
 {

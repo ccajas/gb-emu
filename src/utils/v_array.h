@@ -24,7 +24,7 @@ inline void vc_init (struct VArray * const v, uint32_t initialSize)
 
 inline void vc_resize (struct VArray * const v, int const capacity) 
 {
-    assert (v->capacity <= 1 << 31);
+    assert (v->capacity <= UINT32_MAX);
 
     uint8_t* newdata = realloc (v->data, capacity * sizeof *newdata);
     if (newdata) {
@@ -47,13 +47,14 @@ inline void vc_push (struct VArray * const v, uint8_t const element)
 
 inline void vc_push_array (struct VArray * const v, uint8_t * elements, uint32_t count, uint32_t start) 
 {
-    for (int i = 0; i < count; i++)
+    uint32_t i;
+    for (i = 0; i < count; i++)
         vc_push (v, elements[start + i]);
 }
 
-inline uint8_t vc_get (struct VArray * v, int32_t index) 
+inline uint8_t vc_get (struct VArray * v, uint32_t index) 
 {
-    if (index >= 0 && index < v->total) {
+    if (index < v->total) {
         return v->data[index];
     }
     return -1;
