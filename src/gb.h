@@ -18,6 +18,8 @@
 #define BOOT_CODE_SIZE    0x100
 #define CART_MIN_SIZE_KB  0x20
 
+#define TEST_MAX_STEPS    70000
+
 typedef struct GB_struct 
 {
     /* Game Boy components */
@@ -32,6 +34,7 @@ typedef struct GB_struct
 
     /* Master clock */
     uint64_t clockCount;
+    uint64_t stepCount;
 
     /* Emulation status */
     union 
@@ -52,11 +55,10 @@ inline void gb_reset(GameBoy * const gb)
     cpu_boot_reset (&gb->cpu);
 }
 
-inline uint8_t gb_running(GameBoy * const gb)
-{
-    return gb->running;
-}
+void gb_init     (GameBoy * const);
+void gb_shutdown (GameBoy * const);
 
+void gb_run         (GameBoy * const);
 void gb_load_cart   (GameBoy * const);
 void gb_unload_cart (GameBoy * const);
 void gb_print_logo  (GameBoy * const, const uint8_t);

@@ -1,6 +1,18 @@
 #include "utils/fileread.h"
 #include "gb.h"
 
+void gb_init (GameBoy * const gb)
+{
+    /* Do a one time reset */
+    gb_reset (gb);
+
+    gb_load_cart (gb);
+    cpu_state();
+
+    gb->stepCount = 0;
+    gb->running = 1;
+}
+
 void gb_load_cart (GameBoy * const gb)
 {
     MMU * mmu = &gb->mmu;
@@ -72,8 +84,27 @@ void gb_print_logo (GameBoy * const gb, const uint8_t charCode)
 }
 #endif
 
+void gb_run (GameBoy * const gb)
+{
+    while (gb->running)
+    {
+        if (gb->stepCount > TEST_MAX_STEPS) 
+            gb->running = 0;
+
+        cpu_step ();
+        ppu_step (&gb->ppu);
+
+        gb->stepCount++;
+    }
+}
+
 void gb_unload_cart (GameBoy * const gb)
 {
     vc_free (&gb->mmu.rom);
     memset(&gb->cart.header, 0, GB_HEADER_SIZE);
+}
+
+void gb_shutdown (GameBoy * const gb)
+{
+    gb_unload_cart (gb);
 }

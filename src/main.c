@@ -16,17 +16,9 @@ int main (int argc, char** argv)
 {
     LOG_("Hello! This is GB-Emu.\n");
 
-    gb_reset(&GB);
-    gb_load_cart(&GB);
-    cpu_init();
-    cpu_state();
-
-    uint32_t i;   
-    for (i = 0; i < 700000; i++)
-    {
-        cpu_step();
-    }
-    gb_unload_cart(&GB);
+    gb_init (&GB);
+    gb_run (&GB);
+    gb_shutdown (&GB);
     
     LOG_("Ran CPU. (%lld clocks)\n", cpu->clock_m);
     LOG_("%d%% of 256 instructions done.\n", ((256 - cpu->ni) * 100) / 256);
