@@ -1,13 +1,13 @@
 #ifndef GB_H
 #define GB_H
 
+#define GB_DEBUG
+
 #include <stdio.h>
 #include "cpu.h"
 #include "mmu.h"
 #include "ppu.h"
 #include "cart.h"
-
-#define GB_DEBUG_
 
 #ifdef GB_DEBUG
     #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)

@@ -32,7 +32,7 @@ const int8_t opTicks[256] = {
 /* CPU related functions */
 
 #ifdef GB_DEBUG
-void cpu_init()
+void cpu_init (CPU * const cpu)
 {
     strcpy(cpu->reg_names, "ABCDEHL");
     cpu->ni = 0;
@@ -110,11 +110,13 @@ void cpu_exec (CPU * const cpu, uint8_t const op)
                 case 0x0A:                case 0x1A: LDArrm  break;
                 case 0x0B:   case 0x1B:   case 0x2B: DECrr   break;
                 case 0x0F: RRCA    break; 
+                
                 case 0x10: STOP    break; case 0x17: RLA     break; 
                 case 0x18: JRm     break; case 0x1F: RRA     break; 
                 case 0x20: JRNZ    break; case 0x22: LDHLIA  break; 
                 case 0x27:/*DAA*/  break; case 0x28: JRZ     break; 
                 case 0x2A: LDAHLI  break; case 0x2F: CPL     break; 
+
                 case 0x30: JRNC    break; case 0x31: LDSP    break;
                 case 0x32: LDHLDA  break; case 0x33: INCSP   break;
                 case 0x34: INCHL   break; case 0x35: DECHL   break;
@@ -136,15 +138,18 @@ void cpu_exec (CPU * const cpu, uint8_t const op)
                 case 0xCA: JPZ     break; case 0xCB: PREFIX  break;
                 case 0xCC: CALLZ   break; case 0xCD: CALLm   break;
                 case 0xCE: ADCm    break;
+
                 case 0xD0: RETNC   break; case 0xD2: JPNC    break;
                 case 0xD4: CALLNC  break; case 0xD6: SUBm    break;
                 case 0xD8: RETC    break; case 0xD9: RETI    break;
                 case 0xDA: JPC     break; case 0xDC: CALLC   break;
                 case 0xDE: SBCm    break;
+
                 case 0xE0: LDIOmA  break; case 0xE2: LDIOCA  break;
                 case 0xE6: ANDm    break; case 0xE8: ADDSPm  break;
                 case 0xE9: JPHL    break; case 0xEA: LDmmA   break;
                 case 0xEE: XORm    break;
+
                 case 0xF0: LDAIOm  break; case 0xF1: POPF    break;
                 case 0xF2: LDAIOC  break; case 0xF3: DI      break;
                 case 0xF5: PUSHF   break; case 0xF6: ORm     break;
@@ -170,12 +175,15 @@ void cpu_exec (CPU * const cpu, uint8_t const op)
                 case 0x80      ... 0x85:  case 0x87: ADD     break;
                 case 0x88      ... 0x8D:  case 0x8F: ADC     break;
                 case 0x86: ADHL    break; case 0x8E: ACHL    break;
+
                 case 0x90      ... 0x95:  case 0x97: SUB     break;
                 case 0x98      ... 0x9D:  case 0x9F: SBC     break;
                 case 0x96: SBHL    break; case 0x9E: SCHL    break;
+
                 case 0xA0      ... 0xA5:  case 0xA7: AND     break;
                 case 0xA8      ... 0xAD:  case 0xAF: XOR     break;
                 case 0xA6: ANHL    break; case 0xAE: XRHL    break; 
+
                 case 0xB0      ... 0xB5:  case 0xB7: OR      break;
                 case 0xB8      ... 0xBD:  case 0xBF: CP      break;
                 case 0xB6: ORHL    break; case 0xBE: CPHL    break; 
@@ -235,10 +243,7 @@ uint8_t cpu_step(CPU * const cpu)
     
     /* Load next op and execute */
     uint8_t op = mmu_rb(mmu, cpu->pc++);
-    LOG_("Test op %02x... ", op);
-
     cpu_exec(cpu, op);
-    LOG_("\n");
 
     return cpu->rt;
 }

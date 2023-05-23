@@ -9,7 +9,7 @@
 #define ADDR_XY(X,Y)  ((cpu->r[X] << 8) + cpu->r[Y])
 #define IMM           CPU_RB (cpu->pc++)
 
-#ifdef GB_DEBUG
+#ifdef GB_OPS_DEBUG
 
 #define NYI(S)           LOG_("Instruction not implemented! (%s)", S); cpu->ni++;
 #define OP(name)         LOG_("%s", #name);
@@ -46,7 +46,7 @@
 #define LDIOCA    OP(LDIOCA); CPU_WB (0xFF00 + cpu->r[C], cpu->r[A]);
 #define LDAIOC    OP(LDAIOC); cpu->r[A] = CPU_RB (0xFF00 + cpu->r[C]); 
 
-/* Increment instruction templates */
+    /* Increment instruction templates */
     #define INCR_HL   cpu->r[L]++; if (!cpu->r[L]) cpu->r[H]++
     #define DECR_HL   cpu->r[L]--; if (cpu->r[L] == 255) cpu->r[H]--
 
@@ -213,15 +213,21 @@
 
 /** Jump and call instructions **/
 
+/* Jump to | relative jump */
+#define JPNN    OP(JPNN); cpu->pc = CPU_RW (cpu->pc);
+#define JPHL    OP(JPHL); cpu->pc = ADDR_HL; 
+#define JRm     OP(JRm);  cpu->pc += (int8_t) CPU_RB (cpu->pc); cpu->pc++;
+
     /* Jump and call function templates */
     #define JP_IF(X)   if (X) { cpu->pc = CPU_RW (cpu->pc); cpu->rt += 4; } else cpu->pc += 2;
     #define JR_IF(X)   if (X) { cpu->pc += (int8_t) CPU_RB (cpu->pc); cpu->rt += 4; } cpu->pc++;   
     #define CALL_IF(X) if (X) { cpu->sp -= 2; CPU_WW (cpu->sp, cpu->pc + 2); cpu->pc = CPU_RW (cpu->pc); cpu->rt += 12; } else cpu->pc += 2;
 
-/* Jump to | relative jump */
-#define JPNN    OP(JPNN); cpu->pc = CPU_RW (cpu->pc);
-#define JPHL    OP(JPHL); cpu->pc = ADDR_HL; 
-#define JRm     OP(JRm);  cpu->pc += (int8_t) CPU_RB (cpu->pc); cpu->pc++;
+    /* Return function templates */
+    #define RET__     cpu->pc = CPU_RW (cpu->sp); cpu->sp += 2;
+    #define RET_IF(X) if (X) { RET__; cpu->rt += 12; }
+
+/* Conditional jump */
 
 #define JPZ     OP(JPZ);  JP_IF (cpu->f_z);
 #define JPNZ    OP(JPNZ); JP_IF (!cpu->f_z);
@@ -240,10 +246,6 @@
 #define CALLNZ  OP(CALLNZ); CALL_IF (!(cpu->f_z));
 #define CALLC   OP(CALLC);  CALL_IF (cpu->f_c);
 #define CALLNC  OP(CALLNC); CALL_IF (!(cpu->f_c));
-
-    /* Return function templates */
-    #define RET__     cpu->pc = CPU_RW (cpu->sp); cpu->sp += 2;
-    #define RET_IF(X) if (X) { RET__; cpu->rt += 12; }
 
 #define RET     OP(RET);   RET__;
 #define RETI    OP(RETI);  RET__; cpu->ime = 1;

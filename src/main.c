@@ -1,4 +1,4 @@
-/*#include <stdio.h>
+/*
 #include <stdlib.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>*/
@@ -40,9 +40,9 @@ int main (int argc, char * argv[])
     t = clock() - t;
     double timeTaken = ((double)t)/CLOCKS_PER_SEC; /* Elapsed time */
     printf("The program took %f seconds to execute %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, totalFrames, totalSeconds / timeTaken);
-    printf("For each frame, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));
+    printf("For each second, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));
 
-    LOG_("Ran CPU. (%lld clocks)\n", cpu->clock_m);
+    LOG_("Ran CPU. (%lld clocks)\n", GB.cpu.clock_m);
 
     return 0;
 }
