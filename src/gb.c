@@ -91,8 +91,9 @@ void gb_run (GameBoy * const gb)
         if (gb->stepCount > TEST_MAX_STEPS) 
             gb->running = 0;
 
-        cpu_step ();
-        ppu_step (&gb->ppu);
+        int8_t tCycles = cpu_step();
+        gb->clockCount += tCycles;
+        ppu_step (&gb->ppu, tCycles);
 
         gb->stepCount++;
     }

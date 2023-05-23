@@ -231,7 +231,7 @@ void cpu_exec_cb (uint8_t const op)
     }
 }
 
-void cpu_step()
+uint8_t cpu_step()
 {   
     /* Handle interrupts */
     
@@ -241,5 +241,7 @@ void cpu_step()
 
     cpu_exec(op);
     cpu_state();
+
+    return cpu->rt;
 }
  

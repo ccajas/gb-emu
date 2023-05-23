@@ -3,18 +3,21 @@
 
 #include <stdint.h>
 
-#define CLOCKS_HBLANK      208
-#define CLOCKS_VBLANK      456 * 10
-#define CLOCKS_PIXEL_DRAW  172
-#define CLOCKS_OAM_READ    80
+#define TICKS_HBLANK      208
+#define TICKS_VBLANK      456
+#define TICKS_PIXEL_DRAW  172
+#define TICKS_OAM_READ    80
+
+#define SCREEN_LINES      144
+#define SCAN_LINES        154
 
 typedef struct PPU_struct
 {
     enum {
         G_HBLANK = 0,
         G_VBLANK,
+        G_OAM_READ,
         G_PIXEL_DRAW,
-        G_OAM_READ
     }
     modes;
     uint8_t mode;
@@ -39,9 +42,12 @@ typedef struct PPU_struct
         };
     }
     LCDC;
+
+    uint16_t ticks;
+    uint8_t  line;
 }
 PPU;
 
-void ppu_step (PPU * const);
+void ppu_step (PPU * const, uint8_t const cycles);
 
 #endif
