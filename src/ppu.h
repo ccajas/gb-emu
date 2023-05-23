@@ -3,16 +3,12 @@
 
 #include <stdint.h>
 
-#define TICKS_HBLANK      208
-#define TICKS_VBLANK      456
-#define TICKS_LCDTRANSFER 172
-#define TICKS_OAM_READ    80
-
 #define SCREEN_LINES      144
 #define SCAN_LINES        154
 
 typedef struct PPU_struct
 {
+    /* Used for comparing and setting PPU mode timings */
     enum {
         STAT_HBLANK = 0,
         STAT_VBLANK,
@@ -21,6 +17,14 @@ typedef struct PPU_struct
     }
     modes;
     uint8_t mode;
+
+    enum {
+        TICKS_HBLANK      = 208,
+        TICKS_VBLANK      = 456,
+        TICKS_LCDTRANSFER = 172,
+        TICKS_OAM_READ    = 80
+    }
+    modeTicks;
 
     struct LCD_control
     {
@@ -47,7 +51,7 @@ typedef struct PPU_struct
     uint8_t  line;
 
     /* Mostly used for debugging purposes */
-    
+
 }
 PPU;
 

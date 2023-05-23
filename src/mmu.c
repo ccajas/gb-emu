@@ -1,6 +1,5 @@
+#include <string.h>
 #include "mmu.h"
-#include "gb.h"
-#include "utils/fileread.h"
 
 #ifdef USING_DYNAMIC_ARRAY_
     #define VRAM_DATA_(N)   mmu->vram.data[N & 0x1FFF]

@@ -4,11 +4,6 @@
 #include <stdint.h>
 #include "utils/v_array.h"
 
-#define VRAM_SIZE    0x2000 /* Video RAM*/
-#define ERAM_SIZE    0x2000 /* External RAM */
-#define WRAM_SIZE    0x2000 /* Work RAM */
-#define HRAM_SIZE    0x80   /* High RAM */
-
 #define USING_DYNAMIC_ARRAY_
 
 typedef struct MMU_struct
@@ -16,6 +11,14 @@ typedef struct MMU_struct
     uint8_t bios[256];
     uint8_t inBios;
     uint8_t cartType;
+
+    enum {
+        VRAM_SIZE = 0x2000, /* Video RAM*/
+        ERAM_SIZE = 0x2000, /* External RAM */
+        WRAM_SIZE = 0x2000, /* Work RAM */
+        HRAM_SIZE = 0x80    /* High RAM */
+    }
+    ramSizes;
 
     struct VArray rom;
 
