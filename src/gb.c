@@ -1,22 +1,22 @@
 #include "utils/fileread.h"
 #include "gb.h"
 
-void gb_init (GameBoy * const gb)
+void gb_init (GameBoy * const gb, const char * defaultROM)
 {
     /* Do a one time reset */
     gb_reset (gb);
 
-    gb_load_cart (gb);
+    gb_load_cart (gb, defaultROM);
     cpu_state();
 
     gb->stepCount = 0;
     gb->running = 1;
 }
 
-void gb_load_cart (GameBoy * const gb)
+void gb_load_cart (GameBoy * const gb, const char * defaultROM)
 {
     MMU * mmu = &gb->mmu;
-    const char * testRom = "test/09-op r,r.gb";
+    const char * testRom = defaultROM;
 
     /* Test file size */
     uint64_t size = file_size(testRom);
@@ -25,7 +25,7 @@ void gb_load_cart (GameBoy * const gb)
         LOG_("GB: Failed to load file! .\n");
     else
     {
-        LOG_("GB: Loaded file\n");
+        LOG_("GB: Loaded file \"%s\"\n", testRom);
         uint8_t * filebuf = (uint8_t*) read_file (testRom);
         
         if (filebuf == NULL)
@@ -92,9 +92,19 @@ void gb_run (GameBoy * const gb)
             gb->running = 0;
 
         int8_t tCycles = cpu_step();
+        
         gb->clockCount += tCycles;
+        gb->currClock += tCycles;
+#ifndef GB_DEBUG
+        /*cpu_state();*/
+#endif
+        if (gb->currClock > CPU_FREQ)
+        {
+            /*printf("Seconds passed: %d (%d)\n", ++gb->seconds, gb->currClock);*/
+            gb->seconds++;
+            gb->currClock -= CPU_FREQ;
+        }
         ppu_step (&gb->ppu, tCycles);
-
         gb->stepCount++;
     }
 }

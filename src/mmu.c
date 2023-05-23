@@ -119,8 +119,6 @@ uint8_t mmu_rb (MMU * const mmu, uint16_t const addr)
 uint16_t mmu_rw (MMU * const mmu, uint16_t const addr)
 { 
     /* Read 16-bit word from a given address */ 
-    
-    LOG_(" ..Reading word at %04x, %04x\n", addr, addr + 1);
     return mmu_rb (mmu, addr) + (mmu_rb (mmu, addr + 1) << 8);
 }
 
@@ -167,8 +165,6 @@ void mmu_wb (MMU * const mmu, uint16_t const addr, uint8_t val)
 void mmu_ww (MMU * const mmu, uint16_t const addr, uint16_t val)
 {
     /* Write 16-bit word to a given address */
-
-    LOG_(" ..Writing word at %04x, %04x\n", addr, addr + 1); 
     mmu_wb (mmu, addr, val);
     mmu_wb (mmu, addr + 1, val >> 8);
 }

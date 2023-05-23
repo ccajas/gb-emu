@@ -7,7 +7,7 @@
 #include "ppu.h"
 #include "cart.h"
 
-#define GB_DEBUG__
+#define GB_DEBUG_
 
 #ifdef GB_DEBUG
     #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
@@ -18,7 +18,9 @@
 #define BOOT_CODE_SIZE    0x100
 #define CART_MIN_SIZE_KB  0x20
 
-#define TEST_MAX_STEPS    70000
+#define CPU_FREQ          (1 << 20) * 4
+#define TEST_MAX_STEPS    45000000
+#define TEST_MAX_CLOCKS   CPU_FREQ * 1000
 
 typedef struct GB_struct 
 {
@@ -35,6 +37,9 @@ typedef struct GB_struct
     /* Master clock */
     uint64_t clockCount;
     uint64_t stepCount;
+
+    uint32_t currClock;
+    uint32_t seconds;
 
     /* Emulation status */
     union 
@@ -55,13 +60,13 @@ inline void gb_reset(GameBoy * const gb)
     cpu_boot_reset (&gb->cpu);
 }
 
-void gb_init     (GameBoy * const);
+void gb_init     (GameBoy * const, const char *);
 void gb_shutdown (GameBoy * const);
 
 void gb_run         (GameBoy * const);
-void gb_load_cart   (GameBoy * const);
-void gb_unload_cart (GameBoy * const);
 void gb_print_logo  (GameBoy * const, const uint8_t);
+void gb_load_cart   (GameBoy * const, const char *);
+void gb_unload_cart (GameBoy * const);
 
 extern GameBoy GB;
 extern CPU * cpu;

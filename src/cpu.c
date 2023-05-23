@@ -240,7 +240,7 @@ uint8_t cpu_step()
     LOG_("Test op %02x... ", op);
 
     cpu_exec(op);
-    cpu_state();
+    LOG_("\n");
 
     return cpu->rt;
 }

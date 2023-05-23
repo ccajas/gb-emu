@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-#define CPU_FREQ  (2 << 10) * 4
-
 typedef struct CPU_struct
 {
     enum { A = 0, B, C, D, E, H, L, F = 10 } registers;
