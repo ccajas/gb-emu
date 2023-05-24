@@ -1,6 +1,6 @@
 #include "ppu.h"
 
-uint8_t ppu_step (PPU * const ppu, uint8_t const cycles, uint8_t * io_regs)
+uint8_t ppu_step (PPU * const ppu, uint8_t * io_regs, uint8_t const cycles)
 {
     ppu->ticks += cycles;
     uint8_t frame = 0;
@@ -26,7 +26,7 @@ uint8_t ppu_step (PPU * const ppu, uint8_t const cycles, uint8_t * io_regs)
                 ppu->mode = STAT_HBLANK;
             }
 		break;
-	    case STAT_HBLANK: /* Hblank */ 
+	    case STAT_HBLANK: /* Mode 0 - Hblank */ 
             /* Image data gets sent to the frontend */
 
             /* Move to next scanline */
@@ -46,7 +46,7 @@ uint8_t ppu_step (PPU * const ppu, uint8_t const cycles, uint8_t * io_regs)
                 }
             }
 		break;
-	    case STAT_VBLANK: /* Vblank */
+	    case STAT_VBLANK: /* Mode 1 - Vblank */
         	/* Advance though 10 lines below the screen */
 	        if(ppu->ticks >= TICKS_VBLANK)
             {

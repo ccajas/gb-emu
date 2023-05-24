@@ -46,7 +46,7 @@ void gb_load_cart (GameBoy * const gb, const char * defaultROM)
     }
 
 #ifdef GB_DEBUG
-    //gb_print_logo(gb, 177);
+    gb_print_logo(gb, 177);
 #endif
 }
 #ifdef GB_DEBUG
@@ -92,17 +92,15 @@ void gb_print_logo (GameBoy * const gb, const uint8_t charCode)
 
 uint8_t gb_step (GameBoy * const gb)
 {
-    if (gb->stepCount > TEST_MAX_STEPS) 
-        gb->running = 0;
-
     const int8_t tCycles = cpu_step (&gb->cpu, &gb->mmu);
     
     gb->clockCount += tCycles;
     gb->frameClock += tCycles;
+
 #ifdef GB_DEBUG
-    cpu_state (&gb->cpu, &gb->mmu);
+    //cpu_state (&gb->cpu, &gb->mmu);
 #endif
-    const uint8_t frameDone = ppu_step (&gb->ppu, tCycles, gb->mmu.hram);
+    const uint8_t frameDone = ppu_step (&gb->ppu, gb->mmu.hram, tCycles);
 
     if (gb->frameClock >= FRAME_CYCLES)
     {

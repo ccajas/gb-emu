@@ -44,7 +44,8 @@ void mmu_reset (MMU * const mmu)
 #endif
 
     mmu->inBios = 0;
-    mmu->hram[0x50] = 0; /* Boot ROM not read */
+    mmu->hram[0x50] = 0; /* Boot ROM not read by default */
+
     /* Copy boot ROM */
     memcpy(mmu->bios, testBootRom, sizeof(uint8_t) * 256);
 }

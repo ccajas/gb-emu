@@ -54,6 +54,13 @@ inline void gb_reset(GameBoy * const gb)
 {
     mmu_reset (&gb->mmu);
     cpu_boot_reset (&gb->cpu);
+    
+    /* Init PPU with default values */
+    PPU defaultPPU = {
+        .mode = 0,
+        .ticks = 0
+    };
+    gb->ppu = defaultPPU;
 }
 
 void gb_init     (GameBoy * const, const char *);

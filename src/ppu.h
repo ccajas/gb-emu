@@ -13,7 +13,7 @@ typedef struct PPU_struct
         STAT_HBLANK = 0,
         STAT_VBLANK,
         STAT_OAM_SEARCH,
-        STAT_TRANSFER,
+        STAT_TRANSFER
     }
     modes;
     uint8_t mode;
@@ -55,6 +55,6 @@ typedef struct PPU_struct
 }
 PPU;
 
-uint8_t ppu_step (PPU * const, uint8_t const cycles, uint8_t * io_regs);
+uint8_t ppu_step (PPU * const, uint8_t * io_regs, uint8_t const cycles);
 
 #endif
