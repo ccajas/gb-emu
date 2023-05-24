@@ -7,7 +7,7 @@ void gb_init (GameBoy * const gb, const char * defaultROM)
     gb_reset (gb);
 
     gb_load_cart (gb, defaultROM);
-    cpu_state (&gb->cpu);
+    cpu_state (&gb->cpu, &gb->mmu);
 
     gb->stepCount = 0;
     gb->running = 1;
@@ -17,7 +17,6 @@ void gb_load_cart (GameBoy * const gb, const char * defaultROM)
 {
     MMU * mmu = &gb->mmu;
     const char * testRom = defaultROM;
-
 
     LOG_("GB: Loading file \"%s\"...\n", testRom);
     uint8_t * filebuf = (uint8_t*) read_file (testRom);
@@ -47,7 +46,7 @@ void gb_load_cart (GameBoy * const gb, const char * defaultROM)
     }
 
 #ifdef GB_DEBUG
-    gb_print_logo(gb, 177);
+    //gb_print_logo(gb, 177);
 #endif
 }
 #ifdef GB_DEBUG
@@ -96,14 +95,14 @@ uint8_t gb_step (GameBoy * const gb)
     if (gb->stepCount > TEST_MAX_STEPS) 
         gb->running = 0;
 
-    const int8_t tCycles = cpu_step (&gb->cpu);
+    const int8_t tCycles = cpu_step (&gb->cpu, &gb->mmu);
     
     gb->clockCount += tCycles;
     gb->frameClock += tCycles;
-#ifndef GB_DEBUG
-    /*cpu_state();*/
+#ifdef GB_DEBUG
+    cpu_state (&gb->cpu, &gb->mmu);
 #endif
-    const uint8_t frameDone = ppu_step (&gb->ppu, tCycles);
+    const uint8_t frameDone = ppu_step (&gb->ppu, tCycles, gb->mmu.hram);
 
     if (gb->frameClock >= FRAME_CYCLES)
     {

@@ -55,6 +55,6 @@ typedef struct PPU_struct
 }
 PPU;
 
-uint8_t ppu_step (PPU * const, uint8_t const cycles);
+uint8_t ppu_step (PPU * const, uint8_t const cycles, uint8_t * io_regs);
 
 #endif

@@ -1,6 +1,6 @@
 #include "ppu.h"
 
-uint8_t ppu_step (PPU * const ppu, uint8_t const cycles)
+uint8_t ppu_step (PPU * const ppu, uint8_t const cycles, uint8_t * io_regs)
 {
     ppu->ticks += cycles;
     uint8_t frame = 0;

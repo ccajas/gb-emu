@@ -312,5 +312,5 @@
 
 /* Misc instructions */
 
-#define PREFIX    OP(PREFIX)   { uint8_t cb = CPU_RB (cpu->pc++); cpu_exec_cb (cpu, cb); }
+#define PREFIX    OP(PREFIX)   { uint8_t cb = CPU_RB (cpu->pc++); cpu_exec_cb (cpu, mmu, cb); }
 #define INVALID   OP(INVALID); cpu->invalid = 1;

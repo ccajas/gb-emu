@@ -1,4 +1,3 @@
-
 CFLAGS = -Wall -Wextra -s -O1 -std=c99 -MMD -MP 
 #`pkg-config --cflags glfw3 freetype2`
 src = $(wildcard src/*.c) 

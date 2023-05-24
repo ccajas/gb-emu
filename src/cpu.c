@@ -1,10 +1,9 @@
+#include <stdio.h>
 #include <string.h>
 #include <profileapi.h>
-#include "gb.h"
+#include "cpu.h"
+#include "mmu.h"
 #include "ops.h"
-
-GameBoy GB;
-MMU * mmu = &GB.mmu;
 
 const int8_t opTicks[256] = {
 /*   0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  A, B,  C,  D, E,  F*/
@@ -39,15 +38,16 @@ void cpu_init (CPU * const cpu)
 }
 #endif
 
-void cpu_state (CPU * const cpu)
+void cpu_state (CPU * const cpu, MMU * const mmu)
 {
-#ifndef GB_DEBUG
+
+#ifdef GB_DEBUG
     const uint16_t pc = cpu->pc;
 
     printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",
         cpu->r[A], cpu->flags, cpu->r[B], cpu->r[C], cpu->r[D], cpu->r[E], cpu->r[H], cpu->r[L], 
         cpu->sp, cpu->pc, 
-        CPU_RB (pc), CPU_RB (pc+1), CPU_RB (pc+2), CPU_RB (pc+3)
+        mmu_rb (mmu, pc), mmu_rb (mmu, pc+1), mmu_rb (mmu, pc+2), mmu_rb (mmu, pc+3)
     );
 #endif
 }
@@ -55,7 +55,7 @@ void cpu_state (CPU * const cpu)
 void cpu_boot_reset (CPU * const cpu)
 {
     cpu->r[A]	= 0x01;
-    cpu->flags	= FLAG_Z | FLAG_H | FLAG_C;
+    cpu->flags	= 0xB0; /* FLAG_Z | FLAG_H | FLAG_C; */
     cpu->r[B]	= 0x0;
     cpu->r[C]	= 0x13;
     cpu->r[D]	= 0x0;
@@ -69,8 +69,13 @@ void cpu_boot_reset (CPU * const cpu)
     cpu->invalid = 0;
 }
 
-void cpu_exec (CPU * const cpu, uint8_t const op)
+uint8_t cpu_step (CPU * const cpu, MMU * const mmu)
 {
+    /* Handle interrupts */
+    
+    /* Load next op and execute */
+    uint8_t op = mmu_rb(mmu, cpu->pc++);
+
     cpu->rm = 0;
     cpu->rt = 0;
 
@@ -194,9 +199,11 @@ void cpu_exec (CPU * const cpu, uint8_t const op)
     cpu->rt += opTicks[op];
     cpu->clock_t += cpu->rt;
     cpu->clock_m += (cpu->rt >> 2);
+
+    return cpu->rt;
 }
 
-void cpu_exec_cb (CPU * const cpu, uint8_t const op)
+void cpu_exec_cb (CPU * const cpu, MMU * const mmu, uint8_t const op)
 {   
     uint8_t opL  = op & 0xf;
     uint8_t opHh = op >> 3; /* Octal divisions */
@@ -236,15 +243,3 @@ void cpu_exec_cb (CPU * const cpu, uint8_t const op)
         break;
     }
 }
-
-uint8_t cpu_step(CPU * const cpu)
-{   
-    /* Handle interrupts */
-    
-    /* Load next op and execute */
-    uint8_t op = mmu_rb(mmu, cpu->pc++);
-    cpu_exec(cpu, op);
-
-    return cpu->rt;
-}
- 
