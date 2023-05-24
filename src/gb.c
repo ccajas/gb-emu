@@ -120,6 +120,8 @@ void gb_frame (GameBoy * const gb)
     {
         /* Do extra stuff in between steps */
     }
+    /* Stuff to do after frame is done */
+    //debug_update_tiles (gb);
 }
 
 void gb_unload_cart (GameBoy * const gb)
@@ -131,4 +133,33 @@ void gb_unload_cart (GameBoy * const gb)
 void gb_shutdown (GameBoy * const gb)
 {
     gb_unload_cart (gb);
+}
+
+/* Debug functions, used here for now */
+
+void debug_update_tiles (GameBoy * const gb)
+{
+    /* VRAM offset address */
+    uint16_t addr;
+    
+    for (addr = 0; addr < 0x1000; addr++)
+    {
+        /* Identify tile and pixel row */
+        const uint8_t tile = (addr >> 4) & 255;
+        const uint8_t y = (addr >> 1) & 7;
+
+        uint8_t idx;
+        uint8_t x;
+#if LOOP
+        for (x = 0; x < 8; x++)
+        {
+            /* Bit index for byte value */
+            idx = 1 << (7 - x);
+
+            gb->tileSet[tile][y][x] =
+                ((gb->mmu.vram.data[addr] & idx)   ? 1 : 0) +
+                ((gb->mmu.vram.data[addr+1] & idx) ? 2 : 0);
+        }
+#endif
+    }
 }

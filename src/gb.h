@@ -47,6 +47,8 @@ typedef struct GB_struct
         };
         uint8_t status;
     };
+    /* Used for debugging output */
+    uint8_t tileSet[256][8][8];
 }
 GameBoy;
 
@@ -71,6 +73,9 @@ void    gb_frame       (GameBoy * const);
 void    gb_print_logo  (GameBoy * const, const uint8_t);
 void    gb_load_cart   (GameBoy * const, const char *);
 void    gb_unload_cart (GameBoy * const);
+
+/* Debug functions, used here for now */
+void debug_update_tiles (GameBoy * const);
 
 extern GameBoy GB;
 extern MMU * mmu;
