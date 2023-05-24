@@ -15,7 +15,7 @@
     #define LOG_(f_, ...)
 #endif
 
-#define CART_MIN_SIZE_KB  0x20
+#define CART_MIN_SIZE_KB  32
 
 typedef struct GB_struct 
 {

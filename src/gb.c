@@ -33,15 +33,15 @@ void gb_load_cart (GameBoy * const gb, const char * defaultROM)
     }
     else
     {
-        const uint32_t romSize = CART_MIN_SIZE_KB << gb->cart.romSize;
+        memcpy (&gb->cart.header, filebuf + 0x100, GB_HEADER_SIZE);
+
+        const uint32_t romSize = (CART_MIN_SIZE_KB << gb->cart.romSize) << 10;
         vc_init (&mmu->rom, romSize);
         vc_push_array (&mmu->rom, filebuf, romSize, 0);
 
-        memcpy (&gb->cart.header, filebuf + 0x100, GB_HEADER_SIZE);
-
         free(filebuf);
 
-        LOG_("GB: ROM loaded (%s, %d KiB)\n", gb->cart.title, romSize);
+        LOG_("GB: ROM loaded (%s, %d KiB)\n", gb->cart.title, romSize >> 10);
         LOG_("GB: Cart type: %d\n", gb->cart.cartType);
     }
 
