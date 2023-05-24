@@ -104,7 +104,7 @@ uint8_t gb_step (GameBoy * const gb)
 
     if (gb->frameClock >= FRAME_CYCLES)
     {
-        //printf("Frames passed: %d (%d)\n", gb->frames, gb->frameClock);
+        printf("Frames passed: %d (%d)\n", gb->frames, gb->frameClock);
         gb->frames++;
         gb->frameClock -= FRAME_CYCLES;
     }

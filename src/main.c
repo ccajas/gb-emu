@@ -74,6 +74,23 @@ int main (int argc, char * argv[])
         GLint mvp_location, vpos_location, vcol_location;
     
         glfwSetErrorCallback(error_callback);
+
+    LOG_("Hello! This is GB-Emu.\n");
+#ifdef GB_DEBUG
+    printf("ArgCount: %d\n", argc);
+#endif
+    GameBoy GB;
+
+    if (argc < 2)
+        gb_init (&GB, "");
+    else
+        gb_init (&GB, argv[1]);
+
+    const uint32_t totalFrames = 600;
+    const float totalSeconds = (float)totalFrames / 60.0;
+    
+    uint32_t i;
+    uint8_t gbFinished = 0;
     
         if (!glfwInit())
             exit(EXIT_FAILURE);
@@ -124,6 +141,10 @@ int main (int argc, char * argv[])
         glVertexAttribPointer(vcol_location, 3, GL_FLOAT, GL_FALSE,
                             sizeof(vertices[0]), (void*) (sizeof(float) * 2));
     
+    /* Start clock */
+    clock_t t;
+    t = clock();
+
         while (!glfwWindowShouldClose(window))
         {
             float ratio;
@@ -147,42 +168,30 @@ int main (int argc, char * argv[])
     
             glfwSwapBuffers(window);
             glfwPollEvents();
+
+
+            if (GB.frames < totalFrames) /*for (i = 0; i < totalFrames; i++) */
+                gb_frame (&GB);
+            else
+            {
+                if (!gbFinished)
+                {
+                    gb_shutdown (&GB);
+                    t = clock() - t;
+                    gbFinished = 1;         
+
+                    double timeTaken = ((double)t)/CLOCKS_PER_SEC; /* Elapsed time */
+                    printf("The program took %f seconds to execute %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, totalFrames, totalSeconds / timeTaken);
+                    printf("For each second, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));        
+                }
+            }
         }
     
         glfwDestroyWindow(window);
     
         glfwTerminate();
         exit(EXIT_SUCCESS);
-        }
-
-    LOG_("Hello! This is GB-Emu.\n");
-#ifdef GB_DEBUG
-    printf("ArgCount: %d\n", argc);
-#endif
-    GameBoy GB;
-
-    if (argc < 2)
-        gb_init (&GB, "");
-    else
-        gb_init (&GB, argv[1]);
-
-    const uint32_t totalFrames = 6000;
-    const float totalSeconds = (float)totalFrames / 60.0;
-
-    /* Start clock */
-    clock_t t;
-    t = clock();
-
-    uint32_t i;
-    for (i = 0; i < totalFrames; i++)
-        gb_frame (&GB);
-
-    gb_shutdown (&GB);
-
-    t = clock() - t;
-    double timeTaken = ((double)t)/CLOCKS_PER_SEC; /* Elapsed time */
-    printf("The program took %f seconds to execute %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, totalFrames, totalSeconds / timeTaken);
-    printf("For each second, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));
+    }
 
     return 0;
 }
