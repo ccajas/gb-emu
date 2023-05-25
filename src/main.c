@@ -19,7 +19,7 @@ void processInput(GLFWwindow *window);
  
 static void error_callback(int error, const char* description)
 {
-    fprintf(stderr, "Error: %s\n", description);
+    fprintf(stderr, "Error (%d): %s\n", error, description);
 }
  
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -38,7 +38,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 
 /* Container for relevant emulation data */
 
-struct gbData_struct
+struct gb_data
 {
     uint8_t * bootRom;
     uint8_t * rom;
@@ -48,9 +48,16 @@ struct gbData_struct
 
 uint8_t rom_read (void * dataPtr, const uint16_t addr)
 {
-    const struct gbData_struct * const gbdata = dataPtr;
-    return gbdata->rom[addr];
+    const struct gb_data * const gbData = dataPtr;
+    return gbData->rom[addr];
 };
+
+/* Concrete debug functions for the frontend */
+
+void update_tiles (GameBoy * gb)
+{
+
+}
 
 int main (int argc, char * argv[])
 {
@@ -80,11 +87,18 @@ int main (int argc, char * argv[])
     scene_setup_buffers (program);
 
     GameBoy GB;
-    struct gbData_struct gbData =
+
+    /* Define structs for data and concrete functions */
+    struct gb_data gbData =
 	{
 		.rom = NULL,
 		.bootRom = NULL
 	};
+
+    struct gb_func gb_func =
+    {
+        .gb_rom_read = rom_read
+    };
 
     /* Load file from command line */
     char * defaultROM = NULL;
@@ -99,13 +113,13 @@ int main (int argc, char * argv[])
         return 1;
     }
 
-    const uint32_t totalFrames = 15;
+    const uint32_t totalFrames = 150;
     const float totalSeconds = (float)totalFrames / 60.0;
     
     uint8_t gbFinished = 0;
 
     /* Load ROM */
-    gb_init (&GB, &gbData, rom_read, gbData.rom);
+    gb_init (&GB, &gbData, &gb_func, NULL, gbData.rom);
 
     /* Start clock */
     clock_t t;

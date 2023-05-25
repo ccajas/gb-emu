@@ -2,10 +2,11 @@
 #include "gb.h"
 
 void gb_init (GameBoy * const gb, void * dataPtr,
-            uint8_t (*gb_rom_read)(void *, const uint16_t),
+            struct gb_func  * gb_func,
+            struct gb_debug * gb_debug,
             uint8_t * romData)
 {
-    /* Do a one time reset */
+    /* Do a reset for the first time */
     gb_reset (gb);
 
     /* Pass down data pointer from frontend to components */
@@ -13,14 +14,16 @@ void gb_init (GameBoy * const gb, void * dataPtr,
     gb->mmu.direct.ptr = dataPtr;
 
     /* Pass down emulator context functions to components */
-    //gb->gb_func.gb_rom_read = gb_rom_read,
-    gb->mmu.rom_read = gb_rom_read;
+    gb->mmu.rom_read = gb_func->gb_rom_read;
+
+    /* Debug functions */
+    //gb->gb_debug.update_tiles = update_tiles;
 
     /* Load rom data */
     memcpy (&gb->cart.header, romData + 0x100, GB_HEADER_SIZE);
     
     LOG_("Test read byte 0x148 (1): %02X\n", (uint8_t)(romData[0x148]));
-    LOG_("Test read byte 0x148 (2): %02X\n", gb_rom_read(gb->direct.ptr, 0x148));
+    LOG_("Test read byte 0x148 (2): %02X\n", gb_func->gb_rom_read(gb->direct.ptr, 0x148));
 
     const uint32_t romSize = (CART_MIN_SIZE_KB << gb->cart.romSize) << 10;
     //vc_init (&mmu->rom, romSize);

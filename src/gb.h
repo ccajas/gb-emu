@@ -20,9 +20,16 @@
 
 /* Functions that can be exposed to the frontend */
 
-struct gb_func_struct
+struct gb_func
 {
     uint8_t (*gb_rom_read)(void *, const uint16_t addr);
+};
+
+/* Debug functions for the frontend */
+
+struct gb_debug
+{
+    uint8_t (*update_tiles)(GameBoy * const);
 };
 
 typedef struct gb_struct 
@@ -55,9 +62,11 @@ typedef struct gb_struct
         };
         uint8_t status;
     };
+
     /* Used for debugging output */
     uint8_t tileSet[256][8][8];
 
+    /* Direct access to frontend data */
     struct
 	{
 		void * ptr;
@@ -65,7 +74,8 @@ typedef struct gb_struct
     direct;
 
     /* Exposed functions */
-    struct gb_func_struct gb_func;
+    struct gb_func  * gb_func;
+    struct gb_debug * gb_debug;
 }
 GameBoy;
 
@@ -83,7 +93,8 @@ inline void gb_reset(GameBoy * const gb)
 }
 
 void gb_init     (GameBoy * const, void *, 
-                  uint8_t (*gb_rom_read)(void *, const uint16_t),
+                  struct gb_func  *,
+                  struct gb_debug *,
                   uint8_t *);
 void gb_shutdown (GameBoy * const);
 
@@ -91,8 +102,5 @@ uint8_t gb_step        (GameBoy * const);
 void    gb_frame       (GameBoy * const);
 void    gb_print_logo  (GameBoy * const, const uint8_t);
 void    gb_unload_cart (GameBoy * const);
-
-/* Debug functions, used here for now */
-void debug_update_tiles (GameBoy * const);
 
 #endif
