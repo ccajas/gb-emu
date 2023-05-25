@@ -6,10 +6,11 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
-#include "api/glfw/helpers/linmath.h"
+
+#include "api/glfw/utils/linmath.h"
+#include "api/glfw/utils/fileread.h"
 #include "api/glfw/triangle_test.h"
 
-#define GB_DEBUG
 #include "gb.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -36,94 +37,92 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 
 int main (int argc, char * argv[])
 {
-    LOG_("Hello! This is GB-Emu.\n");
-#ifdef GB_DEBUG
-    printf("ArgCount: %d\n", argc);
-#endif
+    GLFWwindow* window;
+    glfwSetErrorCallback(error_callback);
+
+    if (!glfwInit())
+        exit(EXIT_FAILURE);
+
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+
+    window = glfwCreateWindow(512, 512, "Simple example", NULL, NULL);
+    if (!window)
+    {
+        glfwTerminate();
+        exit(EXIT_FAILURE);
+    }
+
+    glfwSetKeyCallback(window, key_callback);
+
+    glfwMakeContextCurrent(window);
+    gladLoadGL();
+    glfwSwapInterval(1);
+
+    GLuint program = scene_compile_shaders();
+    scene_setup_buffers (program);
+
     GameBoy GB;
 
-    uint8_t useGLFW = 1;
-    if (useGLFW)
+    /* Load file from command line */
+    char * defaultROM = NULL;
+    if (argc > 1) defaultROM = argv[1];
+
+    LOG_("GB: Loading file \"%s\"...\n", defaultROM);
+    uint8_t * rom = (uint8_t*) read_file (defaultROM);
+
+    if (rom == NULL)
     {
-        GLFWwindow* window;
-        glfwSetErrorCallback(error_callback);
-    
-        if (!glfwInit())
-            exit(EXIT_FAILURE);
-    
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    
-        window = glfwCreateWindow(640, 480, "Simple example", NULL, NULL);
-        if (!window)
-        {
-            glfwTerminate();
-            exit(EXIT_FAILURE);
-        }
-    
-        glfwSetKeyCallback(window, key_callback);
-    
-        glfwMakeContextCurrent(window);
-        gladLoadGL();
-        glfwSwapInterval(1);
-
-        GLuint program = scene_compile_shaders();
-        scene_setup_buffers (program);
-    
-        /* Game Boy test stuff */
-        if (argc < 2)
-            gb_init (&GB, "");
-        else
-            gb_init (&GB, argv[1]);
-
-        const uint32_t totalFrames = 60;
-        const float totalSeconds = (float)totalFrames / 60.0;
-        
-        uint32_t i;
-        uint8_t gbFinished = 0;
-
-        /* Start clock */
-        clock_t t;
-        t = clock();
-
-        while (!glfwWindowShouldClose(window))
-        { 
-            float ratio;
-            int width, height;
-
-            glfwGetFramebufferSize(window, &width, &height);
-            ratio = width / (float) height;
-    
-            glViewport(0, 0, width, height);
-            glClear(GL_COLOR_BUFFER_BIT);
-
-            scene_draw_triangle (program, ratio);
-
-            if (GB.frames < totalFrames) /*for (i = 0; i < totalFrames; i++) */
-                gb_frame (&GB);
-            else
-            {
-                if (!gbFinished)
-                {
-                    gb_shutdown (&GB);
-                    t = clock() - t;
-                    gbFinished = 1;         
-
-                    double timeTaken = ((double)t)/CLOCKS_PER_SEC; /* Elapsed time */
-                    LOG_("The program took %f seconds to execute %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, totalFrames, totalSeconds / timeTaken);
-                    LOG_("For each second, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));        
-                }
-            }
-
-            glfwSwapBuffers(window);
-            glfwPollEvents();
-        }
-    
-        glfwDestroyWindow(window);
-    
-        glfwTerminate();
-        exit(EXIT_SUCCESS);
+        LOG_("GB: Failed to load file! .\n");
+        return 1;
     }
+
+    const uint32_t totalFrames = 100;
+    const float totalSeconds = (float)totalFrames / 60.0;
+    
+    uint32_t i;
+    uint8_t gbFinished = 0;
+
+    /* Load ROM */
+    gb_init (&GB, rom);
+
+    /* Start clock */
+    clock_t t;
+    t = clock();
+    uint32_t frames = 0;
+
+    while (!glfwWindowShouldClose(window))
+    { 
+        scene_begin (window);
+        scene_draw_triangle (window, program);
+
+        if (frames < totalFrames) /*for (i = 0; i < totalFrames; i++) */
+        {
+            gb_frame (&GB);
+            frames++;
+        }
+        else
+        {
+            if (!gbFinished)
+            {
+                gb_shutdown (&GB);
+                t = clock() - t;
+                gbFinished = 1;         
+
+                double timeTaken = ((double)t)/CLOCKS_PER_SEC; /* Elapsed time */
+                LOG_("The program took %f seconds to execute %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, totalFrames, totalSeconds / timeTaken);
+                LOG_("For each second, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));        
+            }
+        }
+
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+
+    glfwDestroyWindow(window);
+
+    glfwTerminate();
+    exit(EXIT_SUCCESS);
 
     return 0;
 }

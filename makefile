@@ -1,4 +1,4 @@
-CFLAGS = -Wall -Wextra -s -O1 -std=c99 -MMD -MP
+CFLAGS = -Wall -s -O1 -std=c99 -MMD -MP
 LDFLAGS = $(pkg-config --static --libs glfw3)
 
 #`pkg-config --cflags glfw3 freetype2`

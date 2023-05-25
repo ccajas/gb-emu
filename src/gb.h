@@ -2,12 +2,13 @@
 #define GB_H
 
 #include <stdio.h>
+#include <string.h>
 #include "cpu.h"
 #include "mmu.h"
 #include "ppu.h"
 #include "cart.h"
 
-#define GB_DEBUG
+#define GB_DEBUG__
 
 #ifdef GB_DEBUG
     #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
@@ -65,13 +66,12 @@ inline void gb_reset(GameBoy * const gb)
     gb->ppu = defaultPPU;
 }
 
-void gb_init     (GameBoy * const, const char *);
+void gb_init     (GameBoy * const, const uint8_t *);
 void gb_shutdown (GameBoy * const);
 
 uint8_t gb_step        (GameBoy * const);
 void    gb_frame       (GameBoy * const);
 void    gb_print_logo  (GameBoy * const, const uint8_t);
-void    gb_load_cart   (GameBoy * const, const char *);
 void    gb_unload_cart (GameBoy * const);
 
 /* Debug functions, used here for now */

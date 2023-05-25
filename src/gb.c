@@ -1,54 +1,41 @@
-#include "utils/fileread.h"
+
 #include "gb.h"
 
-void gb_init (GameBoy * const gb, const char * defaultROM)
+void gb_init (GameBoy * const gb, const uint8_t * romData)
 {
     /* Do a one time reset */
     gb_reset (gb);
 
-    gb_load_cart (gb, defaultROM);
-    cpu_state (&gb->cpu, &gb->mmu);
-
-    gb->stepCount = 0;
-    gb->running = 1;
-}
-
-void gb_load_cart (GameBoy * const gb, const char * defaultROM)
-{
+    /* Load rom data */
     MMU * mmu = &gb->mmu;
-    const char * testRom = defaultROM;
+    memcpy (&gb->cart.header, romData + 0x100, GB_HEADER_SIZE);
 
-    LOG_("GB: Loading file \"%s\"...\n", testRom);
-    uint8_t * filebuf = (uint8_t*) read_file (testRom);
-    
-    if (filebuf == NULL)
-    {
-        LOG_("GB: Failed to load file! .\n");
+    const uint32_t romSize = (CART_MIN_SIZE_KB << gb->cart.romSize) << 10;
+    vc_init (&mmu->rom, romSize);
+    vc_push_array (&mmu->rom, romData, romSize, 0);
 
-        /* Fallback: load boot ROM */
-        vc_init (&mmu->rom, CART_MIN_SIZE_KB);
-        vc_push_array (&mmu->rom, mmu->bios, 256, 0);
+    free (romData);
 
-        memset (gb->cart.logo, 0xFF, 48);
-    }
-    else
-    {
-        memcpy (&gb->cart.header, filebuf + 0x100, GB_HEADER_SIZE);
+    /* Fallback: load boot ROM */
+    /*vc_init (&mmu->rom, CART_MIN_SIZE_KB);
+    vc_push_array (&mmu->rom, mmu->bios, 256, 0);
 
-        const uint32_t romSize = (CART_MIN_SIZE_KB << gb->cart.romSize) << 10;
-        vc_init (&mmu->rom, romSize);
-        vc_push_array (&mmu->rom, filebuf, romSize, 0);
+    memset (gb->cart.logo, 0xFF, 48);*/
 
-        free(filebuf);
-
-        LOG_("GB: ROM loaded (%s, %d KiB)\n", gb->cart.title, romSize >> 10);
-        LOG_("GB: Cart type: %d\n", gb->cart.cartType);
-    }
+    LOG_("GB: ROM loaded (%s, %d KiB)\n", gb->cart.title, romSize >> 10);
+    LOG_("GB: Cart type: %d\n", gb->cart.cartType);
 
 #ifdef GB_DEBUG
     gb_print_logo(gb, 177);
 #endif
+    /* Set initial values */
+    cpu_state (&gb->cpu, &gb->mmu);
+
+    gb->stepCount = 0;
+    gb->frames = 0;
+    gb->running = 1;
 }
+
 #ifdef GB_DEBUG
 void gb_print_logo (GameBoy * const gb, const uint8_t charCode)
 {
@@ -104,7 +91,6 @@ uint8_t gb_step (GameBoy * const gb)
 
     if (gb->frameClock >= FRAME_CYCLES)
     {
-        LOG_("Frames passed: %d (%d)\n", gb->frames, gb->frameClock);
         gb->frames++;
         gb->frameClock -= FRAME_CYCLES;
     }

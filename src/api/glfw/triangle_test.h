@@ -71,8 +71,21 @@ void scene_setup_buffers (GLint const program)
                         sizeof(vertices[0]), (void*) (sizeof(float) * 2));
 }
 
-void scene_draw_triangle (GLint const program, GLfloat const ratio)
+void scene_begin(GLFWwindow * window)
 {
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+
+    glViewport(0, 0, width, height);
+    glClear(GL_COLOR_BUFFER_BIT);
+}
+
+void scene_draw_triangle (GLFWwindow * window, GLint const program)
+{
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    float ratio = (float)width / (float) height;
+
     mat4x4 m, p, mvp;
 
     mat4x4_identity(m);

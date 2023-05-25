@@ -4,9 +4,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
-inline FILE * open_file (const char * filename)
+static inline FILE * open_file (const char * filename)
 {
 	FILE * f = fopen(filename, "rb");
 	if (f == NULL) {
@@ -15,7 +14,7 @@ inline FILE * open_file (const char * filename)
 	return f;
 }
 
-inline long file_size (const char * filename)
+static inline long file_size (const char * filename)
 {
 	FILE * f = open_file (filename);
 	if (f == NULL) return -1;
@@ -28,7 +27,7 @@ inline long file_size (const char * filename)
 	return size;
 }
 
-inline char * read_file (const char * filename)
+static inline char * read_file (const char * filename)
 {	
 	FILE * f = open_file (filename);
 
