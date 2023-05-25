@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define GB_DEBUG
+
 typedef struct CPU_struct
 {
     enum { A = 0, B, C, D, E, H, L, F = 10 } registers;
@@ -50,7 +52,7 @@ typedef struct CPU_struct
 CPU;
 
 /* Forward declarations */
-typedef struct GB_struct  GameBoy;
+typedef struct gb_struct  GameBoy;
 typedef struct MMU_struct MMU;
 
 /* Function definitions */

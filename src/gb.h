@@ -18,7 +18,14 @@
 
 #define CART_MIN_SIZE_KB  32
 
-typedef struct GB_struct 
+/* Functions that can be exposed to the frontend */
+
+struct gb_func_struct
+{
+    uint8_t (*gb_rom_read)(struct gb_struct *, const uint16_t addr);
+};
+
+typedef struct gb_struct 
 {
     /* Game Boy components */
     CPU       cpu;
@@ -50,6 +57,15 @@ typedef struct GB_struct
     };
     /* Used for debugging output */
     uint8_t tileSet[256][8][8];
+
+    struct
+	{
+		void * p;
+	}
+    direct;
+
+    /* Exposed functions */
+    struct gb_func_struct gb_func;
 }
 GameBoy;
 
@@ -66,7 +82,7 @@ inline void gb_reset(GameBoy * const gb)
     gb->ppu = defaultPPU;
 }
 
-void gb_init     (GameBoy * const, const uint8_t *);
+void gb_init     (GameBoy * const, uint8_t *);
 void gb_shutdown (GameBoy * const);
 
 uint8_t gb_step        (GameBoy * const);

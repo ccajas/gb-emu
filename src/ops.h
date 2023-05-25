@@ -169,7 +169,7 @@
     cpu->flags = 0;\
     SET_FLAG_Z (cpu->r[A]);\
 
-#define XRHL     OP(XRHL);    cpu->r[A] ^= hl;\     
+#define XRHL     OP(XRHL);    cpu->r[A] ^= hl;\
     cpu->flags = 0;\
     SET_FLAG_Z (cpu->r[A]);\
 

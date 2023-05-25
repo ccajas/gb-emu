@@ -7,8 +7,9 @@
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
 
+#include "utils/fileread.h"
+#include "utils/v_array.h"
 #include "api/glfw/utils/linmath.h"
-#include "api/glfw/utils/fileread.h"
 #include "api/glfw/triangle_test.h"
 
 #include "gb.h"
@@ -34,6 +35,22 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
 }
+
+/* Container for relevant emulation data */
+
+struct gbData_struct
+{
+    uint8_t * bootRom;
+    uint8_t * rom;
+};
+
+/* Concrete function definitions for the emulator frontend */
+
+uint8_t rom_read (GameBoy * gb, const uint16_t addr)
+{
+    const struct gbData_struct * const g = gb->direct.p;
+    return g->rom[addr];
+};
 
 int main (int argc, char * argv[])
 {
@@ -63,28 +80,32 @@ int main (int argc, char * argv[])
     scene_setup_buffers (program);
 
     GameBoy GB;
+    struct gbData_struct gbData =
+	{
+		.rom = NULL,
+		.bootRom = NULL
+	};
 
     /* Load file from command line */
     char * defaultROM = NULL;
     if (argc > 1) defaultROM = argv[1];
 
     LOG_("GB: Loading file \"%s\"...\n", defaultROM);
-    uint8_t * rom = (uint8_t*) read_file (defaultROM);
+    gbData.rom = (uint8_t*) read_file (defaultROM);
 
-    if (rom == NULL)
+    if (gbData.rom == NULL)
     {
         LOG_("GB: Failed to load file! .\n");
         return 1;
     }
 
-    const uint32_t totalFrames = 100;
+    const uint32_t totalFrames = 15;
     const float totalSeconds = (float)totalFrames / 60.0;
     
-    uint32_t i;
     uint8_t gbFinished = 0;
 
     /* Load ROM */
-    gb_init (&GB, rom);
+    gb_init (&GB, gbData.rom);
 
     /* Start clock */
     clock_t t;

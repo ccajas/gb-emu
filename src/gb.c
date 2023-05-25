@@ -1,7 +1,7 @@
 
 #include "gb.h"
 
-void gb_init (GameBoy * const gb, const uint8_t * romData)
+void gb_init (GameBoy * const gb, uint8_t * romData)
 {
     /* Do a one time reset */
     gb_reset (gb);
@@ -23,7 +23,7 @@ void gb_init (GameBoy * const gb, const uint8_t * romData)
     memset (gb->cart.logo, 0xFF, 48);*/
 
     LOG_("GB: ROM loaded (%s, %d KiB)\n", gb->cart.title, romSize >> 10);
-    LOG_("GB: Cart type: %d\n", gb->cart.cartType);
+    LOG_("GB: Cart type: %02X\n", gb->cart.cartType);
 
 #ifdef GB_DEBUG
     gb_print_logo(gb, 177);
@@ -122,7 +122,7 @@ void gb_shutdown (GameBoy * const gb)
 }
 
 /* Debug functions, used here for now */
-
+#if DEBUG_TILES
 void debug_update_tiles (GameBoy * const gb)
 {
     /* VRAM offset address */
@@ -149,3 +149,4 @@ void debug_update_tiles (GameBoy * const gb)
 #endif
     }
 }
+#endif
