@@ -1,13 +1,13 @@
-#define CPU_RB(A)     mmu_rb(mmu, A)
-#define CPU_WB(A,X)   mmu_wb(mmu, A, X)
-#define CPU_RW(A)     mmu_rw(mmu, A)
-#define CPU_WW(A,X)   mmu_ww(mmu, A, X)
-
 /* Instruction helpers */
 
 #define ADDR_HL       ((cpu->r[H] << 8) + cpu->r[L])
 #define ADDR_XY(X,Y)  ((cpu->r[X] << 8) + cpu->r[Y])
 #define IMM           CPU_RB (cpu->pc++)
+
+#define CPU_RB(A)     mmu_rb(mmu, A)
+#define CPU_WB(A,X)   mmu_wb(mmu, A, X)
+#define CPU_RW(A)     mmu_rw(mmu, A)
+#define CPU_WW(A,X)   mmu_ww(mmu, A, X)
 
 #ifdef GB_OPS_DEBUG
 
@@ -29,36 +29,43 @@
 
 /** 8-bit load instructions **/   
 
-#define LD        OP(LD);     cpu->r[r1] = cpu->r[r2];
-#define LDrm      OP(LDrm);   cpu->r[r1] = IMM;
-#define LDrHL     OP(LDrHL);  cpu->r[r1] = CPU_RB (ADDR_HL);
+#define LD        OP(LD);       cpu->r[r1] = cpu->r[r2];
+#define LDrm      OP(LDrm);     cpu->r[r1] = IMM;
+#define LDrHL     OP(LDrHL);    cpu->r[r1] = CPU_RB (ADDR_HL);
 
-#define LDHLr     OP(LDHLr);  CPU_WB (ADDR_HL, cpu->r[r2]);
-#define LDHLm     OP(LDHLm);  CPU_WB (ADDR_HL, IMM);
+#define LDHLr     OP(LDHLr);    CPU_WB (ADDR_HL, cpu->r[r2]);
+#define LDHLm     OP(LDHLm);    CPU_WB (ADDR_HL, IMM);
 
-#define LDArrm    OP(LDArrm); cpu->r[A] = CPU_RB (ADDR_XY(r1 - 1, r1));
-#define LDAmm     OP(LDAmm);  cpu->r[A] = CPU_RB (CPU_RW (cpu->pc)); cpu->pc += 2;
-#define LDrrmA    OP(LDrrmA); CPU_WB (ADDR_XY (r1, r1 + 1), cpu->r[A]);
-#define LDmmA     OP(LDmmA);  CPU_WB (CPU_RW (cpu->pc), cpu->r[A]);  cpu->pc += 2;
+#define LDArrm    OP(LDArrm);   cpu->r[A] = CPU_RB (ADDR_XY(r1 - 1, r1));
+#define LDAmm     OP(LDAmm);    cpu->r[A] = CPU_RB (CPU_RW (cpu->pc)); cpu->pc += 2;
+#define LDrrmA    OP(LDrrmA);   CPU_WB (ADDR_XY (r1, r1 + 1), cpu->r[A]);
+#define LDmmA     OP(LDmmA);    CPU_WB (CPU_RW (cpu->pc), cpu->r[A]);  cpu->pc += 2;
 
-#define LDIOmA    OP(LDIOmA); CPU_WB (0xFF00 + IMM, cpu->r[A]);
-#define LDAIOm    OP(LDAIOm); cpu->r[A] = CPU_RB (0xFF00 + IMM);
-#define LDIOCA    OP(LDIOCA); CPU_WB (0xFF00 + cpu->r[C], cpu->r[A]);
-#define LDAIOC    OP(LDAIOC); cpu->r[A] = CPU_RB (0xFF00 + cpu->r[C]); 
+#define LDIOmA    OP(LDIOmA);   CPU_WB (0xFF00 + IMM, cpu->r[A]);
+#define LDAIOm    OP(LDAIOm);   cpu->r[A] = CPU_RB (0xFF00 + IMM);
+#define LDIOCA    OP(LDIOCA);   CPU_WB (0xFF00 + cpu->r[C], cpu->r[A]);
+#define LDAIOC    OP(LDAIOC);   cpu->r[A] = CPU_RB (0xFF00 + cpu->r[C]); 
 
     /* Increment instruction templates */
     #define INCR_HL   cpu->r[L]++; if (!cpu->r[L]) cpu->r[H]++
     #define DECR_HL   cpu->r[L]--; if (cpu->r[L] == 255) cpu->r[H]--
 
-#define LDHLIA    OP(LDHLIA); CPU_WB (ADDR_HL, cpu->r[A]); INCR_HL;
-#define LDHLDA    OP(LDHLDA); CPU_WB (ADDR_HL, cpu->r[A]); DECR_HL;
-#define LDAHLI    OP(LDAHLI); cpu->r[A] = CPU_RB (ADDR_HL); INCR_HL;
-#define LDAHLD    OP(LDAHLD); cpu->r[A] = CPU_RB (ADDR_HL); DECR_HL;
+#define LDHLIA    OP(LDHLIA);   CPU_WB  (ADDR_HL, cpu->r[A]); INCR_HL;
+#define LDHLDA    OP(LDHLDA);   CPU_WB  (ADDR_HL, cpu->r[A]); DECR_HL;
+#define LDAHLI    OP(LDAHLI);   cpu->r[A] = CPU_RB (ADDR_HL); INCR_HL;
+#define LDAHLD    OP(LDAHLD);   cpu->r[A] = CPU_RB (ADDR_HL); DECR_HL;
 
 /** 16-bit load instructions **/
 
-#define LDrr      OP(LDrr);   cpu->r[r1 + 1] = CPU_RB (cpu->pc); cpu->r[r1] = CPU_RB (cpu->pc + 1); cpu->pc += 2;
-#define LDmSP     OP(LDmSP);  uint16_t val = CPU_RW (cpu->pc); CPU_WW (val, cpu->sp); cpu->pc += 2;
+#define LDrr      OP(LDrr);   \
+    cpu->r[r1 + 1] = CPU_RB (cpu->pc);\
+    cpu->r[r1] = CPU_RB (cpu->pc + 1);\
+    cpu->pc += 2;\
+
+#define LDmSP     OP(LDmSP);  \
+    CPU_WW (CPU_RW (cpu->pc), cpu->sp);\
+    cpu->pc += 2;\
+
 #define LDSP      OP(LDSP);   cpu->sp = CPU_RW (cpu->pc); cpu->pc += 2;
 #define LDSPHL    OP(LDSPHL); cpu->sp = ADDR_HL;   
 
@@ -83,8 +90,18 @@
 #define KEEP_CARRY      cpu->flags &= FLAG_C;
 #define KEEP_ZERO_CARRY cpu->flags &= (FLAG_Z | FLAG_C);
 
-#define SET_ADD_FLAGS(X)  SET_FLAG_Z (cpu->r[A]); cpu->f_n = 0; SET_FLAG_H_S (cpu->r[A] ^ X ^ tmp); cpu->f_c = (cpu->r[A] < tmp);  
-#define SET_SUB_FLAGS(X)  SET_FLAG_Z (cpu->r[A]); cpu->f_n = 1; SET_FLAG_H_S (cpu->r[A] ^ X ^ tmp); cpu->f_c = (cpu->r[A] > tmp);
+#define SET_ADD_FLAGS(X)  \
+    SET_FLAG_Z (cpu->r[A]);\
+    cpu->f_n = 0;\
+    SET_FLAG_H_S (cpu->r[A] ^ X ^ tmp);\
+    cpu->f_c = (cpu->r[A] < tmp);
+
+#define SET_SUB_FLAGS(X)  \
+    SET_FLAG_Z (cpu->r[A]);\
+    cpu->f_n = 1;\
+    SET_FLAG_H_S (cpu->r[A] ^ X ^ tmp);\
+    cpu->f_c = (cpu->r[A] > tmp);
+
 #define SET_IMM_FLAGS     SET_FLAG_Z ((tmp & 0xFF)); SET_FLAG_H_S (cpu->r[A] ^ m ^ tmp); cpu->f_c = (tmp & 0xFF00) ? 1 : 0;
 
 /** 8-bit arithmetic/logic instructions **/
@@ -98,52 +115,71 @@
 /* Add and subtract */
 #define ADD      OP(ADD); {\
     uint8_t tmp = cpu->r[A] + cpu->r[r2];\
-	cpu->f_c = (cpu->r[A] > tmp);\
-	cpu->f_h = ((cpu->r[A] ^ cpu->r[r2] ^ tmp) & 0x10) > 0;\
-	cpu->f_n = 0;\
 	cpu->f_z = ((tmp & 0xFF) == 0x00);\
+	cpu->f_n = 0;\
+	cpu->f_h = ((cpu->r[A] ^ cpu->r[r2] ^ tmp) & 0x10) > 0;\
+	cpu->f_c = (cpu->r[A] > tmp);\
 	cpu->r[A] = (tmp & 0xFF);\
 }
 #define ADHL     OP(ADHL);    ADD_A_X(hl);
 
 #define ADC      OP(ADC); {\
     uint16_t tmp = cpu->r[A] + cpu->r[r2] + cpu->f_c;\
-	cpu->f_c = (tmp & 0xFF00) ? 1 : 0;\
-	cpu->f_h = ((cpu->r[A] ^ cpu->r[r2] ^ tmp) & 0x10) > 0;\
-	cpu->f_n = 0;\
-	cpu->f_z = ((tmp & 0xFF) == 0x00);\
 	cpu->r[A] = (tmp & 0xFF);\
+	cpu->f_z = ((tmp & 0xFF) == 0x00);\
+	cpu->f_n = 0;\
+	cpu->f_h = ((cpu->r[A] ^ cpu->r[r2] ^ tmp) & 0x10) > 0;\
+	cpu->f_c = (tmp & 0xFF00) ? 1 : 0;\
 }
 
 #define ACHL     OP(ACHL);    ADD_AC_X(hl);
 
 #define SUB      OP(SUB); {\
     uint8_t tmp = cpu->r[A] - (cpu->r[r2]);\
-    cpu->f_c = (tmp > cpu->r[A]) ? 1 : 0;\
-    cpu->f_h = ((cpu->r[A] ^ cpu->r[r2] ^ tmp) & 0x10) > 0;\
-    cpu->f_n = 1;\
+	cpu->r[A] = (tmp & 0xFF);\
     cpu->f_z = ((tmp & 0xFF) == 0x00);\
-    cpu->r[A] = (tmp & 0xFF);\
+    cpu->f_n = 1;\
+    cpu->f_h = ((cpu->r[A] ^ cpu->r[r2] ^ tmp) & 0x10) > 0;\
+    cpu->f_c = (tmp > cpu->r[A]) ? 1 : 0;\
 }
 #define SBHL     OP(SBHL);    SUB_A_X(hl);
 
 #define SBC      OP(SBC); {\
     uint16_t tmp = cpu->r[A] - (cpu->r[r2] + cpu->f_c);\
-    cpu->f_c = (tmp & 0xFF00) ? 1 : 0;\
-    cpu->f_h = ((cpu->r[A] ^ cpu->r[r2] ^ tmp) & 0x10) > 0;\
-    cpu->f_n = 1;\
-    cpu->f_z = ((tmp & 0xFF) == 0x00);\
     cpu->r[A] = (tmp & 0xFF);\
+    cpu->f_z = ((tmp & 0xFF) == 0x00);\
+    cpu->f_n = 1;\
+    cpu->f_h = ((cpu->r[A] ^ cpu->r[r2] ^ tmp) & 0x10) > 0;\
+    cpu->f_c = (tmp & 0xFF00) ? 1 : 0;\
 }
 #define SCHL     OP(SCHL);    SUB_AC_X(hl);
 
 /* Bitwise logic */
-#define AND      OP(AND)      cpu->r[A] &= cpu->r[r2]; cpu->flags = 0; SET_FLAG_Z (cpu->r[A]); SET_FLAG_H (1);
-#define ANHL     OP(ANHL);    cpu->r[A] &= hl;         cpu->flags = 0; SET_FLAG_Z (cpu->r[A]); SET_FLAG_H (1);
-#define XOR      OP(XOR)      cpu->r[A] ^= cpu->r[r2]; cpu->flags = 0; SET_FLAG_Z (cpu->r[A]);
-#define XRHL     OP(XRHL);    cpu->r[A] ^= hl;         cpu->flags = 0; SET_FLAG_Z (cpu->r[A]);
-#define OR       OP(OR);      cpu->r[A] |= cpu->r[r2]; cpu->flags = 0; SET_FLAG_Z (cpu->r[A]);  
-#define ORHL     OP(ORHL)     cpu->r[A] |= hl;         cpu->flags = 0; SET_FLAG_Z (cpu->r[A]);
+#define AND      OP(AND)      cpu->r[A] &= cpu->r[r2];\
+    cpu->flags = 0;\
+    SET_FLAG_Z (cpu->r[A]);\
+    SET_FLAG_H (1);
+
+#define ANHL     OP(ANHL);    cpu->r[A] &= hl;\
+    cpu->flags = 0;\
+    SET_FLAG_Z (cpu->r[A]);\
+    SET_FLAG_H (1);
+
+#define XOR      OP(XOR)      cpu->r[A] ^= cpu->r[r2];\
+    cpu->flags = 0;\
+    SET_FLAG_Z (cpu->r[A]);\
+
+#define XRHL     OP(XRHL);    cpu->r[A] ^= hl;\     
+    cpu->flags = 0;\
+    SET_FLAG_Z (cpu->r[A]);\
+
+#define OR       OP(OR);      cpu->r[A] |= cpu->r[r2];\
+    cpu->flags = 0;\
+    SET_FLAG_Z (cpu->r[A]);\
+
+#define ORHL     OP(ORHL)     cpu->r[A] |= hl;\
+    cpu->flags = 0;\
+    SET_FLAG_Z (cpu->r[A]);\
 
 #define ADDm     OP(ADDm);    { uint8_t m = IMM; uint8_t tmp  = cpu->r[A]; ADD_A_X(m); }
 #define ADCm     OP(ADCm)     { uint8_t m = IMM; uint16_t tmp = cpu->r[A] + m + cpu->f_c; SET_IMM_FLAGS; cpu->f_n = 0; cpu->r[A] = (tmp & 0xFF); }

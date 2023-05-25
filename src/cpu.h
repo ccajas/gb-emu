@@ -3,13 +3,20 @@
 
 #include <stdint.h>
 
-#define GB_DEBUG
-
 typedef struct CPU_struct
 {
     enum { A = 0, B, C, D, E, H, L, F = 10 } registers;
 
-    uint8_t r[7];     /* A-E, H, L - 8-bit registers */
+    union
+    {
+        struct {
+            uint8_t  _a;
+            uint16_t _bc;
+            uint16_t _de;
+            uint16_t _hl;
+        };
+        uint8_t r[7];     /* A-E, H, L - 8-bit registers */
+    };
     uint8_t rm, rt;
     union
     {
