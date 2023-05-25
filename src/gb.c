@@ -2,9 +2,8 @@
 #include "gb.h"
 
 void gb_init (GameBoy * const gb, void * dataPtr,
-            struct gb_func  * gb_func,
-            struct gb_debug * gb_debug,
-            uint8_t * romData)
+              struct gb_func  * gb_func,
+              struct gb_debug * gb_debug)
 {
     /* Do a reset for the first time */
     gb_reset (gb);
@@ -19,11 +18,17 @@ void gb_init (GameBoy * const gb, void * dataPtr,
     /* Debug functions */
     //gb->gb_debug.update_tiles = update_tiles;
 
-    /* Load rom data */
-    memcpy (&gb->cart.header, romData + 0x100, GB_HEADER_SIZE);
+    /* Copy ROM header */
+    int i;
+    uint8_t header[GB_HEADER_SIZE];
+
+    for (i = 0; i < GB_HEADER_SIZE; i++)
+        header[i] = gb->mmu.rom_read(gb->direct.ptr, 0x100 + i);
+
+    memcpy (&gb->cart.header, header, GB_HEADER_SIZE);
     
-    LOG_("Test read byte 0x148 (1): %02X\n", (uint8_t)(romData[0x148]));
-    LOG_("Test read byte 0x148 (2): %02X\n", gb_func->gb_rom_read(gb->direct.ptr, 0x148));
+    LOG_("Test read byte 0x148 (1): %02X\n", gb->cart.romSize);
+    LOG_("Test read byte 0x148 (2): %02X\n", gb->mmu.rom_read(gb->direct.ptr, 0x148));
 
     const uint32_t romSize = (CART_MIN_SIZE_KB << gb->cart.romSize) << 10;
     //vc_init (&mmu->rom, romSize);
@@ -48,7 +53,6 @@ void gb_init (GameBoy * const gb, void * dataPtr,
 
     gb->stepCount = 0;
     gb->frames = 0;
-    gb->running = 1;
 }
 
 #ifdef GB_DEBUG

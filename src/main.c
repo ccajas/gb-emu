@@ -119,7 +119,7 @@ int main (int argc, char * argv[])
     uint8_t gbFinished = 0;
 
     /* Load ROM */
-    gb_init (&GB, &gbData, &gb_func, NULL, gbData.rom);
+    gb_init (&GB, &gbData, &gb_func, NULL);
 
     /* Start clock */
     clock_t t;

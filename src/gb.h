@@ -52,17 +52,6 @@ typedef struct gb_struct
     uint32_t frameClock;
     uint32_t frames;
 
-    /* Emulation status */
-    union 
-    {
-        struct
-        {
-            uint8_t running : 1;
-            uint8_t romLoaded : 1;
-        };
-        uint8_t status;
-    };
-
     /* Used for debugging output */
     uint8_t tileSet[256][8][8];
 
@@ -94,8 +83,7 @@ inline void gb_reset(GameBoy * const gb)
 
 void gb_init     (GameBoy * const, void *, 
                   struct gb_func  *,
-                  struct gb_debug *,
-                  uint8_t *);
+                  struct gb_debug *);
 void gb_shutdown (GameBoy * const);
 
 uint8_t gb_step        (GameBoy * const);
