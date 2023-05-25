@@ -18,7 +18,7 @@ target = bin/gb-emu
 
 # main build	
 glfw: $(obj)
-	$(CC) $(CFLAGS) $(src) $(srcGL) -o $(target) -lm -lglfw3 -lgdi32
+	$(CC) $(CFLAGS) $(src) $(srcGL) -o $(target) -I../_include -lm -lglfw3 -lgdi32
 
 clean:
 	rm -f $(obj) $(target)

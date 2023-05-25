@@ -53,13 +53,12 @@ GLuint scene_compile_shaders()
 void scene_setup_buffers (GLint const program)
 {
     GLuint vertex_buffer;
-    GLint mvp_location, vpos_location, vcol_location;
+    GLint vpos_location, vcol_location;/*mvp_location,*/
 
     glGenBuffers(1, &vertex_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    mvp_location = glGetUniformLocation (program, "MVP");
     vpos_location = glGetAttribLocation (program, "vPos");
     vcol_location = glGetAttribLocation (program, "vCol");
 
