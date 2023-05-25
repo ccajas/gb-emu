@@ -22,7 +22,7 @@
 
 struct gb_func_struct
 {
-    uint8_t (*gb_rom_read)(struct gb_struct *, const uint16_t addr);
+    uint8_t (*gb_rom_read)(void *, const uint16_t addr);
 };
 
 typedef struct gb_struct 
@@ -60,7 +60,7 @@ typedef struct gb_struct
 
     struct
 	{
-		void * p;
+		void * ptr;
 	}
     direct;
 
@@ -82,7 +82,9 @@ inline void gb_reset(GameBoy * const gb)
     gb->ppu = defaultPPU;
 }
 
-void gb_init     (GameBoy * const, uint8_t *);
+void gb_init     (GameBoy * const, void *, 
+                  uint8_t (*gb_rom_read)(void *, const uint16_t),
+                  uint8_t *);
 void gb_shutdown (GameBoy * const);
 
 uint8_t gb_step        (GameBoy * const);
@@ -92,8 +94,5 @@ void    gb_unload_cart (GameBoy * const);
 
 /* Debug functions, used here for now */
 void debug_update_tiles (GameBoy * const);
-
-extern GameBoy GB;
-extern MMU * mmu;
 
 #endif

@@ -51,46 +51,43 @@ void mmu_reset (MMU * const mmu)
 }
 
 uint8_t mmu_rb (MMU * const mmu, uint16_t const addr) 
-{ 
+{
     /* Hardcode $FF44 for testing */
     if (addr == 0xFF44) return 0x90;
 
     /* Read 8-bit byte from a given address */
-    switch (addr & 0xF000)
+    switch (addr >> 12)
     {
         /* ROM bank 0 */
-        case 0:
+        case 0 ... 0x3:
             if (addr < 0x100 && !mmu->hram[0x50])
             {   /* Read boot ROM */
                 return mmu->bios[addr];
             }
             else
-                return mmu->rom.data[addr];
+                return mmu->rom_read(mmu->direct.ptr, addr);/* mmu->rom.data[addr]; */
         break;
-        case 0x1000: case 0x2000: case 0x3000:
-            return mmu->rom.data[addr];
-        break;
-        case 0x4000: case 0x5000: case 0x6000: case 0x7000:        
+        case 0x4 ... 0x7:        
         /* ROM bank 1 ... N */
-            return mmu->rom.data[addr];
+            return mmu->rom_read(mmu->direct.ptr, addr);
         break;
-        case 0x8000: case 0x9000:
+        case 0x8: case 0x9:
         /* Video RAM */
             return VRAM_DATA_(addr);
         break;
-        case 0xA000: case 0xB000:
+        case 0xA: case 0xB:
         /* External RAM */
             return ERAM_DATA_(addr);
         break;
-        case 0xC000: case 0xD000:
+        case 0xC: case 0xD:
         /* Work RAM */
             return WRAM_DATA_(addr);
         break;
-        case 0xE000:
+        case 0xE:
         /* Work RAM echo */
             return WRAM_DATA_(addr);
         break;
-        case 0xF000:
+        case 0xF:
             switch ((addr & 0x0F00) >> 8)
 		    {
                 case 0 ... 0xD: /* Work RAM echo */

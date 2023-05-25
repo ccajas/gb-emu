@@ -20,7 +20,7 @@ typedef struct MMU_struct
     }
     ramSizes;
 
-    struct VArray rom;
+    /*struct VArray rom; */
 
 #ifdef USING_DYNAMIC_ARRAY_
     struct VArray vram, eram, wram;
@@ -30,6 +30,15 @@ typedef struct MMU_struct
     uint8_t wram[WRAM_SIZE];
 #endif
     uint8_t hram[HRAM_SIZE];
+
+    struct
+	{
+		void * ptr;
+	}
+    direct;
+
+    /* Memory read/write functions passed on from GameBoy object */
+    uint8_t (*rom_read)(void *, const uint16_t addr);
 }
 MMU;
 

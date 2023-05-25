@@ -46,10 +46,10 @@ struct gbData_struct
 
 /* Concrete function definitions for the emulator frontend */
 
-uint8_t rom_read (GameBoy * gb, const uint16_t addr)
+uint8_t rom_read (void * dataPtr, const uint16_t addr)
 {
-    const struct gbData_struct * const g = gb->direct.p;
-    return g->rom[addr];
+    const struct gbData_struct * const gbdata = dataPtr;
+    return gbdata->rom[addr];
 };
 
 int main (int argc, char * argv[])
@@ -61,7 +61,7 @@ int main (int argc, char * argv[])
         exit(EXIT_FAILURE);
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
     window = glfwCreateWindow(512, 512, "Simple example", NULL, NULL);
     if (!window)
@@ -105,7 +105,7 @@ int main (int argc, char * argv[])
     uint8_t gbFinished = 0;
 
     /* Load ROM */
-    gb_init (&GB, gbData.rom);
+    gb_init (&GB, &gbData, rom_read, gbData.rom);
 
     /* Start clock */
     clock_t t;
@@ -117,10 +117,11 @@ int main (int argc, char * argv[])
         scene_begin (window);
         scene_draw_triangle (window, program);
 
-        if (frames < totalFrames) /*for (i = 0; i < totalFrames; i++) */
+        if (frames < totalFrames)
         {
             gb_frame (&GB);
             frames++;
+            LOG_("Ran frame %d\n", frames);
         }
         else
         {
@@ -139,6 +140,8 @@ int main (int argc, char * argv[])
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+
+    free(gbData.rom);
 
     glfwDestroyWindow(window);
 

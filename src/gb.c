@@ -1,20 +1,32 @@
 
 #include "gb.h"
 
-void gb_init (GameBoy * const gb, uint8_t * romData)
+void gb_init (GameBoy * const gb, void * dataPtr,
+            uint8_t (*gb_rom_read)(void *, const uint16_t),
+            uint8_t * romData)
 {
     /* Do a one time reset */
     gb_reset (gb);
 
+    /* Pass down data pointer from frontend to components */
+    gb->direct.ptr     = dataPtr;
+    gb->mmu.direct.ptr = dataPtr;
+
+    /* Pass down emulator context functions to components */
+    //gb->gb_func.gb_rom_read = gb_rom_read,
+    gb->mmu.rom_read = gb_rom_read;
+
     /* Load rom data */
-    MMU * mmu = &gb->mmu;
     memcpy (&gb->cart.header, romData + 0x100, GB_HEADER_SIZE);
+    
+    LOG_("Test read byte 0x148 (1): %02X\n", (uint8_t)(romData[0x148]));
+    LOG_("Test read byte 0x148 (2): %02X\n", gb_rom_read(gb->direct.ptr, 0x148));
 
     const uint32_t romSize = (CART_MIN_SIZE_KB << gb->cart.romSize) << 10;
-    vc_init (&mmu->rom, romSize);
-    vc_push_array (&mmu->rom, romData, romSize, 0);
+    //vc_init (&mmu->rom, romSize);
+    //vc_push_array (&mmu->rom, romData, romSize, 0);
 
-    free (romData);
+    //free (romData);
 
     /* Fallback: load boot ROM */
     /*vc_init (&mmu->rom, CART_MIN_SIZE_KB);
@@ -85,7 +97,7 @@ uint8_t gb_step (GameBoy * const gb)
     gb->frameClock += tCycles;
 
 #ifdef GB_DEBUG
-    cpu_state (&gb->cpu, &gb->mmu);
+    //cpu_state (&gb->cpu, &gb->mmu);
 #endif
     const uint8_t frameDone = ppu_step (&gb->ppu, gb->mmu.hram, tCycles);
 
@@ -112,7 +124,6 @@ void gb_frame (GameBoy * const gb)
 
 void gb_unload_cart (GameBoy * const gb)
 {
-    vc_free (&gb->mmu.rom);
     memset(&gb->cart.header, 0, GB_HEADER_SIZE);
 }
 
