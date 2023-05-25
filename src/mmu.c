@@ -35,8 +35,8 @@ void mmu_reset (MMU * const mmu)
 {
 #ifdef USING_DYNAMIC_ARRAY_
     vc_init (&mmu->vram, VRAM_SIZE);
-    vc_init (&mmu->eram, VRAM_SIZE);
-    vc_init (&mmu->wram, VRAM_SIZE);
+    vc_init (&mmu->eram, ERAM_SIZE);
+    vc_init (&mmu->wram, WRAM_SIZE);
 #else
     memset(mmu->vram, 0, VRAM_SIZE);
     memset(mmu->eram, 0, ERAM_SIZE);
@@ -95,16 +95,19 @@ uint8_t mmu_rb (MMU * const mmu, uint16_t const addr)
                 case 0xE:
                     if (addr < 0xFEA0)
                         /* return OAM */
-                        return 1;
+                        return mmu->oam[addr & 0x9F];
                     else
                         return 0;
                 case 0xF:
-                    if (addr >= 0xFF80) /* HRAM / IO */
+                    if (addr >= 0xFF80) /* HRAM */
                         return mmu->hram[addr & 0x7F];
                     else
                         /* IO registers */
-                        return 0;
-                break;
+                        return mmu->io[addr & 0x7F];
+                default:
+                    /* Prohibited area, if OAM is not blocked, actual value 
+                        depends on hardware. Return the default 0xFF for now */
+                    return 0xFF;
             }
         break;
         default:

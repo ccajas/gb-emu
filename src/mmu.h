@@ -16,7 +16,8 @@ typedef struct MMU_struct
         VRAM_SIZE = 0x2000, /* Video RAM*/
         ERAM_SIZE = 0x2000, /* External RAM */
         WRAM_SIZE = 0x2000, /* Work RAM */
-        HRAM_SIZE = 0x80    /* High RAM */
+        OAM_SIZE  = 0x100,
+        IO_HRAM_SIZE = 0x80 /* I/O registers/HRAM */
     }
     ramSizes;
 
@@ -29,8 +30,13 @@ typedef struct MMU_struct
     uint8_t eram[ERAM_SIZE];
     uint8_t wram[WRAM_SIZE];
 #endif
-    uint8_t hram[HRAM_SIZE];
+    uint8_t oam[OAM_SIZE];
+    uint8_t hram[0x80];
 
+    /* I/O registers */
+    uint8_t io[0x80];
+
+    /* Direct access to frontend data */
     struct
 	{
 		void * ptr;

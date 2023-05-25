@@ -11,6 +11,7 @@ typedef struct CPU_struct
 
     union
     {
+        /* Only works for little endian */
         struct {
             uint8_t  _a;
             uint16_t _bc;
