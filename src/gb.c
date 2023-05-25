@@ -98,13 +98,13 @@ uint8_t gb_step (GameBoy * const gb)
     gb->frameClock += tCycles;
 
 #ifdef GB_DEBUG
-    //cpu_state (&gb->cpu, &gb->mmu);
+    cpu_state (&gb->cpu, &gb->mmu);
 #endif
     const uint8_t frameDone = ppu_step (&gb->ppu, gb->mmu.hram, tCycles);
 
     if (gb->frameClock >= FRAME_CYCLES)
     {
-        printf("Frames passed: %d (%d)\n", gb->frames, gb->frameClock);
+        LOG_("Frames passed: %d (%d)\n", gb->frames, gb->frameClock);
         gb->frames++;
         gb->frameClock -= FRAME_CYCLES;
     }
