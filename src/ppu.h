@@ -49,9 +49,6 @@ typedef struct PPU_struct
 
     uint16_t ticks;
     uint8_t  line;
-
-    /* Mostly used for debugging purposes */
-
 }
 PPU;
 
