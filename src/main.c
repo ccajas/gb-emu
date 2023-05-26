@@ -27,12 +27,11 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
-// glfw: whenever the window size changed (by OS or user resize) this callback function executes
-// ---------------------------------------------------------------------------------------------
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
-    // make sure the viewport matches the new window dimensions; note that width and 
-    // height will be significantly larger than specified on retina displays.
+    /* make sure the viewport matches the new window dimensions; note that width and 
+       height will be significantly larger than specified on retina displays. */
     glViewport(0, 0, width, height);
 }
 
@@ -65,22 +64,47 @@ void peek_vram (void * dataPtr, uint8_t * data)
     for (i = 0; i < VRAM_SIZE; i++)
     {
         uint8_t hi = data[i] >> 4;
-        uint8_t lo = data[i] & 0xf;
+        uint8_t lo = data[i] & 0xF;
 
-        gbData->vram_raw[v++] = 0;
-        gbData->vram_raw[v++] = hi * 0x11;
-        gbData->vram_raw[v++] = hi * 0x11;
-
-        gbData->vram_raw[v++] = 0;
-        gbData->vram_raw[v++] = lo * 0x11;
-        gbData->vram_raw[v++] = lo * 0x11;
+        hi *= 0x11;
+        lo *= 0x11;
+        
+        v+= 2;
+        gbData->vram_raw[v++] = hi;
+        v+= 2;
+        gbData->vram_raw[v++] = lo;
     }
 }
 
-void update_tiles (GameBoy * const gb, uint8_t * const pixels)
+void update_tiles (GameBoy * const gb, uint8_t * const addr)
 {
 
 }
+
+/*
+void update_tile (GameBoy * const gb, const uint8_t addr)
+{
+    // Get the "base address" for this tile row
+	addr &= 0x1FFE;
+
+	// Work out which tile and row was updated
+	var tile = (addr >> 4) & 511;
+	var y = (addr >> 1) & 7;
+
+
+
+	var sx;
+	for(var x = 0; x < 8; x++)
+	{
+	    // Find bit index for this pixel
+	    sx = 1 << (7-x);
+
+	    // Update tile set
+	    GPU._tileset[tile][y][x] =
+	        ((GPU._vram[addr] & sx)   ? 1 : 0) +
+	        ((GPU._vram[addr+1] & sx) ? 2 : 0);
+	}
+}*/
 
 int main (int argc, char * argv[])
 {
@@ -106,6 +130,7 @@ int main (int argc, char * argv[])
         }
 
         glfwSetKeyCallback(window, key_callback);
+        glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
         glfwMakeContextCurrent(window);
 
         graphics_init (&scene);
@@ -120,7 +145,7 @@ int main (int argc, char * argv[])
 		.bootRom = NULL
 	};
 
-    memset(gbData.vram_raw, 0x77, VRAM_SIZE * 6);
+    memset(gbData.vram_raw, 0, VRAM_SIZE * 6);
 
     struct gb_func gb_func =
     {
