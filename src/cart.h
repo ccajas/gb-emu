@@ -5,6 +5,78 @@
 
 #define GB_HEADER_SIZE   0x50
 
+/* Memory bank controller */
+static const enum
+{
+    NO_MBC = 0,
+    MBC1  = 0x10,
+    MBC2  = 0x20,
+    MMM01 = 0x30,
+    MBC3  = 0x40,
+    MBC5  = 0x50,
+    MBC6  = 0x60,
+    MBC7  = 0x70,
+    CAM   = 0x80,
+    TAMA5 = 0x90,
+    HUC1  = 0xA0,
+    HUC3  = 0xB0
+}
+cart_mbcType;
+
+/* Available hardware in cart */
+static const enum
+{
+    HW_RAM = 1,
+    HW_BATTERY = 2,
+    HW_TIMER = 4,
+    HW_RUMBLE = 8
+}
+cart_hardwareType;
+
+/* 
+   All common cart type combinations, taken from:
+   http://gbdev.gg8.se/wiki/articles/The_Cartridge_Header#0147_-_Cartridge_Type 
+*/
+static const uint8_t cartTypes[256] = 
+{
+    NO_MBC, 
+    MBC1, 
+    MBC1   + HW_RAM,
+    MBC1   + HW_RAM + HW_BATTERY,
+    [0x5] = 
+    MBC2,
+    MBC2   + HW_BATTERY,
+    [0x8] =
+    NO_MBC + HW_RAM,
+    NO_MBC + HW_RAM + HW_BATTERY,
+    [0xB] =
+    MMM01,
+    MMM01  + HW_RAM,
+    MMM01  + HW_RAM + HW_BATTERY,
+    [0xF] =
+    MBC3   + HW_TIMER + HW_BATTERY,
+    MBC3   + HW_TIMER + HW_RAM + HW_BATTERY,
+    MBC3,
+    MBC3   + HW_RAM,
+    MBC3   + HW_RAM + HW_BATTERY,
+    [0x19] =
+    MBC5,
+    MBC5   + HW_RAM,
+    MBC5   + HW_RAM + HW_BATTERY,
+    MBC5   + HW_RUMBLE,
+    MBC5   + HW_RUMBLE + HW_RAM,
+    MBC5   + HW_RUMBLE + HW_RAM + HW_BATTERY,
+    [0x20] =
+    MBC6,
+    [0x22] =
+    MBC7   + HW_RUMBLE + HW_RAM + HW_BATTERY,
+    [0xFC] =
+    CAM,
+    TAMA5,
+    HUC3,
+    HUC1   + HW_RAM + HW_BATTERY
+};
+
 typedef struct Cartridge_struct 
 {
     /* First 80 bytes after BIOS address */
@@ -39,33 +111,20 @@ typedef struct Cartridge_struct
 
         uint8_t    header[GB_HEADER_SIZE];
     };
-    /* Memory bank controller */
-    enum
-    {
-        NO_MBC = 0,
-        MBC1,
-        MBC2,
-        MBC3,
-        MBC5,
-        MBC6,
-        MBC7,
-        MMM01,
-        TAMA5,
-        HUC1,
-        HUC3
-    }
-    mapper;
-    /* Available hardware in cart */
-    enum
-    {
-        RAM = 1,
-        BATTERY = 2,
-        TIMER = 4,
-        RUMBLE = 8
-    }
-    hardware;
 
-    uint16_t  numRomBanks;
+    /* Combination of MBC and extra hardware stored as a bitfield */
+    union
+    {
+        struct 
+        {
+            uint8_t hardware : 4;
+            uint8_t MBC : 4;
+        };
+        uint8_t hardware_MBC;
+    };
+
+    /* Determined by ROM size value in header*/
+    uint16_t numRomBanks;
 }
 Cartridge;
 

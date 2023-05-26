@@ -29,6 +29,9 @@ void gb_init (GameBoy * const gb, void * dataPtr,
         header[i] = gb->mmu.rom_read(gb->direct.ptr, 0x100 + i);
 
     memcpy (&gb->cart.header, header, GB_HEADER_SIZE);
+
+    /* Assign MBC and available hardware */
+    gb->cart.hardware_MBC = cartTypes[gb->cart.cartType];
     
     LOG_("Test read byte 0x148 (1): %02X\n", gb->cart.romSize);
     LOG_("Test read byte 0x148 (2): %02X\n", gb->mmu.rom_read(gb->direct.ptr, 0x148));
