@@ -115,31 +115,6 @@ void update_tiles (void * dataPtr, const uint8_t * data)
     }
 }
 
-/*
-void update_tile (GameBoy * const gb, const uint8_t addr)
-{
-    // Get the "base address" for this tile row
-	addr &= 0x1FFE;
-
-	// Work out which tile and row was updated
-	var tile = (addr >> 4) & 511;
-	var y = (addr >> 1) & 7;
-
-
-
-	var sx;
-	for(var x = 0; x < 8; x++)
-	{
-	    // Find bit index for this pixel
-	    sx = 1 << (7-x);
-
-	    // Update tile set
-	    GPU._tileset[tile][y][x] =
-	        ((GPU._vram[addr] & sx)   ? 1 : 0) +
-	        ((GPU._vram[addr+1] & sx) ? 2 : 0);
-	}
-}*/
-
 int main (int argc, char * argv[])
 {
     int draw = 1;

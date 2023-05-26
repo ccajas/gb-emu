@@ -20,7 +20,7 @@ typedef struct MMU_struct
         VRAM_SIZE = 0x2000, /* Video RAM*/
         ERAM_SIZE = 0x2000, /* External RAM */
         WRAM_SIZE = 0x2000, /* Work RAM */
-        OAM_SIZE  = 0x100,
+        OAM_SIZE  = 0xA0,
         IO_HRAM_SIZE = 0x80 /* I/O registers/HRAM */
     }
     ramSizes;
@@ -66,5 +66,6 @@ uint16_t mmu_rw (MMU * const, uint16_t const addr);
 
 void mmu_wb (MMU * const, uint16_t const addr, uint8_t val);
 void mmu_ww (MMU * const, uint16_t const addr, uint16_t val);
+void mmu_io_write (MMU * const, uint8_t const addr, uint8_t const val);
 
 #endif

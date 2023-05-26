@@ -64,6 +64,26 @@ void mmu_reset (MMU * const mmu)
     memcpy(mmu->bios, testBootRom, sizeof(uint8_t) * 256);
 }
 
+void mmu_io_write (MMU * const mmu, uint8_t const addr, uint8_t const val)
+{
+    switch (addr) 
+    {
+        case IO_LineY: 
+            /* Read Only*/
+        break;
+        case IO_DMA:
+        {   /* DMA transfer to OAM memory */
+            uint16_t srcAddr = (uint16_t)val << 8;
+            int i;
+            for (i = 0; i < 0x9F; i++)
+                mmu->oam[i] = mmu_rb (mmu, srcAddr + i);
+        }
+        break;
+        default:
+            mmu->io[addr] = val;
+    }
+}
+
 uint8_t mmu_rb (MMU * const mmu, uint16_t const addr) 
 {
     /* Hardcode $FF44 for testing */
@@ -174,13 +194,14 @@ void mmu_wb (MMU * const mmu, uint16_t const addr, uint8_t val)
                 case 0xE:
                     if (addr < 0xFEA0) {
                         /* Write to OAM */
+                        mmu->oam[addr & 0x9F] = val;
                     }
                 break;
                 case 0xF:
                     if (addr >= 0xFF80) /* HRAM / IO */
                         mmu->hram[addr & 0x7F] = val;
                     else
-                        mmu->io[addr & 0x7F] = val;
+                        mmu_io_write (mmu, addr & 0x7F, val);
                 break;
             }
     }
