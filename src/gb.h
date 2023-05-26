@@ -54,9 +54,6 @@ typedef struct gb_struct
     int32_t  frameClock;
     uint32_t frames;
 
-    /* Used for debugging output */
-    uint8_t tileSet[256][8][8];
-
     /* Direct access to frontend data */
     struct
 	{

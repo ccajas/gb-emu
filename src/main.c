@@ -103,7 +103,7 @@ void update_tiles (void * dataPtr, const uint8_t * data)
                 uint8_t col1 = row1 >> (7 - x);
                 uint8_t col2 = row2 >> (7 - x);
                 
-                const uint8_t  colorID = (col1 & 1) + ((col2 & 1) << 1);
+                const uint8_t  colorID = 3 - ((col1 & 1) + ((col2 & 1) << 1));
                 const uint16_t pixelData = (tileYoffset + yOffset + tileXoffset + x) * 3;
 
                 gbData->tilemap[pixelData] = colorID * 0x55;

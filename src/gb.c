@@ -18,9 +18,6 @@ void gb_init (GameBoy * const gb, void * dataPtr,
     
     gb->mmu.rom_read = gb_func->gb_rom_read;
 
-    /* Debug functions */
-    //gb->gb_debug.update_tiles = update_tiles;
-
     /* Copy ROM header */
     int i;
     uint8_t header[GB_HEADER_SIZE];
@@ -55,7 +52,7 @@ void gb_init (GameBoy * const gb, void * dataPtr,
     LOG_("GB: Cart type: %02X\n", gb->cart.cartType);
 
 #ifdef GB_DEBUG
-    gb_print_logo(gb, 177);
+    //gb_print_logo(gb, 177);
 #endif
     /* Set initial values */
     cpu_state (&gb->cpu, &gb->mmu);
@@ -141,15 +138,11 @@ void gb_debug_update (GameBoy * const gb)
     {
         /* Fetch VRAM data */
         if (gb->gb_debug->peek_vram)
-        {
             gb->gb_debug->peek_vram (gb->direct.ptr, gb->mmu.vram.data);
-        }
 
         /* Convert tileset data into pixels */
         if (gb->gb_debug->update_tiles)
-        {
             gb->gb_debug->update_tiles (gb->direct.ptr, gb->mmu.vram.data);
-        }
     }
 }
 
@@ -162,33 +155,3 @@ void gb_shutdown (GameBoy * const gb)
 {
     gb_unload_cart (gb);
 }
-
-/* Debug functions, used here for now */
-#if DEBUG_TILES
-void debug_update_tiles (GameBoy * const gb)
-{
-    /* VRAM offset address */
-    uint16_t addr;
-    
-    for (addr = 0; addr < 0x1000; addr++)
-    {
-        /* Identify tile and pixel row */
-        const uint8_t tile = (addr >> 4) & 255;
-        const uint8_t y = (addr >> 1) & 7;
-
-        uint8_t idx;
-        uint8_t x;
-#if LOOP
-        for (x = 0; x < 8; x++)
-        {
-            /* Bit index for byte value */
-            idx = 1 << (7 - x);
-
-            gb->tileSet[tile][y][x] =
-                ((gb->mmu.vram.data[addr] & idx)   ? 1 : 0) +
-                ((gb->mmu.vram.data[addr+1] & idx) ? 2 : 0);
-        }
-#endif
-    }
-}
-#endif
