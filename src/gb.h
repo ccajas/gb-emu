@@ -87,9 +87,10 @@ void gb_init     (GameBoy * const, void *,
                   struct gb_debug *);
 void gb_shutdown (GameBoy * const);
 
-uint8_t gb_step        (GameBoy * const);
-void    gb_frame       (GameBoy * const);
-void    gb_print_logo  (GameBoy * const, const uint8_t);
-void    gb_unload_cart (GameBoy * const);
+uint8_t gb_step         (GameBoy * const);
+void    gb_frame        (GameBoy * const);
+void    gb_debug_update (GameBoy * const);
+void    gb_print_logo   (GameBoy * const, const uint8_t);
+void    gb_unload_cart  (GameBoy * const);
 
 #endif

@@ -84,30 +84,36 @@ void update_tiles (GameBoy * const gb, uint8_t * const pixels)
 
 int main (int argc, char * argv[])
 {
+    int draw = 0;
     GLFWwindow* window;
-    glfwSetErrorCallback(error_callback);
+    GLuint program;
 
-    if (!glfwInit())
-        exit(EXIT_FAILURE);
-
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-
-    window = glfwCreateWindow(512, 512, "Simple example", NULL, NULL);
-    if (!window)
+    if (draw)
     {
-        glfwTerminate();
-        exit(EXIT_FAILURE);
+        glfwSetErrorCallback(error_callback);
+
+        if (!glfwInit())
+            exit(EXIT_FAILURE);
+
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+
+        window = glfwCreateWindow(512, 512, "Simple example", NULL, NULL);
+        if (!window)
+        {
+            glfwTerminate();
+            exit(EXIT_FAILURE);
+        }
+
+        glfwSetKeyCallback(window, key_callback);
+        glfwMakeContextCurrent(window);
+        
+        gladLoadGL();
+        glfwSwapInterval(1);
+
+        program = scene_compile_shaders();
+        scene_setup_buffers (program);
     }
-
-    glfwSetKeyCallback(window, key_callback);
-    glfwMakeContextCurrent(window);
-    
-    gladLoadGL();
-    glfwSwapInterval(1);
-
-    GLuint program = scene_compile_shaders();
-    scene_setup_buffers (program);
 
     GameBoy GB;
 
@@ -155,41 +161,63 @@ int main (int argc, char * argv[])
     t = clock();
     uint32_t frames = 0;
 
-    while (!glfwWindowShouldClose(window))
-    { 
-        scene_begin (window);
-        scene_draw_triangle (window, program);
+    if (draw)
+    {
+        while (!glfwWindowShouldClose(window))
+        { 
+            scene_begin (window);
+            scene_draw_triangle (window, program);
 
-        if (frames < totalFrames)
+            if (frames < totalFrames)
+            {
+                gb_frame (&GB);
+                frames++;
+                LOG_("Ran frame %d\n", frames);
+            }
+            else
+            {
+                if (!gbFinished)
+                {
+                    gb_shutdown (&GB);
+                    t = clock() - t;
+                    gbFinished = 1;         
+
+                    double timeTaken = ((double)t)/CLOCKS_PER_SEC; /* Elapsed time */
+                    LOG_("The program took %f seconds to execute %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, totalFrames, totalSeconds / timeTaken);
+                    LOG_("For each second, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));        
+                }
+            }
+
+            glfwSwapBuffers(window);
+            glfwPollEvents();
+        }
+    }
+    else
+    {
+        while (frames < totalFrames)
         {
             gb_frame (&GB);
             frames++;
-            LOG_("Ran frame %d\n", frames);
-        }
-        else
-        {
-            if (!gbFinished)
-            {
-                gb_shutdown (&GB);
-                t = clock() - t;
-                gbFinished = 1;         
-
-                double timeTaken = ((double)t)/CLOCKS_PER_SEC; /* Elapsed time */
-                LOG_("The program took %f seconds to execute %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, totalFrames, totalSeconds / timeTaken);
-                LOG_("For each second, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));        
-            }
+            //LOG_("Ran frame %d\n", frames);
         }
 
-        glfwSwapBuffers(window);
-        glfwPollEvents();
+        gb_shutdown (&GB);
+        t = clock() - t;
+        gbFinished = 1;         
+
+        double timeTaken = ((double)t)/CLOCKS_PER_SEC; /* Elapsed time */
+        LOG_("The program took %f seconds to execute %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, totalFrames, totalSeconds / timeTaken);
+        LOG_("For each second, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));   
     }
 
     free(gbData.rom);
 
-    glfwDestroyWindow(window);
-
-    glfwTerminate();
-    exit(EXIT_SUCCESS);
+    if (draw)
+    {
+        glfwDestroyWindow(window);
+        glfwTerminate();
+        exit(EXIT_SUCCESS);
+    }
 
     return 0;
 }

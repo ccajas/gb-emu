@@ -128,7 +128,12 @@ void gb_frame (GameBoy * const gb)
     {
         /* Do extra stuff in between steps */
     }
-    /* Stuff to do after frame is done */
+    /* Call update to debug visualizations after frame is done */
+    gb_debug_update (gb);
+}
+
+void gb_debug_update (GameBoy * const gb)
+{
     if (gb->gb_debug != NULL)
     {
         /* Fetch VRAM data */
