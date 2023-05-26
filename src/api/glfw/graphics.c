@@ -134,6 +134,19 @@ void draw_lazy_quad(const float width, const float height, const int i)
     glBindVertexArray(0);
 }
 
+uint8_t pixelData[8192 * 2 * 3];
+
+inline void test_pixeldata()
+{
+    int i;
+    for (i = 0; i < 8192; i++)
+    {
+        int p;
+        for (p = 0; p < 6; p++)
+            pixelData[i * 6 + p] = 0xff;
+    }
+}
+
 void graphics_init (Scene * const scene)
 {
     gladLoadGL();
@@ -149,9 +162,11 @@ void graphics_init (Scene * const scene)
 
     /* Create main textures */
     texture_setup (&scene->fbufferTexture,   160, 144, GL_NEAREST, NULL);
-    texture_setup (&scene->pTableTexture,    256, 256, GL_NEAREST, NULL);
+    texture_setup (&scene->vramTexture,      128, 128, GL_NEAREST, NULL);
     texture_setup (&scene->nameTableTexture, 512, 480, GL_NEAREST, NULL);
     //texture_setup (&scene->paletteTexture, 64,  1, GL_NEAREST, pixels);
+
+    test_pixeldata();
 
     glDisable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
@@ -168,7 +183,7 @@ void draw_scene (GLFWwindow * window, Scene * const scene)
     glfwGetFramebufferSize (window, &width, &height);
 
     /* Render the PPU framebuffer here */
-    glUseProgram(scene->fbufferShader.program);
+    glUseProgram(scene->debugShader.program);
     mat4x4 model;
     mat4x4 projection;
 
@@ -176,14 +191,14 @@ void draw_scene (GLFWwindow * window, Scene * const scene)
     mat4x4_identity (model);
     mat4x4_scale_aniso (model, model, width, height, 1.0f);
 
-    glUniformMatrix4fv (glGetUniformLocation(scene->fbufferShader.program, "model"),      1, GL_FALSE, (const GLfloat*) model);
-    glUniformMatrix4fv (glGetUniformLocation(scene->fbufferShader.program, "projection"), 1, GL_FALSE, (const GLfloat*) projection);
+    glUniformMatrix4fv (glGetUniformLocation(scene->debugShader.program, "model"),      1, GL_FALSE, (const GLfloat*) model);
+    glUniformMatrix4fv (glGetUniformLocation(scene->debugShader.program, "projection"), 1, GL_FALSE, (const GLfloat*) projection);
 
     glActiveTexture (GL_TEXTURE0);
 
     /* Draw framebuffer */
-    glBindTexture (GL_TEXTURE_2D, scene->fbufferTexture);
-    //glTexImage2D  (GL_TEXTURE_2D, 0, GL_RGBA, 256, 240, 0, GL_RGB, GL_UNSIGNED_BYTE, &NES.ppu.frameBuffer);
+    glBindTexture (GL_TEXTURE_2D, scene->vramTexture);
+    glTexImage2D  (GL_TEXTURE_2D, 0, GL_RGBA, 128, 128, 0, GL_RGB, GL_UNSIGNED_BYTE, &pixelData);
 	draw_lazy_quad(1.0f, 1.0f, 0);
 
     glBindTexture(GL_TEXTURE_2D, 0);

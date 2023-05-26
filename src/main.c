@@ -10,7 +10,8 @@
 #include "utils/fileread.h"
 #include "utils/v_array.h"
 #include "api/glfw/utils/linmath.h"
-#include "api/glfw/triangle_test.h"
+#include "api/glfw/graphics.h"
+#include "api/glfw/test_2.h"
 
 #include "gb.h"
 
@@ -84,9 +85,10 @@ void update_tiles (GameBoy * const gb, uint8_t * const pixels)
 
 int main (int argc, char * argv[])
 {
-    int draw = 0;
+    int draw = 1;
     GLFWwindow* window;
-    GLuint program;
+    Shader testShader;
+    Scene scene = { .bgColor = { 173, 175, 186 }};
 
     if (draw)
     {
@@ -98,7 +100,7 @@ int main (int argc, char * argv[])
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
-        window = glfwCreateWindow(512, 512, "Simple example", NULL, NULL);
+        window = glfwCreateWindow(512, 512, "GB Emu", NULL, NULL);
         if (!window)
         {
             glfwTerminate();
@@ -107,12 +109,14 @@ int main (int argc, char * argv[])
 
         glfwSetKeyCallback(window, key_callback);
         glfwMakeContextCurrent(window);
-        
+
+        graphics_init (&scene);
+        /*
         gladLoadGL();
         glfwSwapInterval(1);
 
-        program = scene_compile_shaders();
-        scene_setup_buffers (program);
+        testShader = shader_init_source (vertex_shader_text, fragment_shader_text);
+        scene_setup_buffers (testShader.program);*/
     }
 
     GameBoy GB;
@@ -165,8 +169,9 @@ int main (int argc, char * argv[])
     {
         while (!glfwWindowShouldClose(window))
         { 
-            scene_begin (window);
-            scene_draw_triangle (window, program);
+            draw_scene (window, &scene);
+            //scene_begin (window);
+            //scene_draw (window, testShader.program);
 
             if (frames < totalFrames)
             {

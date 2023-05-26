@@ -11,7 +11,7 @@ typedef struct Scene_struct
 
     GLuint 
         fbufferTexture, 
-        pTableTexture, 
+        vramTexture, 
         nameTableTexture,
         paletteTexture;
     Shader 
@@ -26,6 +26,7 @@ extern const char * ppu_fs_source;
 
 extern uint32_t quadVAO[2];
 
+void graphics_init  (Scene * const);
 void draw_lazy_quad (const float width, const float height, const int i);
 void draw_scene     (GLFWwindow *, Scene * const);
 
