@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <time.h>
 
+#include <glad/glad.h>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-#include <glad/glad.h>
 
 #include "utils/fileread.h"
 #include "utils/v_array.h"
@@ -42,6 +42,8 @@ struct gb_data
 {
     uint8_t * bootRom;
     uint8_t * rom;
+
+    uint8_t vram_raw[VRAM_SIZE * 2 * 3]; /* 2 pixels per VRAM byte, 3 channels/pixel */
 };
 
 /* Concrete function definitions for the emulator frontend */
@@ -54,7 +56,28 @@ uint8_t rom_read (void * dataPtr, const uint16_t addr)
 
 /* Concrete debug functions for the frontend */
 
-void update_tiles (GameBoy * gb)
+void peek_vram (void * dataPtr, uint8_t * data)
+{
+    struct gb_data * const gbData = dataPtr;
+
+    int i;
+    int v = 0;
+    for (i = 0; i < VRAM_SIZE; i++)
+    {
+        uint8_t hi = data[i] >> 4;
+        uint8_t lo = data[i] & 0xf;
+
+        gbData->vram_raw[v++] = 0;
+        gbData->vram_raw[v++] = hi * 0x11;
+        gbData->vram_raw[v++] = hi * 0x11;
+
+        gbData->vram_raw[v++] = 0;
+        gbData->vram_raw[v++] = lo * 0x11;
+        gbData->vram_raw[v++] = lo * 0x11;
+    }
+}
+
+void update_tiles (GameBoy * const gb, uint8_t * const pixels)
 {
 
 }
@@ -78,8 +101,8 @@ int main (int argc, char * argv[])
     }
 
     glfwSetKeyCallback(window, key_callback);
-
     glfwMakeContextCurrent(window);
+    
     gladLoadGL();
     glfwSwapInterval(1);
 
@@ -98,6 +121,12 @@ int main (int argc, char * argv[])
     struct gb_func gb_func =
     {
         .gb_rom_read = rom_read
+    };
+
+    struct gb_debug gb_debug =
+    {
+        .peek_vram = peek_vram,
+        .update_tiles = update_tiles
     };
 
     /* Load file from command line */
@@ -119,7 +148,7 @@ int main (int argc, char * argv[])
     uint8_t gbFinished = 0;
 
     /* Load ROM */
-    gb_init (&GB, &gbData, &gb_func, NULL);
+    gb_init (&GB, &gbData, &gb_func, &gb_debug);
 
     /* Start clock */
     clock_t t;

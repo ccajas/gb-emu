@@ -29,7 +29,8 @@ struct gb_func
 
 struct gb_debug
 {
-    uint8_t (*update_tiles)(GameBoy * const);
+    void (*peek_vram)(void *, uint8_t *);
+    void (*update_tiles)(GameBoy * const, uint8_t * const);
 };
 
 typedef struct gb_struct 

@@ -13,6 +13,9 @@ void gb_init (GameBoy * const gb, void * dataPtr,
     gb->mmu.direct.ptr = dataPtr;
 
     /* Pass down emulator context functions to components */
+    gb->gb_func  = gb_func;
+    gb->gb_debug = gb_debug;
+    
     gb->mmu.rom_read = gb_func->gb_rom_read;
 
     /* Debug functions */
@@ -126,7 +129,23 @@ void gb_frame (GameBoy * const gb)
         /* Do extra stuff in between steps */
     }
     /* Stuff to do after frame is done */
-    //debug_update_tiles (gb);
+    if (gb->gb_debug != NULL)
+    {
+        /* Fetch VRAM data */
+        if (gb->gb_debug->peek_vram)
+        {
+            uint8_t * vramData = calloc (VRAM_SIZE, sizeof(uint8_t));
+            memcpy (vramData, gb->mmu.vram.data, VRAM_SIZE);
+
+            gb->gb_debug->peek_vram (gb->direct.ptr, vramData);
+        }
+        /* Convert tileset data into raw pixels */
+        if (gb->gb_debug->update_tiles)
+        {
+            uint8_t * pixels = NULL; 
+            gb->gb_debug->update_tiles (gb, pixels);
+        }
+    }
 }
 
 void gb_unload_cart (GameBoy * const gb)
