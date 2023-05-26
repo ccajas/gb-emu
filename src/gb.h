@@ -77,7 +77,6 @@ inline void gb_reset(GameBoy * const gb)
     
     /* Init PPU with default values */
     PPU defaultPPU = {
-        .mode = 0,
         .ticks = 0
     };
     gb->ppu = defaultPPU;

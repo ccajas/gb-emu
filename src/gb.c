@@ -111,10 +111,11 @@ uint8_t gb_step (GameBoy * const gb)
     //cpu_state (&gb->cpu, &gb->mmu);
 #endif
 
-    const uint8_t frameDone = ppu_step (&gb->ppu, gb->mmu.hram, tCycles);
+    const uint8_t frameDone = ppu_step (&gb->ppu, gb->mmu.io, tCycles);
 
-    if (gb->frameClock >= FRAME_CYCLES)
+    if (frameDone)//gb->frameClock >= FRAME_CYCLES)
     {
+        LOG_("Frame cycles: %d\n", gb->frameClock);
         gb->frames++;
         gb->frameClock -= FRAME_CYCLES;
     }

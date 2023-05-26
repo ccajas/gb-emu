@@ -1,10 +1,29 @@
 #ifndef PPU_H
 #define PPU_H
 
+#include <stdio.h>
 #include <stdint.h>
 
 #define SCREEN_LINES      144
 #define SCAN_LINES        154
+
+/* Related IO registers */
+static const enum
+{
+    IO_LCDC	= 0x40,
+    IO_STAT	= 0x41,
+    IO_SCY	= 0x42,
+    IO_SCX	= 0x43,
+    IO_LY	= 0x44,
+    IO_LYC	= 0x45,
+    IO_DMA	= 0x46,
+    IO_BGP	= 0x47,
+    IO_OBP0	= 0x48,
+    IO_OBP1	= 0x49,
+    IO_WY	= 0x4A,
+    IO_WX	= 0x4B
+}
+registers;
 
 typedef struct PPU_struct
 {
@@ -16,7 +35,6 @@ typedef struct PPU_struct
         STAT_TRANSFER
     }
     modes;
-    uint8_t mode;
 
     enum {
         TICKS_HBLANK      = 208,
@@ -48,7 +66,8 @@ typedef struct PPU_struct
     LCDC;
 
     uint16_t ticks;
-    uint8_t  line;
+    uint32_t frameTicks;
+    //uint8_t  line;
 }
 PPU;
 

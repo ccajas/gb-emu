@@ -48,7 +48,17 @@ void mmu_reset (MMU * const mmu)
 #endif
 
     mmu->inBios = 0;
-    mmu->hram[0x50] = 0; /* Boot ROM not read by default */
+    /* Set default IO register values */
+    memset(mmu->io, 0, IO_HRAM_SIZE * sizeof(uint8_t));
+
+    /* Interrupt request flags */
+    mmu->io[0xF] = 0xE1;
+
+    /* Display-related registers */
+    mmu->io[IO_LCDC] = 0x91;
+    mmu->io[IO_STAT] = 0x85;
+    mmu->io[IO_DMA]  = 0xFF;
+    mmu->io[IO_BGP]  = 0xFC;
 
     /* Copy boot ROM */
     memcpy(mmu->bios, testBootRom, sizeof(uint8_t) * 256);
@@ -57,7 +67,7 @@ void mmu_reset (MMU * const mmu)
 uint8_t mmu_rb (MMU * const mmu, uint16_t const addr) 
 {
     /* Hardcode $FF44 for testing */
-    if (addr == 0xFF44) return 0x90;
+    //if (addr == 0xFF44) return 0x90;
 
     /* Read 8-bit byte from a given address */
     switch (addr >> 12)
@@ -170,7 +180,7 @@ void mmu_wb (MMU * const mmu, uint16_t const addr, uint8_t val)
                     if (addr >= 0xFF80) /* HRAM / IO */
                         mmu->hram[addr & 0x7F] = val;
                     else
-                        {}
+                        mmu->io[addr & 0x7F] = val;
                 break;
             }
     }

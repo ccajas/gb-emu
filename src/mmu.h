@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "utils/v_array.h"
+#include "ppu.h"
 
 #define CART_MIN_SIZE_KB  32
 
