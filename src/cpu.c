@@ -40,8 +40,6 @@ void cpu_init (CPU * const cpu)
 
 void cpu_state (CPU * const cpu, MMU * const mmu)
 {
-
-#ifdef GB_DEBUG
     const uint16_t pc = cpu->pc;
 
     printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",
@@ -49,7 +47,6 @@ void cpu_state (CPU * const cpu, MMU * const mmu)
         cpu->sp, cpu->pc, 
         mmu_rb (mmu, pc), mmu_rb (mmu, pc+1), mmu_rb (mmu, pc+2), mmu_rb (mmu, pc+3)
     );
-#endif
 }
 
 void cpu_boot_reset (CPU * const cpu)

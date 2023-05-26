@@ -11,7 +11,6 @@
 #include "utils/v_array.h"
 #include "api/glfw/utils/linmath.h"
 #include "api/glfw/graphics.h"
-#include "api/glfw/test_2.h"
 
 #include "gb.h"
 
@@ -87,7 +86,6 @@ int main (int argc, char * argv[])
 {
     int draw = 1;
     GLFWwindow* window;
-    Shader testShader;
     Scene scene = { .bgColor = { 173, 175, 186 }};
 
     if (draw)
@@ -111,12 +109,6 @@ int main (int argc, char * argv[])
         glfwMakeContextCurrent(window);
 
         graphics_init (&scene);
-        /*
-        gladLoadGL();
-        glfwSwapInterval(1);
-
-        testShader = shader_init_source (vertex_shader_text, fragment_shader_text);
-        scene_setup_buffers (testShader.program);*/
     }
 
     GameBoy GB;
@@ -127,6 +119,8 @@ int main (int argc, char * argv[])
 		.rom = NULL,
 		.bootRom = NULL
 	};
+
+    memset(gbData.vram_raw, 0x77, VRAM_SIZE * 6);
 
     struct gb_func gb_func =
     {
@@ -152,7 +146,7 @@ int main (int argc, char * argv[])
         return 1;
     }
 
-    const uint32_t totalFrames = 150;
+    const uint32_t totalFrames = 120;
     const float totalSeconds = (float)totalFrames / 60.0;
     
     uint8_t gbFinished = 0;
@@ -169,9 +163,7 @@ int main (int argc, char * argv[])
     {
         while (!glfwWindowShouldClose(window))
         { 
-            draw_scene (window, &scene);
-            //scene_begin (window);
-            //scene_draw (window, testShader.program);
+            draw_scene (window, &scene, gbData.vram_raw);
 
             if (frames < totalFrames)
             {
@@ -203,7 +195,7 @@ int main (int argc, char * argv[])
         {
             gb_frame (&GB);
             frames++;
-            //LOG_("Ran frame %d\n", frames);
+            LOG_("Ran frame %d\n", frames);
         }
 
         gb_shutdown (&GB);

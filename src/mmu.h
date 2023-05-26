@@ -6,8 +6,8 @@
 
 #define CART_MIN_SIZE_KB  32
 
-#define USING_DYNAMIC_ARRAY_
-#define FAST_ROM_READ
+#define USING_DYNAMIC_ARRAY
+#define FAST_ROM_READ__
 
 typedef struct MMU_struct
 {
@@ -28,7 +28,7 @@ typedef struct MMU_struct
     struct VArray rom;
 #endif
 
-#ifdef USING_DYNAMIC_ARRAY_
+#ifdef USING_DYNAMIC_ARRAY
     struct VArray vram, eram, wram;
 #else
     uint8_t vram[VRAM_SIZE];

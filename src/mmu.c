@@ -1,7 +1,7 @@
 #include <string.h>
 #include "mmu.h"
 
-#ifdef USING_DYNAMIC_ARRAY_
+#ifdef USING_DYNAMIC_ARRAY
     #define VRAM_DATA_(N)   mmu->vram.data[N & 0x1FFF]
     #define ERAM_DATA_(N)   mmu->eram.data[N & 0x1FFF]
     #define WRAM_DATA_(N)   mmu->wram.data[N & 0x1FFF]
@@ -37,7 +37,7 @@ void mmu_reset (MMU * const mmu)
     vc_init (&mmu->rom, CART_MIN_SIZE_KB << 10);
 #endif
 
-#ifdef USING_DYNAMIC_ARRAY_
+#ifdef USING_DYNAMIC_ARRAY
     vc_init (&mmu->vram, VRAM_SIZE);
     vc_init (&mmu->eram, ERAM_SIZE);
     vc_init (&mmu->wram, WRAM_SIZE);
@@ -141,6 +141,7 @@ void mmu_wb (MMU * const mmu, uint16_t const addr, uint8_t val)
     {
         case 0x8000: case 0x9000:
         /* Video RAM */
+            VRAM_DATA_(addr) = val;
         break;
         case 0xA000: case 0xB000:
         /* External RAM */

@@ -10,6 +10,9 @@
 
 #define GB_DEBUG__
 
+#define CPU_FREQ          4194304    /* Equal to (1 << 20) * 4 */
+#define FRAME_CYCLES      70224
+
 #ifdef GB_DEBUG
     #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
 #else

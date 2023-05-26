@@ -28,7 +28,7 @@ extern uint32_t quadVAO[2];
 
 void graphics_init  (Scene * const);
 void draw_lazy_quad (const float width, const float height, const int i);
-void draw_scene     (GLFWwindow *, Scene * const);
+void draw_scene     (GLFWwindow *, Scene * const, uint8_t *);
 
 inline void texture_setup (uint32_t * const textureID, uint16_t width, uint16_t height, GLenum filter, const void * data)
 {

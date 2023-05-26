@@ -97,11 +97,6 @@ void gb_print_logo (GameBoy * const gb, const uint8_t charCode)
 }
 #endif
 
-#define CPU_FREQ          4194304    /* Equal to (1 << 20) * 4 */
-#define FRAME_CYCLES      70224
-#define TEST_MAX_STEPS    45000000
-#define TEST_MAX_CLOCKS   CPU_FREQ * 100
-
 uint8_t gb_step (GameBoy * const gb)
 {
     const int8_t tCycles = cpu_step (&gb->cpu, &gb->mmu);
@@ -112,6 +107,7 @@ uint8_t gb_step (GameBoy * const gb)
 #ifdef GB_DEBUG
     //cpu_state (&gb->cpu, &gb->mmu);
 #endif
+
     const uint8_t frameDone = ppu_step (&gb->ppu, gb->mmu.hram, tCycles);
 
     if (gb->frameClock >= FRAME_CYCLES)
@@ -142,6 +138,7 @@ void gb_debug_update (GameBoy * const gb)
         /* Fetch VRAM data */
         if (gb->gb_debug->peek_vram)
         {
+            //uint8_t vramData[VRAM_SIZE];
             uint8_t * vramData = calloc (VRAM_SIZE, sizeof(uint8_t));
             memcpy (vramData, gb->mmu.vram.data, VRAM_SIZE);
 

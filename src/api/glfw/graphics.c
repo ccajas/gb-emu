@@ -10,7 +10,7 @@ const char * default_fs_source =
 "void main()\n"
 "{\n"
 "    vec3 sampled = texture2D(indexed, TexCoords).rgb;\n"
-"    gl_FragColor = vec4(sampled, 0.75);\n"
+"    gl_FragColor = vec4(sampled, 1.0);\n"
 "}\n";
 
 const char * ppu_vs_source =
@@ -143,14 +143,16 @@ inline void test_pixeldata()
     {
         int p;
         for (p = 0; p < 6; p++)
-            pixelData[i * 6 + p] = 0xff;
+        {
+            pixelData[i * 6 + p] = (i & 7) << 3;
+        }            
     }
 }
 
 void graphics_init (Scene * const scene)
 {
     gladLoadGL();
-    glfwSwapInterval(0);
+    glfwSwapInterval(1);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -174,7 +176,7 @@ void graphics_init (Scene * const scene)
     glDepthFunc(GL_LEQUAL);
 }
 
-void draw_scene (GLFWwindow * window, Scene * const scene)
+void draw_scene (GLFWwindow * window, Scene * const scene, uint8_t * pixels)
 {
 	glClearColor((GLfloat)scene->bgColor[0] / 255, (GLfloat)scene->bgColor[1] / 255, (GLfloat)scene->bgColor[2] / 255, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -198,7 +200,7 @@ void draw_scene (GLFWwindow * window, Scene * const scene)
 
     /* Draw framebuffer */
     glBindTexture (GL_TEXTURE_2D, scene->vramTexture);
-    glTexImage2D  (GL_TEXTURE_2D, 0, GL_RGBA, 128, 128, 0, GL_RGB, GL_UNSIGNED_BYTE, &pixelData);
+    glTexImage2D  (GL_TEXTURE_2D, 0, GL_RGBA, 128, 128, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 	draw_lazy_quad(1.0f, 1.0f, 0);
 
     glBindTexture(GL_TEXTURE_2D, 0);
