@@ -16,13 +16,11 @@
     #define LOG_(f_, ...)
 #endif
 
-#define CART_MIN_SIZE_KB  32
-
 /* Functions that can be exposed to the frontend */
 
 struct gb_func
 {
-    uint8_t (*gb_rom_read)(void *, const uint16_t addr);
+    uint8_t (*gb_rom_read)(void *, const uint_fast32_t addr);
 };
 
 /* Debug functions for the frontend */

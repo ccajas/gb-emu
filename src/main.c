@@ -48,7 +48,7 @@ struct gb_data
 
 /* Concrete function definitions for the emulator frontend */
 
-uint8_t rom_read (void * dataPtr, const uint16_t addr)
+uint8_t rom_read (void * dataPtr, const uint_fast32_t addr)
 {
     const struct gb_data * const gbData = dataPtr;
     return gbData->rom[addr];

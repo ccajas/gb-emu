@@ -33,6 +33,10 @@ const uint8_t testBootRom[] =
 
 void mmu_reset (MMU * const mmu)
 {
+#ifdef FAST_ROM_READ
+    vc_init (&mmu->rom, CART_MIN_SIZE_KB << 10);
+#endif
+
 #ifdef USING_DYNAMIC_ARRAY_
     vc_init (&mmu->vram, VRAM_SIZE);
     vc_init (&mmu->eram, ERAM_SIZE);
@@ -65,11 +69,19 @@ uint8_t mmu_rb (MMU * const mmu, uint16_t const addr)
                 return mmu->bios[addr];
             }
             else
+#ifdef FAST_ROM_READ
+                return mmu->rom.data[addr];
+#else
                 return mmu->rom_read(mmu->direct.ptr, addr);/* mmu->rom.data[addr]; */
+#endif
         break;
         case 0x4 ... 0x7:        
         /* ROM bank 1 ... N */
+#ifdef FAST_ROM_READ
+            return mmu->rom.data[addr];
+#else
             return mmu->rom_read(mmu->direct.ptr, addr);
+#endif
         break;
         case 0x8: case 0x9:
         /* Video RAM */

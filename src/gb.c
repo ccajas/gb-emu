@@ -33,10 +33,13 @@ void gb_init (GameBoy * const gb, void * dataPtr,
     LOG_("Test read byte 0x148 (1): %02X\n", gb->cart.romSize);
     LOG_("Test read byte 0x148 (2): %02X\n", gb->mmu.rom_read(gb->direct.ptr, 0x148));
 
-    const uint32_t romSize = (CART_MIN_SIZE_KB << gb->cart.romSize) << 10;
-    //vc_init (&mmu->rom, romSize);
-    //vc_push_array (&mmu->rom, romData, romSize, 0);
+    const uint_fast32_t romSize = (CART_MIN_SIZE_KB << gb->cart.romSize) << 10;
 
+#ifdef FAST_ROM_READ
+    vc_init (&gb->mmu.rom, romSize);
+    for (i = 0; i < romSize; i++)
+        vc_push (&gb->mmu.rom, gb->mmu.rom_read(gb->direct.ptr, i));
+#endif
     //free (romData);
 
     /* Fallback: load boot ROM */

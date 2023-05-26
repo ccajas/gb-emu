@@ -4,7 +4,10 @@
 #include <stdint.h>
 #include "utils/v_array.h"
 
+#define CART_MIN_SIZE_KB  32
+
 #define USING_DYNAMIC_ARRAY_
+#define FAST_ROM_READ
 
 typedef struct MMU_struct
 {
@@ -21,7 +24,9 @@ typedef struct MMU_struct
     }
     ramSizes;
 
-    /*struct VArray rom; */
+#ifdef FAST_ROM_READ
+    struct VArray rom;
+#endif
 
 #ifdef USING_DYNAMIC_ARRAY_
     struct VArray vram, eram, wram;
@@ -44,7 +49,7 @@ typedef struct MMU_struct
     direct;
 
     /* Memory read/write functions passed on from GameBoy object */
-    uint8_t (*rom_read)(void *, const uint16_t addr);
+    uint8_t (*rom_read)(void *, const uint_fast32_t addr);
 }
 MMU;
 
