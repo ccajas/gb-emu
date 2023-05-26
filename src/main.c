@@ -208,7 +208,7 @@ int main (int argc, char * argv[])
     }
 
     const int32_t totalFrames = -1;
-    const float totalSeconds = (float)totalFrames / 60.0;
+    float totalSeconds = (float)totalFrames / 60.0;
     
     uint8_t gbFinished = 0;
 
@@ -230,7 +230,7 @@ int main (int argc, char * argv[])
             {
                 gb_frame (&GB);
                 frames++;
-                LOG_("Ran frame %d\n", frames);
+                /*LOG_("Ran frame %d\n", frames);*/
             }
             else
             {
@@ -268,7 +268,14 @@ int main (int argc, char * argv[])
         LOG_("For each second, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));   
     }
 
+    t = clock() - t;
+    totalSeconds = (float)frames / 60.0;
+
     free(gbData.rom);
+
+    double timeTaken = ((double)t)/CLOCKS_PER_SEC; /* Elapsed time */
+    LOG_("The program took %f seconds to execute %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, frames, totalSeconds / timeTaken);
+    LOG_("For each second, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));  
 
     if (draw)
     {
