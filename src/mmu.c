@@ -55,10 +55,10 @@ void mmu_reset (MMU * const mmu)
     mmu->io[0xF] = 0xE1;
 
     /* Display-related registers */
-    mmu->io[IO_LCDC] = 0x91;
-    mmu->io[IO_STAT] = 0x85;
-    mmu->io[IO_DMA]  = 0xFF;
-    mmu->io[IO_BGP]  = 0xFC;
+    mmu->io[IO_LCDControl] = 0x91;
+    mmu->io[IO_LCDStatus]  = 0x85;
+    mmu->io[IO_DMA]        = 0xFF;
+    mmu->io[IO_BGPalette]  = 0xFC;
 
     /* Copy boot ROM */
     memcpy(mmu->bios, testBootRom, sizeof(uint8_t) * 256);

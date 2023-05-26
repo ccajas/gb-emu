@@ -51,7 +51,7 @@ typedef struct gb_struct
     uint64_t stepCount;
 
     /* Time keeping */
-    uint32_t frameClock;
+    int32_t  frameClock;
     uint32_t frames;
 
     /* Used for debugging output */
@@ -72,9 +72,9 @@ GameBoy;
 
 inline void gb_reset(GameBoy * const gb)
 {
-    mmu_reset (&gb->mmu);
     cpu_boot_reset (&gb->cpu);
-    
+    mmu_reset (&gb->mmu);
+
     /* Init PPU with default values */
     PPU defaultPPU = {
         .ticks = 0

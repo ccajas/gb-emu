@@ -10,18 +10,20 @@
 /* Related IO registers */
 static const enum
 {
-    IO_LCDC	= 0x40,
-    IO_STAT	= 0x41,
-    IO_SCY	= 0x42,
-    IO_SCX	= 0x43,
-    IO_LY	= 0x44,
-    IO_LYC	= 0x45,
-    IO_DMA	= 0x46,
-    IO_BGP	= 0x47,
-    IO_OBP0	= 0x48,
-    IO_OBP1	= 0x49,
-    IO_WY	= 0x4A,
-    IO_WX	= 0x4B
+    IO_LCDControl	= 0x40,
+    IO_LCDStatus	= 0x41,
+    IO_ScrollY	    = 0x42,
+    IO_ScrollX	    = 0x43,
+    IO_LineY	    = 0x44,
+    IO_LineYC	    = 0x45,
+    IO_DMA	        = 0x46,
+    IO_BGPalette	= 0x47,
+    IO_OBJPalette0	= 0x48,
+    IO_OBJPalette1	= 0x49,
+    IO_WindowY	    = 0x4A,
+    IO_WindowX	    = 0x4B,
+    IO_IntrFlag     = 0x0F,
+    IO_IntrEnabled  = 0xFF
 }
 registers;
 
@@ -29,18 +31,18 @@ typedef struct PPU_struct
 {
     /* Used for comparing and setting PPU mode timings */
     enum {
-        STAT_HBLANK = 0,
-        STAT_VBLANK,
-        STAT_OAM_SEARCH,
-        STAT_TRANSFER
+        Stat_HBlank = 0,
+        Stat_VBlank,
+        Stat_OAM_Search,
+        Stat_Transfer
     }
     modes;
 
     enum {
-        TICKS_HBLANK      = 208,
-        TICKS_VBLANK      = 456,
+        TICKS_OAM_READ    = 80,
         TICKS_LCDTRANSFER = 172,
-        TICKS_OAM_READ    = 80
+        TICKS_HBLANK      = 204,
+        TICKS_VBLANK      = 456
     }
     modeTicks;
 
