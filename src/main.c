@@ -43,6 +43,7 @@ struct gb_data
     uint8_t * rom;
 
     uint8_t vram_raw[VRAM_SIZE * 2 * 3]; /* 2 pixels per VRAM byte, 3 channels/pixel */
+    uint8_t tilemap[256 * 64 * 3];
 };
 
 /* Concrete function definitions for the emulator frontend */
@@ -55,7 +56,7 @@ uint8_t rom_read (void * dataPtr, const uint_fast32_t addr)
 
 /* Concrete debug functions for the frontend */
 
-void peek_vram (void * dataPtr, uint8_t * data)
+void peek_vram (void * dataPtr, const uint8_t * data)
 {
     struct gb_data * const gbData = dataPtr;
 
@@ -76,9 +77,42 @@ void peek_vram (void * dataPtr, uint8_t * data)
     }
 }
 
-void update_tiles (GameBoy * const gb, uint8_t * const addr)
+void update_tiles (void * dataPtr, const uint8_t * data)
 {
+    struct gb_data * const gbData = dataPtr;
 
+    const uint8_t tileSize = 16;
+
+    int t;
+    for (t = 0; t <= 255; t++)
+    {
+        uint16_t tileXoffset = (t % 16) * 8;
+        uint16_t tileYoffset = (t >> 4) * 1024;
+
+        int y;
+        for (y = 0; y < 8; y++)
+        {
+            const uint8_t row1 = *(data + (y * 2));
+            const uint8_t row2 = *(data + (y * 2) + 1);
+
+            const uint16_t yOffset = y * 128;
+
+            int x;
+            for (x = 0; x < 8; x++)
+            {
+                uint8_t col1 = row1 >> (7 - x);
+                uint8_t col2 = row2 >> (7 - x);
+                
+                const uint8_t  colorID = (col1 & 1) + ((col2 & 1) << 1);
+                const uint16_t pixelData = (tileYoffset + yOffset + tileXoffset + x) * 3;
+
+                gbData->tilemap[pixelData] = colorID * 0x55;
+                gbData->tilemap[pixelData + 1] = colorID * 0x55;
+                gbData->tilemap[pixelData + 2] = colorID * 0x55;
+            }
+        }
+        data += tileSize;
+    }
 }
 
 /*
@@ -145,7 +179,9 @@ int main (int argc, char * argv[])
 		.bootRom = NULL
 	};
 
+    /* Set data to default values */
     memset(gbData.vram_raw, 0, VRAM_SIZE * 6);
+    memset(gbData.tilemap,  0, VRAM_SIZE * 6);
 
     struct gb_func gb_func =
     {
@@ -171,7 +207,7 @@ int main (int argc, char * argv[])
         return 1;
     }
 
-    const uint32_t totalFrames = 120;
+    const int32_t totalFrames = -1;
     const float totalSeconds = (float)totalFrames / 60.0;
     
     uint8_t gbFinished = 0;
@@ -188,7 +224,7 @@ int main (int argc, char * argv[])
     {
         while (!glfwWindowShouldClose(window))
         { 
-            draw_scene (window, &scene, gbData.vram_raw);
+            draw_scene (window, &scene, gbData.tilemap);
 
             if (frames < totalFrames)
             {

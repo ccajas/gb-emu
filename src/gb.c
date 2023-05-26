@@ -141,17 +141,13 @@ void gb_debug_update (GameBoy * const gb)
         /* Fetch VRAM data */
         if (gb->gb_debug->peek_vram)
         {
-            //uint8_t vramData[VRAM_SIZE];
-            uint8_t * vramData = calloc (VRAM_SIZE, sizeof(uint8_t));
-            memcpy (vramData, gb->mmu.vram.data, VRAM_SIZE);
-
-            gb->gb_debug->peek_vram (gb->direct.ptr, vramData);
+            gb->gb_debug->peek_vram (gb->direct.ptr, gb->mmu.vram.data);
         }
-        /* Convert tileset data into raw pixels */
+
+        /* Convert tileset data into pixels */
         if (gb->gb_debug->update_tiles)
         {
-            uint8_t * pixels = NULL; 
-            gb->gb_debug->update_tiles (gb, pixels);
+            gb->gb_debug->update_tiles (gb->direct.ptr, gb->mmu.vram.data);
         }
     }
 }
