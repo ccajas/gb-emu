@@ -11,10 +11,8 @@ typedef struct Scene_struct
 
     GLuint 
         fbufferTexture, 
-        vramTexture, 
-        nameTableTexture,
-        paletteTexture;
-    Shader 
+        debugTexture;
+    Shader
         fbufferShader,
         debugShader;
 }

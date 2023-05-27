@@ -1,16 +1,29 @@
 #include "graphics.h"
 
 const char * default_fs_source =
-"#version 130\n"
+"#version 330\n"
 "varying vec2 TexCoords;\n"
 "uniform sampler2D colorPalette;\n"
 "uniform sampler2D indexed;\n"
 "uniform vec3 textColor;\n"
 
+"vec3 applyDotMatrix(vec3 color, vec3 tint)\n"
+"{\n"
+"    vec2 position = (TexCoords.xy);\n"
+"    float px = 1.0/512.0;\n"
+"    color = vec3(0.25) + (color * vec3(0.75));\n"
+"    if (fract(position.x * 128) > 0.75) color = mix(color, vec3(1.0), 0.5);"
+"    if (fract(position.y * 128) > 0.75) color = mix(color, vec3(1.0), 0.5);"
+"    color *= tint;\n"
+"    return color;\n"
+"}\n"
+
 "void main()\n"
 "{\n"
+"    vec3 tint = vec3(0.37, 0.84, 0.87);\n"
+"    vec3 tint2 = vec3(0.51, 0.54, 0.03);\n"
 "    vec3 sampled = texture2D(indexed, TexCoords).rgb;\n"
-"    gl_FragColor = vec4(sampled, 1.0);\n"
+"    gl_FragColor = vec4(applyDotMatrix(sampled, tint), 1.0);\n"
 "}\n";
 
 const char * ppu_vs_source =
@@ -26,74 +39,6 @@ const char * ppu_vs_source =
 "    vec4 localPos = model * vec4(vertex.xy, 1.0, 1.0);"
 "    gl_Position = projection * vec4(localPos.xy, 0.0, 1.0);\n"
 "    TexCoords = texture.xy;\n"
-"}\n";
- 
-const char * ppu_fs_source =
-"#version 130\n"
-"varying vec2 TexCoords;\n"
-"uniform sampler2D colorPalette;\n"
-"uniform sampler2D indexed;\n"
-"uniform vec3 textColor;\n"
-"uniform float time;\n"
-
-"vec3 applyVignette(vec3 color)\n"
-"{\n"
-"    vec2 position = (TexCoords.xy) - vec2(0.5);\n"           
-"    float dist = length(position);\n"
-
-"    float radius = 1.3;\n"
-"    float softness = 1.0;\n"
-"    float vignette = smoothstep(radius, radius - softness, dist);\n"
-"    color.rgb = color.rgb - (0.8 - vignette);\n"
-"    return color;\n"
-"}\n"
-
-"float mod(float x, float y) { return x - (y * floor( x / y )); }\n"
-
-"vec2 curveRemapUV(vec2 uv)\n"
-"{\n"
-    //  as we near the edge of our screen apply greater distortion using a cubic function
-"    uv = uv * 2.0 - 1.0;\n"
-"    float curvature = 5.0;\n"
-"    vec2 offset = abs(uv.yx) / vec2(curvature);\n"
-"    uv = uv + uv * offset * offset;\n"
-"    uv = uv * 0.5 + 0.5;\n"
-"    return uv;\n"
-"}\n"
-
-"vec3 applyScanline(vec3 color)\n"
-"{\n"
-"    vec2 position = (TexCoords.xy);\n"
-"    float px = 1.0/512.0;\n"
-"    position.x += mod(position.y * 240.0, 2.0) * px;\n"
-//"    color *= pow(fract(position.x * 256.0), 0.4);\n"
-"    color *= pow(fract(position.y * 240.0), 0.5);\n"
-"    return color * 1.67;\n"
-"}\n"
-
-"vec3 applyScanline1(vec3 color)\n"
-"{\n"
-"    vec2 position = (TexCoords.xy);\n"
-"    float px = 1.0/512.0;\n"
-"    position.x += mod(position.y * 240.0, 2.0) * px;\n"
-"    color *= pow(fract(position.x * 256.0 - 128), 1.1);\n"
-//"    color *= pow(fract(position.y * 240.0 - 120), 0.25);\n"
-"    return color * 1.15;\n"
-"}\n"
-
-"void main()\n"
-"{\n"
-"    vec3 tint    = vec3(113, 115, 126) / 127.0;\n"
-"    vec2 tx      = vec2(TexCoords.xy);\n"
-//"    if (tx.x < 0.0 || tx.y < 0.0 || tx.x > 1.0 || tx.y > 1.0) {\n"
-//"        gl_FragColor = vec4(0, 0, 0, 1.0);\n"
-//"        return;\n"
-//"    };\n"
-//"    tx.x += sin(tx.y * 960.0) / 1024.0;\n"
-"    vec3 sampled = texture2D(indexed, tx).rgb;\n"
-//"    sampled      = pow(sampled, vec3(1/1.4));\n"
-"    sampled      = applyScanline(applyVignette(sampled));\n"
-"    gl_FragColor = vec4(pow(sampled, vec3(1.75)), 1.0);\n"
 "}\n";
 
 uint32_t quadVAO[2] = { 0, 0 };
@@ -134,21 +79,6 @@ void draw_lazy_quad(const float width, const float height, const int i)
     glBindVertexArray(0);
 }
 
-uint8_t pixelData[8192 * 2 * 3];
-
-inline void test_pixeldata()
-{
-    int i;
-    for (i = 0; i < 8192; i++)
-    {
-        int p;
-        for (p = 0; p < 6; p++)
-        {
-            pixelData[i * 6 + p] = (i & 7) << 3;
-        }            
-    }
-}
-
 void graphics_init (Scene * const scene)
 {
     gladLoadGL();
@@ -159,16 +89,12 @@ void graphics_init (Scene * const scene)
     glBlendEquation(GL_FUNC_ADD);
 
     /* Create shaders */
-    scene->fbufferShader = shader_init_source (ppu_vs_source, ppu_fs_source);
+    scene->fbufferShader = shader_init_source (ppu_vs_source, default_fs_source);
     scene->debugShader   = shader_init_source (ppu_vs_source, default_fs_source);
 
     /* Create main textures */
     texture_setup (&scene->fbufferTexture,   160, 144, GL_NEAREST, NULL);
-    texture_setup (&scene->vramTexture,      128, 128, GL_NEAREST, NULL);
-    texture_setup (&scene->nameTableTexture, 512, 480, GL_NEAREST, NULL);
-    //texture_setup (&scene->paletteTexture, 64,  1, GL_NEAREST, pixels);
-
-    test_pixeldata();
+    texture_setup (&scene->debugTexture,     128, 128, GL_NEAREST, NULL);
 
     glDisable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
@@ -199,7 +125,7 @@ void draw_scene (GLFWwindow * window, Scene * const scene, uint8_t * pixels)
     glActiveTexture (GL_TEXTURE0);
 
     /* Draw framebuffer */
-    glBindTexture (GL_TEXTURE_2D, scene->vramTexture);
+    glBindTexture (GL_TEXTURE_2D, scene->debugTexture);
     glTexImage2D  (GL_TEXTURE_2D, 0, GL_RGBA, 128, 128, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 	draw_lazy_quad(1.0f, 1.0f, 0);
 
