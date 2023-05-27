@@ -62,7 +62,7 @@ void cpu_boot_reset (CPU * const cpu)
     cpu->sp     = 0xFFFE;
     cpu->pc     = 0x0100;
 
-    cpu->ime = 0;
+    cpu->ime = 1;
     cpu->invalid = 0;
 }
 
@@ -116,7 +116,7 @@ uint8_t cpu_step (CPU * const cpu, MMU * const mmu)
                 case 0x10: STOP    break; case 0x17: RLA     break; 
                 case 0x18: JRm     break; case 0x1F: RRA     break; 
                 case 0x20: JRNZ    break; case 0x22: LDHLIA  break; 
-                case 0x27:/*DAA*/  break; case 0x28: JRZ     break; 
+                case 0x27: DAA     break; case 0x28: JRZ     break; 
                 case 0x2A: LDAHLI  break; case 0x2F: CPL     break; 
 
                 case 0x30: JRNC    break; case 0x31: LDSP    break;
