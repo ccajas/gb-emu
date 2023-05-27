@@ -27,6 +27,10 @@ static const enum
 }
 registers;
 
+/* Used for vram access */
+
+struct VArray;
+
 typedef struct PPU_struct
 {
     /* Used for comparing and setting PPU mode timings */
@@ -69,10 +73,15 @@ typedef struct PPU_struct
 
     uint16_t ticks;
     uint32_t frameTicks;
-    //uint8_t  line;
+    
+    /* Video memory access for fetching/drawing pixels */
+    struct VArray * vram;
 }
 PPU;
 
-uint8_t ppu_step (PPU * const, uint8_t * io_regs, uint8_t const cycles);
+uint8_t ppu_step (PPU * const, uint8_t * io_regs);
+
+uint8_t ppu_OAM_scan   (PPU * const, uint8_t * io_regs);
+uint8_t ppu_pixel_draw (PPU * const, uint8_t * io_regs);
 
 #endif

@@ -44,6 +44,7 @@ struct gb_data
 
     uint8_t vram_raw[VRAM_SIZE * 2 * 3]; /* 2 pixels per VRAM byte, 3 channels/pixel */
     uint8_t tilemap[256 * 64 * 3];
+    uint8_t framebuffer[160 * 144 * 3];
 };
 
 /* Concrete function definitions for the emulator frontend */
@@ -117,7 +118,10 @@ void update_tiles (void * dataPtr, const uint8_t * data)
 
 int main (int argc, char * argv[])
 {
-    int draw = 1;
+    int draw = 0;
+    const int32_t totalFrames = 1000;
+    float totalSeconds = (float)totalFrames / 60.0;
+    
     GLFWwindow* window;
     Scene scene = { .bgColor = { 173, 175, 186 }};
 
@@ -182,9 +186,6 @@ int main (int argc, char * argv[])
         return 1;
     }
 
-    const int32_t totalFrames = -1;
-    float totalSeconds = (float)totalFrames / 60.0;
-
     /* Load ROM */
     gb_init (&GB, &gbData, &gb_func, &gb_debug);
 
@@ -203,7 +204,7 @@ int main (int argc, char * argv[])
             {
                 gb_frame (&GB);
                 frames++;
-                /*LOG_("Ran frame %d\n", frames);*/
+                //LOG_("Ran frame %d\n", frames);
             }
 
             glfwSwapBuffers(window);
@@ -216,12 +217,11 @@ int main (int argc, char * argv[])
         {
             gb_frame (&GB);
             frames++;
-            LOG_("Ran frame %d\n", frames);
         }
 
         gb_shutdown (&GB);
         t = clock() - t;   
-        totalSeconds = (float)frames / 60.0; 
+        totalSeconds = (float)totalFrames / 60.0; 
 
         if (gbData.rom != NULL)
             free(gbData.rom);

@@ -99,7 +99,7 @@ void gb_print_logo (GameBoy * const gb, const uint8_t charCode)
 
 uint8_t gb_step (GameBoy * const gb)
 {
-    const int8_t tCycles = cpu_step (&gb->cpu, &gb->mmu);
+    int16_t tCycles = cpu_step (&gb->cpu, &gb->mmu);
     
     gb->clockCount += tCycles;
     gb->frameClock += tCycles;
@@ -108,11 +108,17 @@ uint8_t gb_step (GameBoy * const gb)
     //cpu_state (&gb->cpu, &gb->mmu);
 #endif
 
-    const uint8_t frameDone = ppu_step (&gb->ppu, gb->mmu.io, tCycles);
+    uint8_t frameDone = 0;
+
+    while (tCycles-- > 0)
+    {
+        /* Return "frame is complete" value and set it here */
+        if (ppu_step (&gb->ppu, gb->mmu.io)) frameDone = 1;
+    }
 
     if (gb->frameClock >= FRAME_CYCLES)
     {
-        /*LOG_("Frame cycles: %d\n", gb->frameClock);*/
+        //LOG_("Frame cycles: %d\n", gb->frameClock);
         gb->frames++;
         gb->frameClock -= FRAME_CYCLES;
     }

@@ -72,6 +72,9 @@ inline void gb_reset(GameBoy * const gb)
     cpu_boot_reset (&gb->cpu);
     mmu_reset (&gb->mmu);
 
+    gb->ppu.vram = &gb->mmu.vram;
+    gb->frameClock = 0;
+
     /* Init PPU with default values */
     PPU defaultPPU = {
         .ticks = 0
