@@ -79,7 +79,7 @@ typedef struct PPU_struct
 }
 PPU;
 
-uint8_t ppu_step (PPU * const, uint8_t * io_regs);
+uint8_t ppu_step (PPU * const, uint8_t * io_regs, const uint16_t);
 
 uint8_t ppu_OAM_scan   (PPU * const, uint8_t * io_regs);
 uint8_t ppu_pixel_draw (PPU * const, uint8_t * io_regs);

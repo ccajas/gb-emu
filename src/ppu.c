@@ -8,10 +8,10 @@ uint8_t ppu_pixel_draw (PPU * const ppu, uint8_t * io_regs)
     return 0;
 }
 
-uint8_t ppu_step (PPU * const ppu, uint8_t * io_regs)
+uint8_t ppu_step (PPU * const ppu, uint8_t * io_regs, const uint16_t tCycles)
 {
-    ppu->ticks++;
-    ppu->frameTicks++;
+    ppu->ticks+= tCycles;
+    ppu->frameTicks+= tCycles;
 
     uint8_t frame = 0;
 
@@ -59,18 +59,18 @@ uint8_t ppu_step (PPU * const ppu, uint8_t * io_regs)
                 /* Unset the flag */
                 io_regs[IO_LCDStatus] &= ~(1 << 2);
 
-            /* Check if we left screen bounds */
+            /* Check if all visible lines are done */
             if (io_regs[IO_LineY] == SCREEN_LINES)
             {
                 /* Enter Vblank and indicate that a frame is completed */
                 io_regs[IO_LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
                 io_regs[IO_IntrFlag] |= 1;
-
+                /* Todo: handle STAT related interrupts */
                 frame = 1;
             }
         }
     }
-    else
+    else /* Outside of screen bounds */
     {
         /* Mode 1 - H-blank */
         if(ppu->ticks >= TICKS_VBLANK)
