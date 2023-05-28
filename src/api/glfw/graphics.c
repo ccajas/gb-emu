@@ -6,14 +6,15 @@ const char * default_fs_source =
 "uniform sampler2D colorPalette;\n"
 "uniform sampler2D indexed;\n"
 "uniform vec3 textColor;\n"
+"uniform vec2 screenSize;\n"
 
 "vec3 applyDotMatrix(vec3 color, vec3 tint)\n"
 "{\n"
 "    vec2 position = (TexCoords.xy);\n"
 "    float px = 1.0/512.0;\n"
 "    color = vec3(0.25) + (color * vec3(0.75));\n"
-"    if (fract(position.x * 128) > 0.75) color = mix(color, vec3(1.0), 0.5);"
-"    if (fract(position.y * 128) > 0.75) color = mix(color, vec3(1.0), 0.5);"
+"    if (fract(position.x * screenSize.x) > 0.75) color = mix(color, vec3(1.0), 0.5);"
+"    if (fract(position.y * screenSize.y) > 0.75) color = mix(color, vec3(1.0), 0.5);"
 "    color *= tint;\n"
 "    return color;\n"
 "}\n"
@@ -33,6 +34,7 @@ const char * ppu_vs_source =
 "out vec2 TexCoords;\n"
 "uniform mat4 projection;\n"
 "uniform mat4 model;\n"
+"uniform vec2 screenSize;\n"
 
 "void main()\n"
 "{\n"
@@ -93,8 +95,8 @@ void graphics_init (Scene * const scene)
     scene->debugShader   = shader_init_source (ppu_vs_source, default_fs_source);
 
     /* Create main textures */
-    texture_setup (&scene->fbufferTexture,   160, 144, GL_NEAREST, NULL);
-    texture_setup (&scene->debugTexture,     128, 128, GL_NEAREST, NULL);
+    texture_setup (&scene->fbufferTexture, 160, 144, GL_NEAREST, NULL);
+    texture_setup (&scene->debugTexture,   128, 128, GL_NEAREST, NULL);
 
     glDisable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
@@ -119,14 +121,15 @@ void draw_scene (GLFWwindow * window, Scene * const scene, uint8_t * pixels)
     mat4x4_identity (model);
     mat4x4_scale_aniso (model, model, width, height, 1.0f);
 
+    glUniform2f        (glGetUniformLocation(scene->debugShader.program, "screenSize"), (GLfloat) (width / 3), (GLfloat) (height / 3));
     glUniformMatrix4fv (glGetUniformLocation(scene->debugShader.program, "model"),      1, GL_FALSE, (const GLfloat*) model);
     glUniformMatrix4fv (glGetUniformLocation(scene->debugShader.program, "projection"), 1, GL_FALSE, (const GLfloat*) projection);
 
     glActiveTexture (GL_TEXTURE0);
 
     /* Draw framebuffer */
-    glBindTexture (GL_TEXTURE_2D, scene->debugTexture);
-    glTexImage2D  (GL_TEXTURE_2D, 0, GL_RGBA, 128, 128, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+    glBindTexture (GL_TEXTURE_2D, scene->fbufferTexture);
+    glTexImage2D  (GL_TEXTURE_2D, 0, GL_RGBA, 160, 144, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 	draw_lazy_quad(1.0f, 1.0f, 0);
 
     glBindTexture(GL_TEXTURE_2D, 0);
