@@ -73,13 +73,10 @@ void draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 
 	for (x = 0; x < DISPLAY_WIDTH; x++)
 	{
-		uint8_t pixel = *pixels;
-        pixel = 3 - pixel;
-        
-        uint8_t color = (line % 8 == 0) ? 0xaa : 0; 
+		const uint8_t pixel = 3 - (*pixels);
 
-        gbData->framebuffer[yOffset + (x * 3)] = pixel * 0x55 - color;
-        gbData->framebuffer[yOffset + (x * 3) + 1] = pixel * 0x55 - color;
+        gbData->framebuffer[yOffset + (x * 3)] = pixel * 0x55;
+        gbData->framebuffer[yOffset + (x * 3) + 1] = pixel * 0x55;
         gbData->framebuffer[yOffset + (x * 3) + 2] = pixel * 0x55;
 
         pixels++;
@@ -96,11 +93,8 @@ void peek_vram (void * dataPtr, const uint8_t * data)
     int v = 0;
     for (i = 0; i < VRAM_SIZE; i++)
     {
-        uint8_t hi = data[i] >> 4;
-        uint8_t lo = data[i] & 0xF;
-
-        hi *= 0x11;
-        lo *= 0x11;
+        const uint8_t hi = (data[i] >> 4)  * 0x11;
+        const uint8_t lo = (data[i] & 0xF) * 0x11;
         
         v+= 2;
         gbData->vram_raw[v++] = hi;
