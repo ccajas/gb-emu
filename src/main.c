@@ -42,8 +42,11 @@ struct gb_data
     uint8_t * bootRom;
     uint8_t * rom;
 
-    uint8_t vram_raw[VRAM_SIZE * 2 * 3]; /* 2 pixels per VRAM byte, 3 channels/pixel */
+    /* Used in drawing VRAM */
+    uint8_t vram_raw[VRAM_SIZE * 2 * 3];
     uint8_t tilemap[256 * 64 * 3];
+
+    /* Used for drawing the display */
     uint8_t framebuffer[160 * 144 * 3];
 };
 
@@ -54,6 +57,18 @@ uint8_t rom_read (void * dataPtr, const uint_fast32_t addr)
     const struct gb_data * const gbData = dataPtr;
     return gbData->rom[addr];
 };
+
+void draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
+{
+    const struct gb_data * const gbData = dataPtr;
+
+    uint16_t yOffset = line * DISPLAY_WIDTH * 3;
+    uint8_t x;
+	for (x = 0; x < DISPLAY_WIDTH; x++)
+	{
+		//gb_data
+	}
+}
 
 /* Concrete debug functions for the frontend */
 
@@ -119,7 +134,7 @@ void update_tiles (void * dataPtr, const uint8_t * data)
 int main (int argc, char * argv[])
 {
     int draw = 0;
-    const int32_t totalFrames = 1000;
+    const int32_t totalFrames = 2000;
     float totalSeconds = (float)totalFrames / 60.0;
     
     GLFWwindow* window;
@@ -135,7 +150,7 @@ int main (int argc, char * argv[])
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
-        window = glfwCreateWindow(384, 384, "GB Emu", NULL, NULL);
+        window = glfwCreateWindow(DISPLAY_WIDTH * 3, DISPLAY_HEIGHT * 3, "GB Emu", NULL, NULL);
         if (!window)
         {
             glfwTerminate();
@@ -161,16 +176,12 @@ int main (int argc, char * argv[])
     /* Set data to default values */
     memset(gbData.vram_raw, 0, VRAM_SIZE * 6);
     memset(gbData.tilemap,  0, VRAM_SIZE * 6);
+    memset(gbData.framebuffer,  0, DISPLAY_WIDTH * DISPLAY_HEIGHT * 3);
 
     struct gb_func gb_func =
     {
-        .gb_rom_read = rom_read
-    };
-
-    struct gb_debug gb_debug =
-    {
-        .peek_vram = peek_vram,
-        .update_tiles = update_tiles
+        .gb_rom_read  = rom_read,
+        .gb_draw_line = draw_line
     };
 
     /* Load file from command line */
@@ -187,7 +198,12 @@ int main (int argc, char * argv[])
     }
 
     /* Load ROM */
-    gb_init (&GB, &gbData, &gb_func, &gb_debug);
+    gb_init (&GB, &gbData, &gb_func, 
+        &(struct gb_debug)
+        {
+            .peek_vram    = peek_vram,
+            .update_tiles = update_tiles
+        });
 
     /* Start clock */
     clock_t t;
@@ -200,11 +216,10 @@ int main (int argc, char * argv[])
         { 
             draw_scene (window, &scene, gbData.tilemap);
 
-            if (frames < totalFrames)
+            if (frames < -1)//totalFrames)
             {
                 gb_frame (&GB);
                 frames++;
-                //LOG_("Ran frame %d\n", frames);
             }
 
             glfwSwapBuffers(window);

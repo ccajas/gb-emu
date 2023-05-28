@@ -11,12 +11,14 @@ void gb_init (GameBoy * const gb, void * dataPtr,
     /* Pass down data pointer from frontend to components */
     gb->direct.ptr     = dataPtr;
     gb->mmu.direct.ptr = dataPtr;
+    gb->ppu.direct.ptr = dataPtr;
 
     /* Pass down emulator context functions to components */
     gb->gb_func  = gb_func;
     gb->gb_debug = gb_debug;
     
-    gb->mmu.rom_read = gb_func->gb_rom_read;
+    gb->mmu.rom_read  = gb_func->gb_rom_read;
+    gb->ppu.draw_line = gb_func->gb_draw_line;
 
     /* Copy ROM header */
     int i;
@@ -113,7 +115,7 @@ void gb_debug_update (GameBoy * const gb)
 
         /* Convert tileset data into pixels */
         if (gb->gb_debug->update_tiles)
-            gb->gb_debug->update_tiles (gb->direct.ptr, gb->mmu.vram.data);
+            gb->gb_debug->update_tiles (gb->direct.ptr, gb->mmu.vram.data + 0x400);
     }
 }
 

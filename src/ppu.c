@@ -3,6 +3,11 @@
 #define IO_STAT_CLEAR   (io_regs[IO_LCDStatus] & 0xFC)
 #define IO_STAT_MODE    (io_regs[IO_LCDStatus] & 3)
 
+uint8_t DMA_to_OAM_transfer (PPU * const ppu)
+{
+    return 0;
+}
+
 uint8_t ppu_OAM_fetch (PPU * const ppu, uint8_t * io_regs)
 {
     return 0;
@@ -22,7 +27,7 @@ uint8_t ppu_pixel_fetch (PPU * const ppu, uint8_t * io_regs)
     assert (ppu->vram != NULL && ppu->vram->capacity >= 0x2000);
 
     /* Run at least 20 times (for the 160 pixel length) */
-    for (lineX = 0; lineX < SCREEN_COLUMNS; lineX += 8)
+    for (lineX = 0; lineX < DISPLAY_WIDTH; lineX += 8)
     {
         /* BG tile fetcher gets tile ID. Bits 0-4 define X loction, bits 5-9 define Y location
            All related calculations following are found here:
@@ -30,10 +35,9 @@ uint8_t ppu_pixel_fetch (PPU * const ppu, uint8_t * io_regs)
 
         uint16_t tileID = BGTileMap + 
             (((io_regs[IO_ScrollY] + lineY) >> 3) << 5) +  /* Bits 5-9, Y location */
-             ((io_regs[IO_ScrollX] + lineX) >> 3);                    /* Bits 0-4, X location */
+             ((io_regs[IO_ScrollX] + lineX) >> 3);         /* Bits 0-4, X location */
 
         /* Tilemap location depends on LCDC 4 set, which are different rules for BG and Window tiles */
-
         const uint16_t BGTileData = 0x800 - (io_regs[IO_LCDControl] & 0x08) ? 0x800 : 0;
 
         /* Fetcher gets low byte and high byte for tile */
@@ -67,7 +71,7 @@ uint8_t ppu_step (PPU * const ppu, uint8_t * io_regs, const uint16_t tCycles)
     /* Todo: continuously fetch pixels clock by clock for LCD data transfer.
        Similarly do clock-based processing for the other actions. */
 
-    if (io_regs[IO_LineY] < SCREEN_LINES)
+    if (io_regs[IO_LineY] < DISPLAY_HEIGHT)
     {
         /* Visible line, within screen bounds */
         if (ppu->ticks < TICKS_OAM_READ)
@@ -88,8 +92,9 @@ uint8_t ppu_step (PPU * const ppu, uint8_t * io_regs, const uint16_t tCycles)
             {
                 io_regs[IO_LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
 
-                /* Fetch line of pixels for the screen */
+                /* Fetch line of pixels for the screen and draw them */
                 ppu_pixel_fetch (ppu, io_regs);
+                ppu->draw_line (ppu->direct.ptr, ppu->pixels, io_regs[IO_LineY]);
             }
         }
         else if (ppu->ticks < TICKS_OAM_READ + TICKS_LCDTRANSFER + TICKS_HBLANK)
@@ -120,7 +125,7 @@ uint8_t ppu_step (PPU * const ppu, uint8_t * io_regs, const uint16_t tCycles)
                 io_regs[IO_LCDStatus] &= ~(1 << 2);
 
             /* Check if all visible lines are done */
-            if (io_regs[IO_LineY] == SCREEN_LINES)
+            if (io_regs[IO_LineY] == DISPLAY_HEIGHT)
             {
                 /* Enter Vblank and indicate that a frame is completed */
                 io_regs[IO_LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
@@ -150,6 +155,7 @@ uint8_t ppu_step (PPU * const ppu, uint8_t * io_regs, const uint16_t tCycles)
     }
 
     /* ...and DMA transfer to OMA, if needed */
+    DMA_to_OAM_transfer (ppu);
 
     return frame;
 }
