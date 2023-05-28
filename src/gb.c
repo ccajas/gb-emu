@@ -77,15 +77,9 @@ uint8_t gb_step (GameBoy * const gb)
 
     uint8_t frameDone = ppu_step (&gb->ppu, gb->mmu.io, tCycles);
 
-    //while (tCycles-- > 0)
-    {
-        /* Return "frame is complete" value and set it here */
-        //if (ppu_step (&gb->ppu, gb->mmu.io)) frameDone = 1;
-    }
-
     if (gb->frameClock >= FRAME_CYCLES)
     {
-        //LOG_("Frame cycles: %d\n", gb->frameClock);
+        LOG_("Frame cycles: %d\n", gb->frameClock);
         gb->frames++;
         gb->frameClock -= FRAME_CYCLES;
     }

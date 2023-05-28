@@ -55,9 +55,13 @@ typedef struct gb_struct
     int32_t  frameClock;
     uint32_t frames;
 
-    /* Direct access to frontend data */
-    struct
+    /* Direct access to internal data */
+    struct Direct
 	{
+        /* Set status of the emulation */
+        uint8_t paused;
+
+        /* Pointer to frontend data */
 		void * ptr;
 	}
     direct;
@@ -74,6 +78,7 @@ inline void gb_reset(GameBoy * const gb)
     mmu_reset (&gb->mmu);
 
     gb->frameClock = 0;
+    gb->direct.paused = 0;
 
     /* Init PPU with default values */
     PPU defaultPPU = {

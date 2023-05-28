@@ -23,8 +23,15 @@ static void error_callback(int error, const char* description)
  
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
+    GameBoy * gb = glfwGetWindowUserPointer (window);
+
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GLFW_TRUE);
+
+    if (key == GLFW_KEY_P && action == GLFW_PRESS)
+    {
+        gb->direct.paused = !gb->direct.paused;
+    }
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -61,7 +68,7 @@ void draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 {
     struct gb_data * const gbData = dataPtr;
 
-    uint16_t yOffset = line * DISPLAY_WIDTH * 3;
+    const uint32_t yOffset = line * DISPLAY_WIDTH * 3;
     uint8_t x;
 
 	for (x = 0; x < DISPLAY_WIDTH; x++)
@@ -69,8 +76,10 @@ void draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 		uint8_t pixel = *pixels;
         pixel = 3 - pixel;
         
-        gbData->framebuffer[yOffset + (x * 3)] = pixel * 0x55;
-        gbData->framebuffer[yOffset + (x * 3) + 1] = pixel * 0x55;
+        uint8_t color = (line % 8 == 0) ? 0xaa : 0; 
+
+        gbData->framebuffer[yOffset + (x * 3)] = pixel * 0x55 - color;
+        gbData->framebuffer[yOffset + (x * 3) + 1] = pixel * 0x55 - color;
         gbData->framebuffer[yOffset + (x * 3) + 2] = pixel * 0x55;
 
         pixels++;
@@ -147,6 +156,14 @@ int main (int argc, char * argv[])
     GLFWwindow* window;
     Scene scene = { .bgColor = { 173, 175, 186 }};
 
+    GameBoy GB;
+
+    /* Define structs for data and concrete functions */
+    struct gb_data gbData =
+	{
+		.bootRom = NULL
+	};
+
     if (draw)
     {
         glfwSetErrorCallback(error_callback);
@@ -164,20 +181,14 @@ int main (int argc, char * argv[])
             exit(EXIT_FAILURE);
         }
 
+        glfwSetWindowUserPointer (window, &GB);
+
         glfwSetKeyCallback(window, key_callback);
         glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
         glfwMakeContextCurrent(window);
 
         graphics_init (&scene);
     }
-
-    GameBoy GB;
-
-    /* Define structs for data and concrete functions */
-    struct gb_data gbData =
-	{
-		.bootRom = NULL
-	};
 
     /* Set data to default values */
     memset(gbData.vram_raw, 0, VRAM_SIZE * 6);
@@ -227,10 +238,12 @@ int main (int argc, char * argv[])
         { 
             draw_scene (window, &scene, gbData.framebuffer);
 
-            if (frames < -1)//totalFrames)
+            if (frames < -1 && !GB.direct.paused)//totalFrames)
             {
                 gb_frame (&GB);
                 frames++;
+                //if (frames % 154 == 0)
+                printf("Frames: %d %s\n", frames, (frames % 154 >= DISPLAY_HEIGHT) ? "(Vblank)" : " ");
             }
 
             glfwSwapBuffers(window);
