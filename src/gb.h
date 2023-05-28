@@ -72,12 +72,12 @@ inline void gb_reset(GameBoy * const gb)
     cpu_boot_reset (&gb->cpu);
     mmu_reset (&gb->mmu);
 
-    gb->ppu.vram = &gb->mmu.vram;
     gb->frameClock = 0;
 
     /* Init PPU with default values */
     PPU defaultPPU = {
-        .ticks = 0
+        .ticks = 0,
+        .vram = &gb->mmu.vram
     };
     gb->ppu = defaultPPU;
 }
@@ -94,3 +94,37 @@ void    gb_print_logo   (GameBoy * const, const uint8_t);
 void    gb_unload_cart  (GameBoy * const);
 
 #endif
+
+/*
+for ppu.h and ppu.c
+
+    enum
+    {
+        Fetch_ID = 0,
+        Fetch_Lo,
+        Fetch_Hi,
+        Push,
+        Idle
+    }
+    fetchStage;
+
+    // Pixel and OAM fetching pipelines 
+    uint8_t fetcherState;
+    
+    // Get tile row
+    switch (ppu->fetcherStage)
+    {
+
+    }
+
+    if (fetch_lo || fetch_hi)
+    {
+        uint16_t offset = (io_regs[LCD_control] & 0x10) ? 0x8000 : 0x8800;
+        uint16_t rowAddrLo = offset + (tileID << 4) + (io_regs[IO_LineY] + io_regs[IO_ScrollY]) & 7);
+        uint16_t rowAddrHi = rowAddr + 1;
+
+        //To flip X, read bytes 1-3 backward
+        //To flip Y, bits 1-3 are inverted ~(n)
+    }
+
+*/

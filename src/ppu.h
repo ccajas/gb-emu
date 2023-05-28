@@ -3,7 +3,9 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include "utils/v_array.h"
 
+#define SCREEN_COLUMNS    160
 #define SCREEN_LINES      144
 #define SCAN_LINES        154
 
@@ -26,10 +28,6 @@ static const enum
     IO_IntrEnabled  = 0xFF
 }
 registers;
-
-/* Used for vram access */
-
-struct VArray;
 
 typedef struct PPU_struct
 {
@@ -76,12 +74,21 @@ typedef struct PPU_struct
     
     /* Video memory access for fetching/drawing pixels */
     struct VArray * vram;
+
+    /* Row of pixels stored for a line */
+    uint8_t pixels[SCREEN_COLUMNS];
 }
 PPU;
 
 uint8_t ppu_step (PPU * const, uint8_t * io_regs, const uint16_t);
 
-uint8_t ppu_OAM_scan   (PPU * const, uint8_t * io_regs);
-uint8_t ppu_pixel_draw (PPU * const, uint8_t * io_regs);
+/* Processes for modes 2 and 3 of the scanlines */
+
+uint8_t ppu_OAM_fetch   (PPU * const, uint8_t * io_regs);
+uint8_t ppu_pixel_fetch (PPU * const, uint8_t * io_regs);
+
+/* OAM data transfer when writing to 0xFF46 */
+
+uint8_t DMA_to_OAM_transfer (PPU * const);
 
 #endif
