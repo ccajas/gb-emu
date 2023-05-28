@@ -10,20 +10,21 @@
 
 #define GB_DEBUG__
 
-#define CPU_FREQ          4194304    /* Equal to (1 << 20) * 4 */
-#define FRAME_CYCLES      70224
-
 #ifdef GB_DEBUG
     #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
 #else
     #define LOG_(f_, ...)
 #endif
 
-/* Functions that can be exposed to the frontend */
+/* General functions that can be exposed to the frontend */
 
 struct gb_func
 {
+    /* Reads one byte from ROM */
     uint8_t (*gb_rom_read)(void *, const uint_fast32_t addr);
+
+    /* Draws one line from the display */
+    void (*gb_draw_line)(void *, const uint8_t * pixels, const uint8_t line);
 };
 
 /* Debug functions for the frontend */

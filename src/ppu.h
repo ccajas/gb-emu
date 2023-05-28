@@ -6,8 +6,11 @@
 #include "utils/v_array.h"
 #include "io.h"
 
-#define SCREEN_COLUMNS    160
-#define SCREEN_LINES      144
+//#define CPU_FREQ          4194304    /* Equal to (1 << 20) * 4 */
+#define FRAME_CYCLES      70224
+
+#define DISPLAY_WIDTH     160
+#define DISPLAY_HEIGHT    144
 #define SCAN_LINES        154
 
 typedef struct PPU_struct
@@ -57,7 +60,17 @@ typedef struct PPU_struct
     struct VArray * vram;
 
     /* Row of pixels stored for a line */
-    uint8_t pixels[SCREEN_COLUMNS];
+    uint8_t pixels[DISPLAY_WIDTH];
+
+    /* Direct access to frontend data */
+    struct
+	{
+		void * ptr;
+	}
+    direct;
+
+    /* Line drawing function passed on from GameBoy object */
+    void (*draw_line)(void *, const uint8_t * pixels, const uint8_t line);
 }
 PPU;
 
