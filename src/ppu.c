@@ -18,7 +18,7 @@ uint8_t ppu_pixel_fetch (PPU * const ppu, uint8_t * io_regs)
     /* Get minimum starting address depends on LCDC bits 3 and 6 are set.
        Starts at 0x1800 as this is the VRAM index minus 0x8000 */
     const uint16_t BGTileMap  = (io_regs[IO_LCDControl] & 0x08) ? 0x9C00 : 0x9800;
-    const uint16_t winTileMap = (io_regs[IO_LCDControl] & 0x40) ? 0x9C00 : 0x9800;
+    //const uint16_t winTileMap = (io_regs[IO_LCDControl] & 0x40) ? 0x9C00 : 0x9800;
 
     /* X position counter */
     uint8_t lineX = 0;
@@ -34,20 +34,21 @@ uint8_t ppu_pixel_fetch (PPU * const ppu, uint8_t * io_regs)
            All related calculations following are found here:
            https://github.com/ISSOtm/pandocs/blob/rendering-internals/src/Rendering_Internals.md */
 
+        const uint8_t posX = lineX + io_regs[IO_ScrollX];
+        const uint8_t posY = lineY + io_regs[IO_ScrollY];
+
         uint16_t tileAddr = BGTileMap + 
-            ((( lineY) / 8) << 5) +  /* Bits 5-9, Y location */
-             (( lineX) / 8);         /* Bits 0-4, X location */
+            ((posY / 8) << 5) +  /* Bits 5-9, Y location */
+             (posX / 8);         /* Bits 0-4, X location */
 
         uint16_t tileID = ppu->vram->data[tileAddr & 0x1FFF];
 
         /* Tilemap location depends on LCDC 4 set, which are different rules for BG and Window tiles */
         const uint16_t BGTileData = (io_regs[IO_LCDControl] & 0x10) ? 0x8000 : 0x8800;
 
-        //printf("LineY: %d TileID: %x\n", lineY, tileID);
-
         /* Fetcher gets low byte and high byte for tile */
         //const uint16_t bit12 = !((io_regs[IO_LCDControl] & 0x10) || (tileID & 0x80)) << 12;
-        const uint16_t tileRowLo = BGTileData + (tileID << 4) + (((lineY) & 7) << 1);
+        const uint16_t tileRowLo = BGTileData + (tileID << 4) + ((posY & 7) << 1);
         const uint16_t tileRowHi = tileRowLo + 1;
 
         /* Finally get the pixel bytes from these addresses */
@@ -76,7 +77,6 @@ uint8_t ppu_step (PPU * const ppu, uint8_t * io_regs, const uint16_t tCycles)
 
     /* Todo: continuously fetch pixels clock by clock for LCD data transfer.
        Similarly do clock-based processing for the other actions. */
-
     if (io_regs[IO_LineY] < DISPLAY_HEIGHT)
     {
         /* Visible line, within screen bounds */
@@ -139,6 +139,7 @@ uint8_t ppu_step (PPU * const ppu, uint8_t * io_regs, const uint16_t tCycles)
                 io_regs[IO_LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
                 io_regs[IO_IntrFlag] |= 1;
                 /* Todo: handle STAT related interrupts */
+
                 frame = 1;
             }
         }
