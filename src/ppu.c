@@ -17,13 +17,14 @@ uint8_t ppu_pixel_fetch (PPU * const ppu, uint8_t * io_regs)
 {
     /* Get minimum starting address depends on LCDC bits 3 and 6 are set.
        Starts at 0x1800 as this is the VRAM index minus 0x8000 */
-    const uint16_t BGTileMap  = 0x1800 + (io_regs[IO_LCDControl] & 0x08) ? 0x400 : 0;
-    const uint16_t winTileMap = 0x1800 + (io_regs[IO_LCDControl] & 0x40) ? 0x400 : 0;   
+    const uint16_t BGTileMap  = (io_regs[IO_LCDControl] & 0x08) ? 0x9C00 : 0x9800;
+    const uint16_t winTileMap = (io_regs[IO_LCDControl] & 0x40) ? 0x9C00 : 0x9800;
 
     /* X position counter */
     uint8_t lineX = 0;
     const uint8_t lineY = io_regs[IO_LineY];
 
+    assert (io_regs[IO_LineY] < DISPLAY_HEIGHT);
     assert (ppu->vram != NULL && ppu->vram->capacity >= 0x2000);
 
     /* Run at least 20 times (for the 160 pixel length) */
@@ -33,20 +34,25 @@ uint8_t ppu_pixel_fetch (PPU * const ppu, uint8_t * io_regs)
            All related calculations following are found here:
            https://github.com/ISSOtm/pandocs/blob/rendering-internals/src/Rendering_Internals.md */
 
-        uint16_t tileID = BGTileMap + 
-            (((io_regs[IO_ScrollY] + lineY) >> 3) << 5) +  /* Bits 5-9, Y location */
-             ((io_regs[IO_ScrollX] + lineX) >> 3);         /* Bits 0-4, X location */
+        uint16_t tileAddr = BGTileMap + 
+            ((( lineY) / 8) << 5) +  /* Bits 5-9, Y location */
+             (( lineX) / 8);         /* Bits 0-4, X location */
+
+        uint16_t tileID = ppu->vram->data[tileAddr & 0x1FFF];
 
         /* Tilemap location depends on LCDC 4 set, which are different rules for BG and Window tiles */
-        const uint16_t BGTileData = 0x800 - (io_regs[IO_LCDControl] & 0x08) ? 0x800 : 0;
+        const uint16_t BGTileData = (io_regs[IO_LCDControl] & 0x10) ? 0x8000 : 0x8800;
+
+        //printf("LineY: %d TileID: %x\n", lineY, tileID);
 
         /* Fetcher gets low byte and high byte for tile */
-        const uint16_t tileRowLo = BGTileData + tileID + (((lineY + io_regs[IO_ScrollY]) & 7) << 2);
+        //const uint16_t bit12 = !((io_regs[IO_LCDControl] & 0x10) || (tileID & 0x80)) << 12;
+        const uint16_t tileRowLo = BGTileData + (tileID << 4) + (((lineY) & 7) << 1);
         const uint16_t tileRowHi = tileRowLo + 1;
 
         /* Finally get the pixel bytes from these addresses */
-        const uint8_t byteLo = ppu->vram->data[tileRowLo];
-        const uint8_t byteHi = ppu->vram->data[tileRowHi];
+        const uint8_t byteLo = ppu->vram->data[tileRowLo & 0x1FFF];
+        const uint8_t byteHi = ppu->vram->data[tileRowHi & 0x1FFF];
 
         /* Produce pixel data from the combined bytes*/
         int x;
@@ -82,7 +88,7 @@ uint8_t ppu_step (PPU * const ppu, uint8_t * io_regs, const uint16_t tCycles)
                 io_regs[IO_LCDStatus] = IO_STAT_CLEAR | Stat_OAM_Search;
 
                 /* Fetch OAM data for sprites to be drawn on this line */
-                ppu_OAM_fetch (ppu, io_regs);
+                //ppu_OAM_fetch (ppu, io_regs);
             }
         }
         else if (ppu->ticks < TICKS_OAM_READ + TICKS_LCDTRANSFER)
@@ -91,17 +97,19 @@ uint8_t ppu_step (PPU * const ppu, uint8_t * io_regs, const uint16_t tCycles)
             if (IO_STAT_MODE != Stat_Transfer)
             {
                 io_regs[IO_LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
-
-                /* Fetch line of pixels for the screen and draw them */
-                ppu_pixel_fetch (ppu, io_regs);
-                ppu->draw_line (ppu->direct.ptr, ppu->pixels, io_regs[IO_LineY]);
             }
         }
         else if (ppu->ticks < TICKS_OAM_READ + TICKS_LCDTRANSFER + TICKS_HBLANK)
         {
             /* Mode 0 - H-blank */
             if (IO_STAT_MODE != Stat_HBlank)
+            {
                 io_regs[IO_LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;     
+
+                /* Fetch line of pixels for the screen and draw them */
+                ppu_pixel_fetch (ppu, io_regs);
+                ppu->draw_line (ppu->direct.ptr, ppu->pixels, io_regs[IO_LineY]);
+            }
         }
         else
         {

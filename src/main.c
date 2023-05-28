@@ -1,4 +1,3 @@
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
@@ -47,7 +46,7 @@ struct gb_data
     uint8_t tilemap[256 * 64 * 3];
 
     /* Used for drawing the display */
-    uint8_t framebuffer[160 * 144 * 3];
+    uint8_t framebuffer[DISPLAY_WIDTH * DISPLAY_HEIGHT * 3];
 };
 
 /* Concrete function definitions for the emulator frontend */
@@ -60,13 +59,21 @@ uint8_t rom_read (void * dataPtr, const uint_fast32_t addr)
 
 void draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 {
-    const struct gb_data * const gbData = dataPtr;
+    struct gb_data * const gbData = dataPtr;
 
     uint16_t yOffset = line * DISPLAY_WIDTH * 3;
     uint8_t x;
+
 	for (x = 0; x < DISPLAY_WIDTH; x++)
 	{
-		//gb_data
+		uint8_t pixel = *pixels;
+        pixel = 3 - pixel;
+        
+        gbData->framebuffer[yOffset + (x * 3)] = pixel * 0x55;
+        gbData->framebuffer[yOffset + (x * 3) + 1] = pixel * 0x55;
+        gbData->framebuffer[yOffset + (x * 3) + 2] = pixel * 0x55;
+
+        pixels++;
 	}
 }
 
@@ -188,10 +195,12 @@ int main (int argc, char * argv[])
     if (argc > 1) defaultROM = argv[1];
 
     LOG_("GB: Loading file \"%s\"...\n", defaultROM);
+
+    uint32_t fileSize = file_size(defaultROM);
     uint8_t * filebuf = (uint8_t*) read_file (defaultROM);
 
     vc_init (&gbData.rom, 1);
-    vc_push_array (&gbData.rom, filebuf, 32768, 0);
+    vc_push_array (&gbData.rom, filebuf, fileSize, 0);
 
     if (vc_size(&gbData.rom) == 0)
     {
@@ -216,7 +225,7 @@ int main (int argc, char * argv[])
     {
         while (!glfwWindowShouldClose(window))
         { 
-            draw_scene (window, &scene, gbData.tilemap);
+            draw_scene (window, &scene, gbData.framebuffer);
 
             if (frames < -1)//totalFrames)
             {
