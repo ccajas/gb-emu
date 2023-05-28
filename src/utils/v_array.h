@@ -45,7 +45,7 @@ inline void vc_push (struct VArray * const v, uint8_t const element)
     v->data[v->total++] = element;
 }
 
-inline void vc_push_array (struct VArray * const v, uint8_t * elements, uint32_t count, uint32_t start) 
+static inline void vc_push_array (struct VArray * const v, uint8_t * elements, uint32_t count, uint32_t start) 
 {
     uint32_t i;
     for (i = 0; i < count; i++)

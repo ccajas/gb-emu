@@ -40,7 +40,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 struct gb_data
 {
     uint8_t * bootRom;
-    uint8_t * rom;
+    struct VArray rom;
 
     uint8_t vram_raw[VRAM_SIZE * 2 * 3]; /* 2 pixels per VRAM byte, 3 channels/pixel */
     uint8_t tilemap[256 * 64 * 3];
@@ -52,7 +52,7 @@ struct gb_data
 uint8_t rom_read (void * dataPtr, const uint_fast32_t addr)
 {
     const struct gb_data * const gbData = dataPtr;
-    return gbData->rom[addr];
+    return gbData->rom.data[addr];
 };
 
 /* Concrete debug functions for the frontend */
@@ -118,7 +118,7 @@ void update_tiles (void * dataPtr, const uint8_t * data)
 
 int main (int argc, char * argv[])
 {
-    int draw = 0;
+    int draw = 1;
     const int32_t totalFrames = 1000;
     float totalSeconds = (float)totalFrames / 60.0;
     
@@ -154,7 +154,6 @@ int main (int argc, char * argv[])
     /* Define structs for data and concrete functions */
     struct gb_data gbData =
 	{
-		.rom = NULL,
 		.bootRom = NULL
 	};
 
@@ -178,9 +177,12 @@ int main (int argc, char * argv[])
     if (argc > 1) defaultROM = argv[1];
 
     LOG_("GB: Loading file \"%s\"...\n", defaultROM);
-    gbData.rom = (uint8_t*) read_file (defaultROM);
+    uint8_t * filebuf = (uint8_t*) read_file (defaultROM);
 
-    if (gbData.rom == NULL)
+    vc_init (&gbData.rom, 1);
+    vc_push_array (&gbData.rom, filebuf, 32768, 0);
+
+    if (vc_size(&gbData.rom) == 0)
     {
         LOG_("GB: Failed to load file! .\n");
         return 1;
@@ -223,8 +225,8 @@ int main (int argc, char * argv[])
         t = clock() - t;   
         totalSeconds = (float)totalFrames / 60.0; 
 
-        if (gbData.rom != NULL)
-            free(gbData.rom);
+        if (vc_size(&gbData.rom) > 0)
+            vc_free(&gbData.rom);
 
         double timeTaken = ((double)t)/CLOCKS_PER_SEC; /* Elapsed time */
         LOG_("The program ran %f seconds for %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, totalFrames, totalSeconds / timeTaken);
@@ -237,8 +239,8 @@ int main (int argc, char * argv[])
         t = clock() - t;
         totalSeconds = (float)frames / 60.0;
 
-        if (gbData.rom != NULL)
-            free(gbData.rom);
+        if (vc_size(&gbData.rom) > 0)
+            vc_free(&gbData.rom);
 
         double timeTaken = ((double)t)/CLOCKS_PER_SEC; /* Elapsed time */
         LOG_("The program ran %f seconds for %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, frames, totalSeconds / timeTaken);
