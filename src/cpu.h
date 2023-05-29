@@ -41,7 +41,7 @@ typedef struct CPU_struct
     uint8_t stop, halt;
     uint8_t invalid;
 
-    /* Interrupt */
+    /* Interrupt master enable */
     uint8_t ime;
 
 #ifdef GB_DEBUG

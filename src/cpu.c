@@ -66,10 +66,51 @@ void cpu_boot_reset (CPU * const cpu)
     cpu->invalid = 0;
 }
 
-uint8_t cpu_step (CPU * const cpu, MMU * const mmu)
+inline void cpu_handle_interrupts (CPU * const cpu, MMU * const mmu)
 {
     /* Handle interrupts */
-    
+    const uint8_t intrEnabled = CPU_RB (0xFF00 + IO_IntrEnabled);
+    const uint8_t intrFlags   = CPU_RB (0xFF00 + IO_IntrFlags);
+
+    /* Run if CPU ran HALT instruction or IME enabled w/flags */
+    if (cpu->halt || (cpu->ime && (intrEnabled & intrFlags & IF_Any)))
+    {
+        cpu->halt = 0;
+        cpu->ime = 0;
+
+        /* Increment clock and push PC to SP */
+        cpu->clock_t += 8;
+        CPU_WW (cpu->sp, cpu->pc);
+
+        /* Check all 5 IE and IF bits for flag confirmations 
+           This loop also services interrupts by priority (0 = highest)
+           */
+        uint8_t i;
+        for (i = 0; i <= 5; i++)
+        {
+            const uint16_t requestAddress = 0x40 + (i * 8);
+            const uint8_t flag = 1 << i;
+
+            if ((intrEnabled & flag) && (intrFlags & flag))
+            {
+                /* Clear flag bit */
+                CPU_WB (0xFF00 + IO_IntrFlags, intrFlags ^ flag);
+                cpu->sp -= 2;
+
+                /* Move PC to request address */
+                cpu->clock_t += 8;
+                cpu->pc = requestAddress;
+                cpu->clock_t += 4;
+            }
+        }
+    }
+}
+
+uint8_t cpu_step (CPU * const cpu, MMU * const mmu)
+{
+    /* Interrupt handling and timers */
+    cpu_handle_interrupts (cpu, mmu);
+
     /* Load next op and execute */
     uint8_t op = mmu_rb(mmu, cpu->pc++);
 

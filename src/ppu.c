@@ -126,7 +126,7 @@ uint8_t ppu_step (PPU * const ppu, uint8_t * io_regs, const uint16_t tCycles)
 
                 /* If STAT interrupt is enabled, an interrupt is requested */
                 if (io_regs[IO_LCDStatus] & 0x40)
-                    io_regs[IO_IntrFlag] |= 2;
+                    io_regs[IO_IntrFlags] |= IF_LCD_STAT;
             }
             else
                 /* Unset the flag */
@@ -137,7 +137,7 @@ uint8_t ppu_step (PPU * const ppu, uint8_t * io_regs, const uint16_t tCycles)
             {
                 /* Enter Vblank and indicate that a frame is completed */
                 io_regs[IO_LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
-                io_regs[IO_IntrFlag] |= 1;
+                io_regs[IO_IntrFlags] |= IF_VBlank;
                 /* Todo: handle STAT related interrupts */
 
                 frame = 1;
