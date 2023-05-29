@@ -72,7 +72,13 @@
 #define PUSH      OP(PUSH);   cpu->sp--; CPU_WB (cpu->sp, cpu->r[r1]); cpu->sp--; CPU_WB (cpu->sp, cpu->r[r1 + 1]);
 #define PUSHF     OP(PUSHF);  cpu->sp--; CPU_WB (cpu->sp, cpu->r[A]);  cpu->sp--; CPU_WB (cpu->sp, cpu->flags);
 #define POP       OP(POP);    cpu->r[r1 + 1] = CPU_RB (cpu->sp++); cpu->r[r1] = CPU_RB (cpu->sp++);
-#define POPF      OP(POPF);   cpu->flags = CPU_RB (cpu->sp++);     cpu->r[A]  = CPU_RB (cpu->sp++);
+#define POPF      OP(POPF);   {\
+    uint8_t sp = CPU_RB(cpu->sp++);\
+    cpu->r[A]  = CPU_RB(cpu->sp++);\
+    cpu->flags = 0; uint8_t fl = 7;\
+    while (fl >= 4) {\
+        cpu->flags |= (((sp >> fl) & 1) << fl); fl--; }\
+}\
 
 /* Flag setting helpers */
 
