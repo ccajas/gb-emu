@@ -83,7 +83,11 @@ inline void gb_reset(GameBoy * const gb)
     /* Init PPU with default values */
     PPU defaultPPU = {
         .ticks = 0,
+#ifdef USING_DYNAMIC_ARRAY
         .vram = &gb->mmu.vram
+#else
+        .vram = gb->mmu.vram
+#endif
     };
     gb->ppu = defaultPPU;
 }

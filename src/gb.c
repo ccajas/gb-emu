@@ -75,13 +75,14 @@ uint8_t gb_step (GameBoy * const gb)
     //cpu_state (&gb->cpu, &gb->mmu);
 #endif
 
-    uint8_t frameDone = ppu_step (&gb->ppu, gb->mmu.io, tCycles);
+    uint8_t frameDone = 0;// ppu_step (&gb->ppu, gb->mmu.io, tCycles);
 
     if (gb->frameClock >= FRAME_CYCLES)
     {
         //LOG_("Frame cycles: %d\n", gb->frameClock);
         gb->frames++;
         gb->frameClock -= FRAME_CYCLES;
+        frameDone = 1;
     }
     gb->stepCount++;
 
@@ -103,13 +104,20 @@ void gb_debug_update (GameBoy * const gb)
 {
     if (gb->gb_debug != NULL)
     {
-        /* Fetch VRAM data */
+#ifdef USING_DYNAMIC_ARRAY
         if (gb->gb_debug->peek_vram)
             gb->gb_debug->peek_vram (gb->direct.ptr, gb->mmu.vram.data);
 
+        if (gb->gb_debug->update_tiles)
+            gb->gb_debug->update_tiles (gb->direct.ptr, gb->mmu.vram.data);
+#else
+        /* Fetch VRAM data */
+        if (gb->gb_debug->peek_vram)
+            gb->gb_debug->peek_vram (gb->direct.ptr, gb->mmu.vram);
         /* Convert tileset data into pixels */
         if (gb->gb_debug->update_tiles)
-            gb->gb_debug->update_tiles (gb->direct.ptr, gb->mmu.vram.data + 0x400);
+            gb->gb_debug->update_tiles (gb->direct.ptr, gb->mmu.vram);
+#endif
     }
 }
 

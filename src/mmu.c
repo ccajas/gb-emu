@@ -32,7 +32,8 @@ void mmu_reset (MMU * const mmu)
     memset(mmu->io, 0, IO_HRAM_SIZE * sizeof(uint8_t));
 
     /* Interrupt request flags */
-    mmu->io[0xF] = 0xE1;
+    mmu->io[IO_Joypad]     = 0xCF;
+    mmu->io[IO_IntrFlags]  = 0xE1;
 
     /* Display-related registers */
     mmu->io[IO_LCDControl] = 0x91;
@@ -48,6 +49,15 @@ void mmu_io_write (MMU * const mmu, uint8_t const addr, uint8_t const val)
 {
     switch (addr) 
     {
+        case IO_Joypad:
+            /* Joypad input */
+            //mmu->io[IO_Joypad] = 0xCF;// val;
+
+            //if ((mmu->io[IO_Joypad] & 0x10) == 0) /* Direction buttons */
+            //    mmu->io[IO_Joypad] = 0xF;// Read D-pad here
+            //else
+            //    mmu->io[IO_Joypad] = 0xF;// Read action buttons here
+        break;
         case IO_LineY: 
             /* Read Only*/
         break;
@@ -66,8 +76,10 @@ void mmu_io_write (MMU * const mmu, uint8_t const addr, uint8_t const val)
 
 uint8_t mmu_rb (MMU * const mmu, uint16_t const addr) 
 {
+#ifdef DEBUG_CPU_LOG
     /* Hardcode $FF44 for testing */
-    //if (addr == 0xFF44) return 0x90;
+    if (addr == 0xFF44) return 0x90;
+#endif
 
     /* Read 8-bit byte from a given address */
     switch (addr >> 12)
@@ -128,7 +140,7 @@ uint8_t mmu_rb (MMU * const mmu, uint16_t const addr)
                         return mmu->io[addr & 0x7F];
                 default:
                     /* Prohibited area, if OAM is not blocked, actual value 
-                        depends on hardware. Return the default 0xFF for now */
+                       depends on hardware. Return the default 0xFF for now */
                     return 0xFF;
             }
         break;

@@ -146,7 +146,7 @@ int main (int argc, char * argv[])
     int draw = 1;
     int scale = 3;
 
-    const int32_t totalFrames = 50;
+    const int32_t totalFrames = 30;
     float totalSeconds = (float)totalFrames / 60.0;
     
     /* Main objects */
@@ -193,7 +193,7 @@ int main (int argc, char * argv[])
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
         glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
 
-        window = glfwCreateWindow(DISPLAY_WIDTH * scale, DISPLAY_HEIGHT * scale, "GB Emu", NULL, NULL);
+        window = glfwCreateWindow(128 * scale, 128 * scale, "GB Emu", NULL, NULL);
         if (!window)
         {
             glfwTerminate();
@@ -219,6 +219,8 @@ int main (int argc, char * argv[])
     {
         while (!glfwWindowShouldClose(window))
         { 
+            glfwMakeContextCurrent(window);
+
             if (frames < -1 && !GB.direct.paused)
             {
                 gb_frame (&GB);
@@ -227,10 +229,17 @@ int main (int argc, char * argv[])
             }
 
             draw_begin (window, &scene);
-            draw_screen_quad (window, &scene, gbData.framebuffer, scale);
+            draw_screen_quad (window, &scene, gbData.vram_raw, scale);
 
             glfwSwapBuffers(window);
             glfwPollEvents();
+
+            if (glfwWindowShouldClose(window))
+            {
+                glfwDestroyWindow(window);
+                glfwTerminate();
+                exit(EXIT_SUCCESS);
+            }
         }
     }
     else
@@ -265,10 +274,6 @@ int main (int argc, char * argv[])
         double timeTaken = ((double)t)/CLOCKS_PER_SEC; /* Elapsed time */
         LOG_("The program ran %f seconds for %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, frames, totalSeconds / timeTaken);
         LOG_("For each second, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));  
-
-        glfwDestroyWindow(window);
-        glfwTerminate();
-        exit(EXIT_SUCCESS);
     }
 
     return 0;

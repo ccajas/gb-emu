@@ -130,13 +130,14 @@
 #define ADHL     OP(ADHL);    ADD_A_X(hl);
 
 #define ADC      OP(ADC); {\
-    uint16_t tmp = cpu->r[A] + cpu->r[r2] + cpu->f_c;\
+    uint8_t tmp = cpu->r[A] + cpu->r[r2] + cpu->f_c;\
 	cpu->r[A] = (tmp & 0xFF);\
 	cpu->f_z = ((tmp & 0xFF) == 0x00);\
 	cpu->f_n = 0;\
 	cpu->f_h = ((cpu->r[A] ^ cpu->r[r2] ^ tmp) & 0x10) > 0;\
-	cpu->f_c = (tmp & 0xFF00) ? 1 : 0;\
+	cpu->f_c = (cpu->r[A] > tmp);\
 }
+//cpu->f_c = tmp & 0xFF00) ? 1 : 0;
 
 #define ACHL     OP(ACHL);    ADD_AC_X(hl);
 

@@ -5,6 +5,11 @@
 
 static const enum
 {
+    IO_Joypad       = 0x0,
+    IO_SerialData   = 0x01,
+    IO_SerialCtrl   = 0x02,
+    IO_Divider      = 0x04,
+
     IO_LCDControl	= 0x40,
     IO_LCDStatus	= 0x41,
     IO_ScrollY	    = 0x42,
@@ -28,8 +33,8 @@ registers;
 
 static const enum
 {
-    IF_LCD_STAT = 0x1,
-    IF_VBlank   = 0x2,
+    IF_VBlank   = 0x1,
+    IF_LCD_STAT = 0x2,
     IF_Timer    = 0x4,
     IF_Serial   = 0x8,
     IF_Joypad   = 0x10,
