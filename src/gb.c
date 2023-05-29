@@ -31,9 +31,6 @@ void gb_init (GameBoy * const gb, void * dataPtr,
 
     /* Assign MBC and available hardware */
     gb->cart.hardware_MBC = cartTypes[gb->cart.cartType];
-    
-    LOG_("Test read byte 0x148 (1): %02X\n", gb->cart.romSize);
-    LOG_("Test read byte 0x148 (2): %02X\n", gb->mmu.rom_read(gb->direct.ptr, 0x148));
 
     const uint_fast32_t romSize = (CART_MIN_SIZE_KB << gb->cart.romSize) << 10;
 
@@ -75,7 +72,7 @@ uint8_t gb_step (GameBoy * const gb)
     //cpu_state (&gb->cpu, &gb->mmu);
 #endif
 
-    uint8_t frameDone = 0;// ppu_step (&gb->ppu, gb->mmu.io, tCycles);
+    uint8_t frameDone = ppu_step (&gb->ppu, gb->mmu.io, tCycles);
 
     if (gb->frameClock >= FRAME_CYCLES)
     {

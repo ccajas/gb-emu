@@ -56,8 +56,12 @@ typedef struct PPU_struct
     uint16_t ticks;
     uint32_t frameTicks;
     
+#ifdef USING_DYNAMIC_ARRAY
     /* Video memory access for fetching/drawing pixels */
     struct VArray * vram;
+#else
+    uint8_t * vram;
+#endif
 
     /* Row of pixels stored for a line */
     uint8_t pixels[DISPLAY_WIDTH];
@@ -75,11 +79,6 @@ typedef struct PPU_struct
 PPU;
 
 uint8_t ppu_step (PPU * const, uint8_t * io_regs, const uint16_t);
-
-/* Processes for modes 2 and 3 of the scanlines */
-
-uint8_t ppu_OAM_fetch   (PPU * const, uint8_t * io_regs);
-uint8_t ppu_pixel_fetch (PPU * const, uint8_t * io_regs);
 
 /* OAM data transfer when writing to 0xFF46 */
 
