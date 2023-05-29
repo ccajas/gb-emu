@@ -122,27 +122,3 @@ uint32_t shader_link (const int32_t vertexShader, const int32_t fragmentShader)
 
     return shaderProgram;
 }
-
-void shader_apply (Shader const *shader, const char *uniformName, const void * param)
-{
-    int32_t location = shader_get_location (shader, uniformName);
-    glUniformMatrix4fv (location, 1, GL_FALSE, (GLfloat*) param);
-}
-
-void shader_apply_1f (Shader const *shader, const char *uniformName, const float value)
-{
-    int32_t location = shader_get_location (shader, uniformName);
-    glUniform1f (location, value);
-}
-
-void shader_apply_3f (Shader const *shader, const char *uniformName, const void * param)
-{
-    int32_t location = shader_get_location (shader, uniformName);
-    glUniform3fv (location, 1, (GLfloat*) param);
-}
-
-void shader_apply_int (Shader const *shader, const char *uniformName, const uint32_t value)
-{
-    int32_t location = shader_get_location (shader, uniformName);
-    glUniform1i (location, value);
-}

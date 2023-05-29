@@ -12,11 +12,6 @@ typedef struct Shader_struct
 }
 Shader;
 
-void shader_apply     (Shader const *shader, const char *uniformName, const void * param);
-void shader_apply_1f  (Shader const *shader, const char *uniformName, const float value);
-void shader_apply_3f  (Shader const *shader, const char *uniformName, const void * param);
-void shader_apply_int (Shader const *shader, const char *uniformName, const uint32_t value);
-
 Shader shader_init        (const char *filenameVS, const char *filenameFS);
 Shader shader_init_source (const char *codeVS, const char *codeFS);
 GLuint shader_build       (const GLchar *programSrc, const GLenum type, GLuint program);

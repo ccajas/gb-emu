@@ -149,42 +149,13 @@ int main (int argc, char * argv[])
     const int32_t totalFrames = 50;
     float totalSeconds = (float)totalFrames / 60.0;
     
-    GLFWwindow* window;
+    /* Main objects */
+    GLFWwindow * window;
     Scene scene = { .bgColor = { 173, 175, 186 }};
-
     GameBoy GB;
 
     /* Define structs for data and concrete functions */
-    struct gb_data gbData =
-	{
-		.bootRom = NULL
-	};
-
-    if (draw)
-    {
-        glfwSetErrorCallback(error_callback);
-
-        if (!glfwInit())
-            exit(EXIT_FAILURE);
-
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-
-        window = glfwCreateWindow(DISPLAY_WIDTH * scale, DISPLAY_HEIGHT * scale, "GB Emu", NULL, NULL);
-        if (!window)
-        {
-            glfwTerminate();
-            exit(EXIT_FAILURE);
-        }
-
-        glfwSetWindowUserPointer (window, &GB);
-
-        glfwSetKeyCallback(window, key_callback);
-        glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-        glfwMakeContextCurrent(window);
-
-        graphics_init (&scene);
-    }
+    struct gb_data gbData = { .bootRom = NULL };
 
     /* Load file from command line */
     char * defaultROM = NULL;
@@ -210,6 +181,35 @@ int main (int argc, char * argv[])
         &(struct gb_debug) { peek_vram, update_tiles }
     );
 
+
+    if (draw)
+    {
+        glfwSetErrorCallback(error_callback);
+
+        if (!glfwInit())
+            exit(EXIT_FAILURE);
+
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+        glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
+
+        window = glfwCreateWindow(DISPLAY_WIDTH * scale, DISPLAY_HEIGHT * scale, "GB Emu", NULL, NULL);
+        if (!window)
+        {
+            glfwTerminate();
+            exit(EXIT_FAILURE);
+        }
+
+        glfwSetWindowUserPointer (window, &GB);
+        glfwSetWindowAttrib(window, GLFW_RESIZABLE, GLFW_FALSE);
+
+        glfwSetKeyCallback(window, key_callback);
+        glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+        glfwMakeContextCurrent(window);
+
+        graphics_init (&scene);
+    }
+
     /* Start clock */
     clock_t t;
     t = clock();
@@ -219,7 +219,7 @@ int main (int argc, char * argv[])
     {
         while (!glfwWindowShouldClose(window))
         { 
-            if (frames < -1 && !GB.direct.paused)//totalFrames)
+            if (frames < -1 && !GB.direct.paused)
             {
                 gb_frame (&GB);
                 frames++;
