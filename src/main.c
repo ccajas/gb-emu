@@ -143,10 +143,10 @@ void update_tiles (void * dataPtr, const uint8_t * data)
 
 int main (int argc, char * argv[])
 {
-    int draw = 0;
+    int draw = 1;
     int scale = 3;
 
-    const int32_t totalFrames = 1000;
+    const int32_t totalFrames = 50;
     float totalSeconds = (float)totalFrames / 60.0;
     
     GLFWwindow* window;
@@ -223,8 +223,7 @@ int main (int argc, char * argv[])
             {
                 gb_frame (&GB);
                 frames++;
-                //if (frames % 154 == 0)
-                printf("Frames: %d %s\n", frames, (frames % 154 >= DISPLAY_HEIGHT) ? "(Vblank)" : " ");
+                printf("Frames: %d\n", frames);
             }
 
             draw_begin (window, &scene);

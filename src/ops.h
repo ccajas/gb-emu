@@ -213,22 +213,21 @@
 #define INCHL    OP(INCHL);   { uint8_t tmp = CPU_RB (ADDR_HL) + 1; CPU_WB (ADDR_HL, tmp); SET_FLAG_Z (tmp); SET_FLAG_H ((tmp & 0xF) == 0);   cpu->f_n = 0; }
 #define DECHL    OP(DECHL);   { uint8_t tmp = CPU_RB (ADDR_HL) - 1; CPU_WB (ADDR_HL, tmp); SET_FLAG_Z (tmp); SET_FLAG_H ((tmp & 0xF) == 0xF); cpu->f_n = 1; }
 
+/* The following is from SameBoy. MIT License. */
 #define DAA      OP(DAA);     {\
-    if (cpu->f_n) {\
-        if (cpu->f_c || (cpu->r[A] > 0x99)) {\
-            cpu->r[A] += 0x60; SET_FLAG_C (1);\
-        }\
-        if (cpu->f_h || (cpu->r[A] & 0xF) > 0x9) {\
-            cpu->r[A] += 0x6; SET_FLAG_H (0);\
-        }\
-    } else if (cpu->f_h && cpu->f_c) {\
-        cpu->r[A] += 0x9A; SET_FLAG_H (0);\
-    } else if (cpu->f_c) {\
-		cpu->r[A] += 0xA0;\
-	} else if (cpu->f_h) {\
-		cpu->r[A] += 0xA0; SET_FLAG_H (0);\
-    }\
-    SET_FLAG_Z (cpu->r[A]); }\
+		int16_t a = cpu->r[A];\
+		if (cpu->f_n) {\
+			if (cpu->f_h) a = (a - 0x06) & 0xFF;\
+			if (cpu->f_c) a -= 0x60;\
+		} else {\
+			if (cpu->f_h || (a & 0x0F) > 9) a += 0x06;\
+			if (cpu->f_c || a > 0x9F) a += 0x60;\
+		}\
+		cpu->r[A] = a;\
+		if ((a & 0x100) == 0x100) SET_FLAG_C (1);\
+		SET_FLAG_Z (cpu->r[A]);\
+		SET_FLAG_H (0);\
+}
 
 #define CPL      OP(CPL);     cpu->r[A] ^= 0xFF; cpu->flags |= 0x60; 
 
