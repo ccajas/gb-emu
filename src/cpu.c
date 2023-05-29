@@ -73,9 +73,9 @@ inline void cpu_handle_interrupts (CPU * const cpu, MMU * const mmu)
     const uint8_t intrFlags   = CPU_RB (0xFF00 + IO_IntrFlags);
 
     /* Run if CPU ran HALT instruction or IME enabled w/flags */
-    if (cpu->halt || (cpu->ime && (intrEnabled & intrFlags & IF_Any)))
+    if (cpu->halted || (cpu->ime && (intrEnabled & intrFlags & IF_Any)))
     {
-        cpu->halt = 0;
+        cpu->halted = 0;
         cpu->ime = 0;
 
         /* Increment clock and push PC to SP */
@@ -111,6 +111,14 @@ uint8_t cpu_step (CPU * const cpu, MMU * const mmu)
     /* Interrupt handling and timers */
     cpu_handle_interrupts (cpu, mmu);
 
+    if (cpu->halted)
+    {
+        cpu->rt = 4;
+        cpu->clock_t += cpu->rt;
+
+        return cpu->rt;
+    }
+
     /* Load next op and execute */
     uint8_t op = mmu_readByte(mmu, cpu->pc++);
 
@@ -125,7 +133,7 @@ uint8_t cpu_step (CPU * const cpu, MMU * const mmu)
     uint8_t  r1 = ((opHh & 7) == 7) ? A : B + (opHh & 7);
     uint8_t  r2 = ((opL & 7)  == 7) ? A : ((opL & 7) < 6) ? B + (opL & 7) : 255;
 
-    uint8_t tmp = cpu->r[A]; 
+    uint8_t tmp = cpu->r[A];
 
     switch (opHh)
     {

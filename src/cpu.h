@@ -38,7 +38,7 @@ typedef struct CPU_struct
     uint16_t pc, sp;
     uint64_t clock_m, clock_t;
 
-    uint8_t stop, halt;
+    uint8_t stop, halted;
     uint8_t invalid;
 
     /* Interrupt master enable */

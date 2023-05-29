@@ -29,7 +29,7 @@
 
 /** 8-bit load instructions **/   
 
-#define LD        OP(LD);       cpu->r[r1] = cpu->r[r2];
+#define LD        OP(LD);       if (r1 != r2) { cpu->r[r1] = cpu->r[r2]; }
 #define LDrm      OP(LDrm);     cpu->r[r1] = IMM;
 #define LDrHL     OP(LDrHL);    cpu->r[r1] = CPU_RB (ADDR_HL);
 
@@ -265,7 +265,7 @@
 
 #define CCF     OP(CCF);  cpu->f_c = !cpu->f_c; cpu->f_n = cpu->f_h = 0;
 #define SCF     OP(SCF);  cpu->f_c = 1; cpu->f_n = cpu->f_h = 0;
-#define HALT    OP(HALT); cpu->halt = 1; 
+#define HALT    OP(HALT); cpu->halted = 1; 
 #define STOP    OP(STOP); cpu->stop = 1; 
 #define NOP     OP(NOP);
 #define DI      OP(DI);   cpu->ime = 0; 
