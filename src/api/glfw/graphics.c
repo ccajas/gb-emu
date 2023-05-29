@@ -8,7 +8,7 @@ const char * default_fs_source =
 "uniform vec3 textColor;\n"
 "uniform vec2 screenSize;\n"
 
-"vec3 applyDotMatrix(vec3 color, vec3 tint)\n"
+"vec3 dotMatrix(vec3 color, vec3 tint)\n"
 "{\n"
 "    vec2 position = (TexCoords.xy);\n"
 "    float px = 1.0/512.0;\n"
@@ -24,7 +24,7 @@ const char * default_fs_source =
 "    vec3 tint = vec3(0.37, 0.84, 0.87);\n"
 "    vec3 tint2 = vec3(0.51, 0.54, 0.03);\n"
 "    vec3 sampled = texture2D(indexed, TexCoords).rgb;\n"
-"    gl_FragColor = vec4(sampled, 1.0);\n"
+"    gl_FragColor = vec4(dotMatrix(sampled, tint), 1.0);\n"
 "}\n";
 
 const char * ppu_vs_source =
@@ -131,7 +131,7 @@ void draw_screen_quad (GLFWwindow * window, Scene * const scene, uint8_t * pixel
     glActiveTexture (GL_TEXTURE0);
 
     /* Draw framebuffer */
-    glBindTexture (GL_TEXTURE_2D, scene->fbufferTexture);
+    glBindTexture (GL_TEXTURE_2D, scene->debugTexture);
     glTexImage2D  (GL_TEXTURE_2D, 0, GL_RGBA, width / scale, height / scale, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 	draw_lazy_quad(1.0f, 1.0f, 0);
 

@@ -39,14 +39,6 @@ void gb_init (GameBoy * const gb, void * dataPtr,
     for (i = 0; i < romSize; i++)
         vc_push (&gb->mmu.rom, gb->mmu.rom_read(gb->direct.ptr, i));
 #endif
-    //free (romData);
-
-    /* Fallback: load boot ROM */
-    /*vc_init (&mmu->rom, CART_MIN_SIZE_KB);
-    vc_push_array (&mmu->rom, mmu->bios, 256, 0);
-
-    memset (gb->cart.logo, 0xFF, 48);*/
-
     LOG_("GB: ROM loaded (%s, %d KiB)\n", gb->cart.title, romSize >> 10);
     LOG_("GB: Cart type: %02X\n", gb->cart.cartType);
 
@@ -76,7 +68,6 @@ uint8_t gb_step (GameBoy * const gb)
 
     if (gb->frameClock >= FRAME_CYCLES)
     {
-        //LOG_("Frame cycles: %d\n", gb->frameClock);
         gb->frames++;
         gb->frameClock -= FRAME_CYCLES;
         frameDone = 1;

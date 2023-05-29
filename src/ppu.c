@@ -48,12 +48,11 @@ inline uint8_t ppu_pixel_fetch (PPU * const ppu, uint8_t * io_regs)
 
             uint16_t tileAddr = BGTileMap + 
                 ((posY / 8) << 5) +  /* Bits 5-9, Y location */
-                (posX / 8);         /* Bits 0-4, X location */
+                (posX / 8);          /* Bits 0-4, X location */
 
             uint16_t tileID = VRAM_DATA_(tileAddr);
 
             /* Tilemap location depends on LCDC 4 set, which are different rules for BG and Window tiles */
-            //const uint16_t BGTileData = (io_regs[IO_LCDControl] & 0x10) ? 0x8000 : 0x8800;
 
             /* Fetcher gets low byte and high byte for tile */
             const uint16_t bit12 = !((io_regs[IO_LCDControl] & 0x10) || (tileID & 0x80)) << 12;
@@ -130,9 +129,6 @@ uint8_t ppu_step (PPU * const ppu, uint8_t * io_regs, const uint16_t tCycles)
             /* Starting new line */
             io_regs[IO_LineY] = (io_regs[IO_LineY] + 1) % SCAN_LINES;
             ppu->ticks -= (TICKS_OAM_READ + TICKS_LCDTRANSFER + TICKS_HBLANK);
-
-            //printf("Read %d lines. Took %d cycles. (%d leftover)\n", io_regs[IO_LineY], ppu->frameTicks, ppu->ticks);
-            //printf("Check LCDC bit 0: %d Line %d\n", (io_regs[IO_LCDControl] & 1), io_regs[IO_LineY]);
 
             if (io_regs[IO_LineYC] == io_regs[IO_LineY])
             {
