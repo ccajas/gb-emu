@@ -143,7 +143,9 @@ void update_tiles (void * dataPtr, const uint8_t * data)
 
 int main (int argc, char * argv[])
 {
-    int draw = 1;
+    int draw = 0;
+    int scale = 3;
+
     const int32_t totalFrames = 1000;
     float totalSeconds = (float)totalFrames / 60.0;
     
@@ -168,7 +170,7 @@ int main (int argc, char * argv[])
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
-        window = glfwCreateWindow(DISPLAY_WIDTH * 3, DISPLAY_HEIGHT * 3, "GB Emu", NULL, NULL);
+        window = glfwCreateWindow(DISPLAY_WIDTH * scale, DISPLAY_HEIGHT * scale, "GB Emu", NULL, NULL);
         if (!window)
         {
             glfwTerminate();
@@ -183,17 +185,6 @@ int main (int argc, char * argv[])
 
         graphics_init (&scene);
     }
-
-    /* Set data to default values */
-    memset(gbData.vram_raw, 0, VRAM_SIZE * 6);
-    memset(gbData.tilemap,  0, VRAM_SIZE * 6);
-    memset(gbData.framebuffer,  0, DISPLAY_WIDTH * DISPLAY_HEIGHT * 3);
-
-    struct gb_func gb_func =
-    {
-        .gb_rom_read  = rom_read,
-        .gb_draw_line = draw_line
-    };
 
     /* Load file from command line */
     char * defaultROM = NULL;
@@ -214,12 +205,10 @@ int main (int argc, char * argv[])
     }
 
     /* Load ROM */
-    gb_init (&GB, &gbData, &gb_func, 
-        &(struct gb_debug)
-        {
-            .peek_vram    = peek_vram,
-            .update_tiles = update_tiles
-        });
+    gb_init (&GB, &gbData, 
+        &(struct gb_func)  { rom_read, draw_line },
+        &(struct gb_debug) { peek_vram, update_tiles }
+    );
 
     /* Start clock */
     clock_t t;
@@ -230,8 +219,6 @@ int main (int argc, char * argv[])
     {
         while (!glfwWindowShouldClose(window))
         { 
-            draw_scene (window, &scene, gbData.framebuffer);
-
             if (frames < -1 && !GB.direct.paused)//totalFrames)
             {
                 gb_frame (&GB);
@@ -239,6 +226,9 @@ int main (int argc, char * argv[])
                 //if (frames % 154 == 0)
                 printf("Frames: %d %s\n", frames, (frames % 154 >= DISPLAY_HEIGHT) ? "(Vblank)" : " ");
             }
+
+            draw_begin (window, &scene);
+            draw_screen_quad (window, &scene, gbData.framebuffer, scale);
 
             glfwSwapBuffers(window);
             glfwPollEvents();
@@ -254,7 +244,7 @@ int main (int argc, char * argv[])
 
         gb_shutdown (&GB);
         t = clock() - t;   
-        totalSeconds = (float)totalFrames / 60.0; 
+        totalSeconds = (float)frames / 60.0; 
 
         if (vc_size(&gbData.rom) > 0)
             vc_free(&gbData.rom);

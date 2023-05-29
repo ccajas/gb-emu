@@ -104,11 +104,14 @@ void graphics_init (Scene * const scene)
     glDepthFunc(GL_LEQUAL);
 }
 
-void draw_scene (GLFWwindow * window, Scene * const scene, uint8_t * pixels)
+void draw_begin (GLFWwindow * window, Scene * const scene)
 {
 	glClearColor((GLfloat)scene->bgColor[0] / 255, (GLfloat)scene->bgColor[1] / 255, (GLfloat)scene->bgColor[2] / 255, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
 
+void draw_screen_quad (GLFWwindow * window, Scene * const scene, uint8_t * pixels, const float scale)
+{
     int32_t width, height;
     glfwGetFramebufferSize (window, &width, &height);
 
@@ -121,7 +124,7 @@ void draw_scene (GLFWwindow * window, Scene * const scene, uint8_t * pixels)
     mat4x4_identity (model);
     mat4x4_scale_aniso (model, model, width, height, 1.0f);
 
-    glUniform2f        (glGetUniformLocation(scene->debugShader.program, "screenSize"), (GLfloat) (width / 3), (GLfloat) (height / 3));
+    glUniform2f (glGetUniformLocation(scene->debugShader.program, "screenSize"), (GLfloat) (width / scale), (GLfloat) (height / scale));
     glUniformMatrix4fv (glGetUniformLocation(scene->debugShader.program, "model"),      1, GL_FALSE, (const GLfloat*) model);
     glUniformMatrix4fv (glGetUniformLocation(scene->debugShader.program, "projection"), 1, GL_FALSE, (const GLfloat*) projection);
 
@@ -129,7 +132,7 @@ void draw_scene (GLFWwindow * window, Scene * const scene, uint8_t * pixels)
 
     /* Draw framebuffer */
     glBindTexture (GL_TEXTURE_2D, scene->fbufferTexture);
-    glTexImage2D  (GL_TEXTURE_2D, 0, GL_RGBA, 160, 144, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+    glTexImage2D  (GL_TEXTURE_2D, 0, GL_RGBA, width / scale, height / scale, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 	draw_lazy_quad(1.0f, 1.0f, 0);
 
     glBindTexture(GL_TEXTURE_2D, 0);
