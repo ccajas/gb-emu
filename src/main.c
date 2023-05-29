@@ -193,7 +193,7 @@ int main (int argc, char * argv[])
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
         glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
 
-        window = glfwCreateWindow(128 * scale, 128 * scale, "GB Emu", NULL, NULL);
+        window = glfwCreateWindow(160 * scale, 144 * scale, "GB Emu", NULL, NULL);
         if (!window)
         {
             glfwTerminate();
@@ -229,7 +229,7 @@ int main (int argc, char * argv[])
             }
 
             draw_begin (window, &scene);
-            draw_screen_quad (window, &scene, gbData.vram_raw, scale);
+            draw_screen_quad (window, &scene, gbData.framebuffer, scale);
 
             glfwSwapBuffers(window);
             glfwPollEvents();

@@ -8,7 +8,7 @@
 #define CART_MIN_SIZE_KB  32
 
 #define USING_DYNAMIC_ARRAY__
-#define FAST_ROM_READ__
+#define FAST_ROM_READ
 
 typedef struct MMU_struct
 {
@@ -59,13 +59,13 @@ void mmu_load (MMU * const);
 
 /* Read functions */
 
-uint8_t  mmu_rb (MMU * const, uint16_t const addr);
-uint16_t mmu_rw (MMU * const, uint16_t const addr);
+uint8_t  mmu_readByte (MMU * const, uint16_t const addr);
+uint16_t mmu_readWord (MMU * const, uint16_t const addr);
 
 /* Write functions */
 
-void mmu_wb (MMU * const, uint16_t const addr, uint8_t val);
-void mmu_ww (MMU * const, uint16_t const addr, uint16_t val);
-void mmu_io_write (MMU * const, uint8_t const addr, uint8_t const val);
+void mmu_writeByte       (MMU * const, uint16_t const addr, uint8_t val);
+void mmu_writeWord       (MMU * const, uint16_t const addr, uint16_t val);
+void mmu_io_write (MMU * const, uint16_t const addr, uint8_t const val);
 
 #endif

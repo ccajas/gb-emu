@@ -46,9 +46,11 @@ void mmu_reset (MMU * const mmu)
     //memcpy(mmu->bios, testBootRom, sizeof(uint8_t) * 256);
 }
 
-void mmu_io_write (MMU * const mmu, uint8_t const addr, uint8_t const val)
+void mmu_io_write (MMU * const mmu, uint16_t const addr, uint8_t const val)
 {
-    switch (addr) 
+    const uint8_t io_addr = addr & 0x7F;
+
+    switch (io_addr) 
     {
         case IO_Joypad:
             /* Joypad input */
@@ -70,15 +72,15 @@ void mmu_io_write (MMU * const mmu, uint8_t const addr, uint8_t const val)
             uint16_t srcAddr = (uint16_t)val << 8;
             int i;
             for (i = 0; i < 0x9F; i++)
-                mmu->oam[i] = mmu_rb (mmu, srcAddr + i);
+                mmu->oam[i] = mmu_readByte (mmu, srcAddr + i);
         }
         break;
         default:
-            mmu->io[addr] = val;
+            mmu->io[io_addr] = val;
     }
 }
 
-uint8_t mmu_rb (MMU * const mmu, uint16_t const addr) 
+uint8_t mmu_readByte (MMU * const mmu, uint16_t const addr) 
 {
 #ifdef DEBUG_CPU_LOG
     /* Hardcode $FF44 for testing */
@@ -89,7 +91,8 @@ uint8_t mmu_rb (MMU * const mmu, uint16_t const addr)
 #ifdef FAST_ROM_READ
     if (addr <= 0x7FFF) return mmu->rom.data[addr];
 #else
-    if (addr <= 0x7FFF) return mmu->rom_read(mmu->direct.ptr, addr); /* ROM bank 0 or 1 ... N */
+    if (addr <= 0x7FFF) 
+        return mmu->rom_read(mmu->direct.ptr, addr);  /* ROM bank 0 ... N */
 #endif
     if (addr <= 0x9FFF) return VRAM_DATA_(addr);      /* Video RAM        */
     if (addr <= 0xBFFF) return ERAM_DATA_(addr);      /* External RAM     */
@@ -104,63 +107,30 @@ uint8_t mmu_rb (MMU * const mmu, uint16_t const addr)
     return 0; 
 }
 
-uint16_t mmu_rw (MMU * const mmu, uint16_t const addr)
+uint16_t mmu_readWord (MMU * const mmu, uint16_t const addr)
 { 
     /* Read 16-bit word from a given address */ 
-    return mmu_rb (mmu, addr) + (mmu_rb (mmu, addr + 1) << 8);
+    return mmu_readByte (mmu, addr) + (mmu_readByte (mmu, addr + 1) << 8);
 }
 
-void mmu_wb (MMU * const mmu, uint16_t const addr, uint8_t val) 
+void mmu_writeByte (MMU * const mmu, uint16_t const addr, uint8_t val) 
 { 
     /* Write 8-bit byte to a given address */ 
-    switch (addr & 0xF000)
-    {
-        case 0x8000: case 0x9000:
-        /* Video RAM */
-            VRAM_DATA_(addr) = val;
-        break;
-        case 0xA000: case 0xB000:
-        /* External RAM */
-            ERAM_DATA_(addr) = val;
-	    break;
-        case 0xC000: case 0xD000:
-        /* Work RAM and echo */
-            WRAM_DATA_(addr) = val;
-        break;
-        case 0xE000:
-            /* Echo RAM */
-            WRAM_DATA_(addr) = val;
-	    break;
-        case 0xF000:
-            switch ((addr & 0x0F00) >> 8)
-		    {
-                case 0 ... 0xD: /* Work RAM echo */
-                    WRAM_DATA_(addr) = val;
-                break;
-                case 0xE:
-                    if (addr < 0xFEA0) {
-                        /* Write to OAM */
-                        mmu->oam[addr & 0x9F] = val;
-                    }
-                break;
-                case 0xF:
-                    if (addr >= 0xFF80) /* HRAM / IO */
-                    {
-                        /* Interrupt enable */
-                        if (addr == 0xFFFF)
-                            mmu->hram[0x7F] = val & 0x1F;
-                        else
-                            mmu->hram[addr & 0x7F] = val;
-                    }
-                    else
-                        mmu_io_write (mmu, addr & 0x7F, val);
-                break;
-            }
-    }
+
+    if (addr <= 0x7FFF) { /* Todo: MBC write */ }
+    if (addr <= 0x9FFF) { VRAM_DATA_(addr) = val; return; }        /* Video RAM         */
+    if (addr <= 0xBFFF) { ERAM_DATA_(addr) = val; return; }        /* External RAM      */
+    if (addr <= 0xFDFF) { WRAM_DATA_(addr) = val; return; }        /* Work RAM / echo   */
+    if (addr <  0xFEA0) { mmu->oam[addr & 0x9F] = val; return; }   /* Write to OAM      */
+    if (addr <= 0xFEFF) return;                                    /* Not usable        */
+    if (addr <= 0xFF7F) { mmu_io_write (mmu, addr, val); return; } /* I/O registers     */
+    if (addr <  0xFFFF) mmu->hram[addr & 0x7F] = val;              /* High RAM          */
+    if (addr == 0xFFFF) mmu->hram[0x7F] = val & 0x1F;              /* Interrupt enable  */
 }
-void mmu_ww (MMU * const mmu, uint16_t const addr, uint16_t val)
+
+void mmu_writeWord (MMU * const mmu, uint16_t const addr, uint16_t val)
 {
     /* Write 16-bit word to a given address */
-    mmu_wb (mmu, addr, val);
-    mmu_wb (mmu, addr + 1, val >> 8);
+    mmu_writeByte (mmu, addr, val);
+    mmu_writeByte (mmu, addr + 1, val >> 8);
 }

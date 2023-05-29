@@ -45,7 +45,7 @@ void cpu_state (CPU * const cpu, MMU * const mmu)
     printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",
         cpu->r[A], cpu->flags, cpu->r[B], cpu->r[C], cpu->r[D], cpu->r[E], cpu->r[H], cpu->r[L], 
         cpu->sp, cpu->pc, 
-        mmu_rb (mmu, pc), mmu_rb (mmu, pc+1), mmu_rb (mmu, pc+2), mmu_rb (mmu, pc+3)
+        mmu_readByte (mmu, pc), mmu_readByte (mmu, pc+1), mmu_readByte (mmu, pc+2), mmu_readByte (mmu, pc+3)
     );
 }
 
@@ -112,7 +112,7 @@ uint8_t cpu_step (CPU * const cpu, MMU * const mmu)
     cpu_handle_interrupts (cpu, mmu);
 
     /* Load next op and execute */
-    uint8_t op = mmu_rb(mmu, cpu->pc++);
+    uint8_t op = mmu_readByte(mmu, cpu->pc++);
 
     cpu->rm = 0;
     cpu->rt = 0;

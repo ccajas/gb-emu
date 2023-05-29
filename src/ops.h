@@ -4,10 +4,10 @@
 #define ADDR_XY(X,Y)  ((cpu->r[X] << 8) + cpu->r[Y])
 #define IMM           CPU_RB (cpu->pc++)
 
-#define CPU_RB(A)     mmu_rb(mmu, A)
-#define CPU_WB(A,X)   mmu_wb(mmu, A, X)
-#define CPU_RW(A)     mmu_rw(mmu, A)
-#define CPU_WW(A,X)   mmu_ww(mmu, A, X)
+#define CPU_RB(A)     mmu_readByte(mmu, A)
+#define CPU_WB(A,X)   mmu_writeByte(mmu, A, X)
+#define CPU_RW(A)     mmu_readWord(mmu, A)
+#define CPU_WW(A,X)   mmu_writeWord(mmu, A, X)
 
 #ifdef GB_OPS_DEBUG
 
@@ -314,7 +314,7 @@
 #define RETC    OP(RETC);  RET_IF (cpu->f_c);
 #define RETNC   OP(RETNC); RET_IF (!(cpu->f_c));
 
-#define RST     OP(RST);   uint16_t n = (opHh - 0x18) << 3; cpu->sp -= 2; mmu_ww (mmu, cpu->sp, cpu->pc); cpu->pc = n;
+#define RST     OP(RST);   uint16_t n = (opHh - 0x18) << 3; cpu->sp -= 2; mmu_writeWord (mmu, cpu->sp, cpu->pc); cpu->pc = n;
 
 /* Rotate and shift instructions */
 
