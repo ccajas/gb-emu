@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 #include "mmu.h"
 
@@ -58,6 +59,9 @@ void mmu_io_write (MMU * const mmu, uint8_t const addr, uint8_t const val)
             //else
             //    mmu->io[IO_Joypad] = 0xF;// Read action buttons here
         break;
+        case IO_IntrFlags:
+            mmu->io[IO_IntrFlags] = val & 0x1F;
+        break;
         case IO_LineY: 
             /* Read Only*/
         break;
@@ -82,71 +86,21 @@ uint8_t mmu_rb (MMU * const mmu, uint16_t const addr)
 #endif
 
     /* Read 8-bit byte from a given address */
-    switch (addr >> 12)
-    {
-        /* ROM bank 0 */
-        case 0 ... 0x3:
-            if (addr < 0x100 && !mmu->hram[0x50])
-            {   /* Read boot ROM */
-                return mmu->bios[addr];
-            }
-            else
 #ifdef FAST_ROM_READ
-                return mmu->rom.data[addr];
+    if (addr <= 0x7FFF) return mmu->rom.data[addr];
 #else
-                return mmu->rom_read(mmu->direct.ptr, addr);/* mmu->rom.data[addr]; */
+    if (addr <= 0x7FFF) return mmu->rom_read(mmu->direct.ptr, addr); /* ROM bank 0 or 1 ... N */
 #endif
-        break;
-        case 0x4 ... 0x7:        
-        /* ROM bank 1 ... N */
-#ifdef FAST_ROM_READ
-            return mmu->rom.data[addr];
-#else
-            return mmu->rom_read(mmu->direct.ptr, addr);
-#endif
-        break;
-        case 0x8: case 0x9:
-        /* Video RAM */
-            return VRAM_DATA_(addr);
-        break;
-        case 0xA: case 0xB:
-        /* External RAM */
-            return ERAM_DATA_(addr);
-        break;
-        case 0xC: case 0xD:
-        /* Work RAM */
-            return WRAM_DATA_(addr);
-        break;
-        case 0xE:
-        /* Work RAM echo */
-            return WRAM_DATA_(addr);
-        break;
-        case 0xF:
-            switch ((addr & 0x0F00) >> 8)
-		    {
-                case 0 ... 0xD: /* Work RAM echo */
-                    return WRAM_DATA_(addr);
-                case 0xE:
-                    if (addr < 0xFEA0)
-                        /* return OAM */
-                        return mmu->oam[addr & 0x9F];
-                    else
-                        return 0;
-                case 0xF:
-                    if (addr >= 0xFF80) /* HRAM */
-                        return mmu->hram[addr & 0x7F];
-                    else
-                        /* IO registers */
-                        return mmu->io[addr & 0x7F];
-                default:
-                    /* Prohibited area, if OAM is not blocked, actual value 
-                       depends on hardware. Return the default 0xFF for now */
-                    return 0xFF;
-            }
-        break;
-        default:
-            return 0;
-    }
+    if (addr <= 0x9FFF) return VRAM_DATA_(addr);      /* Video RAM        */
+    if (addr <= 0xBFFF) return ERAM_DATA_(addr);      /* External RAM     */
+    if (addr <= 0xDFFF) return WRAM_DATA_(addr);      /* Work RAM         */
+    if (addr <= 0xFDFF) return 0xFF;                  /* Echo RAM         */
+    if (addr <  0xFEA0) return mmu->oam[addr & 0x9F]; /* OAM              */
+    if (addr <= 0xFEFF) return 0xFF;                  /* Not usable       */
+    if (addr <= 0xFF7F) return mmu->io[addr & 0x7F];  /* I/O registers    */
+    if (addr <  0xFFFF) return mmu->hram[addr & 0x7F];/* High RAM         */
+    if (addr == 0xFFFF) return mmu->hram[0x7F];       /* Interrupt enable */
+
     return 0; 
 }
 
@@ -191,7 +145,13 @@ void mmu_wb (MMU * const mmu, uint16_t const addr, uint8_t val)
                 break;
                 case 0xF:
                     if (addr >= 0xFF80) /* HRAM / IO */
-                        mmu->hram[addr & 0x7F] = val;
+                    {
+                        /* Interrupt enable */
+                        if (addr == 0xFFFF)
+                            mmu->hram[0x7F] = val & 0x1F;
+                        else
+                            mmu->hram[addr & 0x7F] = val;
+                    }
                     else
                         mmu_io_write (mmu, addr & 0x7F, val);
                 break;
