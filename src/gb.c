@@ -9,8 +9,10 @@
 inline void gb_reset(GameBoy * const gb)
 {
     cpu_boot_reset (&gb->cpu);
-    mmu_reset (&gb->mmu);
+    mmu_boot_reset (&gb->mmu);
 
+    gb->stepCount = 0;
+    gb->frames = 0;
     gb->frameClock = 0;
     gb->direct.paused = 0;
 
@@ -23,8 +25,7 @@ void gb_init (GameBoy * const gb, void * dataPtr,
               struct gb_func  * gb_func,
               struct gb_debug * gb_debug)
 {
-    /* Do a reset for the first time */
-    gb_reset (gb);
+    mmu_init (&gb->mmu);
 
     /* Pass down data pointer from frontend to components */
     gb->direct.ptr     = dataPtr;
@@ -38,34 +39,35 @@ void gb_init (GameBoy * const gb, void * dataPtr,
     gb->mmu.rom_read  = gb_func->gb_rom_read;
     gb->ppu.draw_line = gb_func->gb_draw_line;
 
+    /* Do a reset for the first time */
+    gb_reset (gb);
+
     /* Copy ROM header */
     int i;
     for (i = 0; i < GB_HEADER_SIZE; i++)
         gb->cart.header[i] = gb->mmu.rom_read(gb->direct.ptr, 0x100 + i);
 
-    /* Assign MBC and available hardware */
-    gb->cart.hardwareType = cartTypes[gb->cart.cartType];
+    const uint32_t romSize = (CART_MIN_SIZE_KB << gb->cart.romSize) << 10;
 
-    const uint_fast32_t romSize = (CART_MIN_SIZE_KB << gb->cart.romSize) << 10;
+    LOG_("GB: ROM loaded (%s, %d KiB)\n", gb->cart.title, romSize >> 10);
+    LOG_("GB: Cart type: %02X\n", gb->cart.cartType);
+
+    /* Assign MBC and available hardware */
+    gb->mmu.mbc = cartTypes[gb->cart.cartType];
+    gb->mmu.romBanks = romSize >> 14;
 
 #ifdef FAST_ROM_READ
     vc_init (&gb->mmu.rom, romSize);
     for (i = 0; i < romSize; i++)
         vc_push (&gb->mmu.rom, gb->mmu.rom_read(gb->direct.ptr, i));
 #endif
-    LOG_("GB: ROM loaded (%s, %d KiB)\n", gb->cart.title, romSize >> 10);
-    LOG_("GB: Cart type: %02X\n", gb->cart.cartType);
 
 #ifdef GB_DEBUG
     //gb_print_logo(gb, 177);
 #endif
     /* Set initial values */
     cpu_state (&gb->cpu, &gb->mmu);
-
-    gb->stepCount = 0;
-    gb->frames = 0;
 }
-
 
 uint8_t gb_step (GameBoy * const gb)
 {

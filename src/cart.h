@@ -40,17 +40,6 @@ typedef struct Cartridge_struct
         uint8_t    header[GB_HEADER_SIZE];
     };
 
-    /* Combination of MBC and extra hardware stored as a bitfield */
-    /*union
-    {
-        struct 
-        {
-            uint8_t hardware : 4;
-            uint8_t cartMBC : 4;
-        };
-        uint8_t hardware_MBC;
-    };*/
-
     /* Memory bank controller */
     enum mbc_t
     {
@@ -79,9 +68,6 @@ typedef struct Cartridge_struct
     }
     hardware;
 
-    /* Combination of MBC and extra hardware stored as a bitfield */
-    uint8_t hardwareType;
-
     /* Determined by ROM size value in header*/
     uint16_t numRomBanks;
 }
@@ -93,7 +79,7 @@ Cartridge;
 */
 static const uint8_t cartTypes[256] = 
 {
-    NO_MBC, 
+    [0] = NO_MBC, 
     MBC1, 
     MBC1   + HW_RAM,
     MBC1   + HW_RAM + HW_BATTERY,

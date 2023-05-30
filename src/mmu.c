@@ -12,7 +12,13 @@
     #define WRAM_DATA_(N)   mmu->wram[N & 0x1FFF]
 #endif
 
-void mmu_reset (MMU * const mmu)
+#ifdef FAST_ROM_READ
+    #define ROM_READ_(N)  mmu->rom.data[N];
+#else
+    #define ROM_READ_(N)  mmu->rom_read(mmu->direct.ptr, N);
+#endif
+
+void mmu_init (MMU * const mmu)
 {
 #ifdef FAST_ROM_READ
     vc_init (&mmu->rom, CART_MIN_SIZE_KB << 10);
@@ -27,8 +33,10 @@ void mmu_reset (MMU * const mmu)
     memset(mmu->eram, 0, ERAM_SIZE);
     memset(mmu->wram, 0, WRAM_SIZE);
 #endif
+}
 
-    mmu->inBios = 0;
+void mmu_boot_reset (MMU * const mmu)
+{
     /* Set default IO register values */
     memset(mmu->io, 0, IO_HRAM_SIZE * sizeof(uint8_t));
 
@@ -42,8 +50,55 @@ void mmu_reset (MMU * const mmu)
     mmu->io[IO_DMA]        = 0xFF;
     mmu->io[IO_BGPalette]  = 0xFC;
 
-    /* Copy boot ROM */
-    //memcpy(mmu->bios, testBootRom, sizeof(uint8_t) * 256);
+    mmu->bank8 = 1;
+}
+
+inline uint8_t mbc_read (MMU * const mmu, uint16_t const addr)
+{
+    const uint8_t mbc = mmu->mbc & 0xF0;
+
+    switch (mbc) {
+        case NO_MBC:
+            if (addr <= 0x7FFF) return ROM_READ_(addr);
+        case MBC1:
+            if (addr <= 0x3FFF) return ROM_READ_(addr); /* ROM bank X0      */
+            if (addr <= 0x7FFF) {                       /* ROM bank 01 - 7F */
+                const uint8_t masked = mmu->bank8 & (mmu->romBanks - 1);
+                return ROM_READ_(addr + (masked - 1) * ROM_BANK_SIZE);
+            }
+            if (addr >= 0xA000 && addr <= 0xBFFF) {
+                if (mmu->romBanks > 0x20) {             /* Over 512 KiB     */
+                    return ERAM_DATA_(addr);
+                }
+                if (mmu->romBanks <= 0x20 && mmu->bankMode) { /* Under 512 KiB */
+                    return 0; /* Select a RAM baank */
+                }
+            }
+        default:
+            return 0;
+    }
+}
+
+inline void mbc_write (MMU * const mmu, uint16_t const addr, uint8_t const val)
+{
+    const uint8_t mbc = mmu->mbc & 0xF0;
+
+    switch (mbc) {
+        case NO_MBC: return; /* Nothing to write in carts without an MBC */
+        case MBC1:
+            if (addr <= 0x1FFF) {                        /* Enable RAM read/write         */
+                mmu->ramEnable = (val == 0xA) ? 1 : 0; return; 
+            }
+            if (addr <= 0x3FFF) {                        /* ROM bank number, lower 5 bits */ 
+                mmu->bank8 = val & 0x1F; 
+                if (mmu->bank8 == 0) { mmu->bank8++; } return; 
+            }
+            if (addr <= 0x5FFF) {                        /* ROM bank number, upper 2 bits */ 
+                mmu->bank8 = ((val & 3) << 5) | (mmu->bank8 & 0x1F); return;
+            }
+            if (addr <= 0x7FFF) { mmu->bankMode = val; } /* Banking mode, use ROM or RAM  */
+            return;
+    }
 }
 
 void mmu_io_write (MMU * const mmu, uint16_t const addr, uint8_t const val)
@@ -53,19 +108,11 @@ void mmu_io_write (MMU * const mmu, uint16_t const addr, uint8_t const val)
     switch (io_addr) 
     {
         case IO_Joypad:
-            /* Joypad input */
-            //mmu->io[IO_Joypad] = 0xCF;// val;
-
-            //if ((mmu->io[IO_Joypad] & 0x10) == 0) /* Direction buttons */
-            //    mmu->io[IO_Joypad] = 0xF;// Read D-pad here
-            //else
-            //    mmu->io[IO_Joypad] = 0xF;// Read action buttons here
         break;
         case IO_IntrFlags:
             mmu->io[IO_IntrFlags] = val & 0x1F;
         break;
-        case IO_LineY: 
-            /* Read Only*/
+        case IO_LineY: /* Read Only*/
         break;
         case IO_DMA:
         {   /* DMA transfer to OAM memory */
@@ -88,14 +135,9 @@ uint8_t mmu_readByte (MMU * const mmu, uint16_t const addr)
 #endif
 
     /* Read 8-bit byte from a given address */
-#ifdef FAST_ROM_READ
-    if (addr <= 0x7FFF) return mmu->rom.data[addr];
-#else
-    if (addr <= 0x7FFF) 
-        return mmu->rom_read(mmu->direct.ptr, addr);  /* ROM bank 0 ... N */
-#endif
+    if (addr <= 0x7FFF) return mbc_read(mmu, addr);   /* ROM banks        */
     if (addr <= 0x9FFF) return VRAM_DATA_(addr);      /* Video RAM        */
-    if (addr <= 0xBFFF) return ERAM_DATA_(addr);      /* External RAM     */
+    if (addr <= 0xBFFF) return mbc_read(mmu, addr);   /* External RAM     */
     if (addr <= 0xDFFF) return WRAM_DATA_(addr);      /* Work RAM         */
     if (addr <= 0xFDFF) return 0xFF;                  /* Echo RAM         */
     if (addr <  0xFEA0) return mmu->oam[addr & 0x9F]; /* OAM              */
@@ -117,7 +159,7 @@ void mmu_writeByte (MMU * const mmu, uint16_t const addr, uint8_t val)
 { 
     /* Write 8-bit byte to a given address */ 
 
-    if (addr <= 0x7FFF) { /* Todo: MBC write */ }
+    if (addr <= 0x7FFF) { mbc_write (mmu, addr, val); return; }    /* MBC write         */
     if (addr <= 0x9FFF) { VRAM_DATA_(addr) = val; return; }        /* Video RAM         */
     if (addr <= 0xBFFF) { ERAM_DATA_(addr) = val; return; }        /* External RAM      */
     if (addr <= 0xFDFF) { WRAM_DATA_(addr) = val; return; }        /* Work RAM / echo   */

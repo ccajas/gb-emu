@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "utils/v_array.h"
+#include "cart.h"
 #include "io.h"
 
 #define CART_MIN_SIZE_KB  32
@@ -17,11 +18,12 @@ typedef struct MMU_struct
     uint8_t cartType;
 
     enum {
-        VRAM_SIZE = 0x2000, /* Video RAM*/
-        ERAM_SIZE = 0x2000, /* External RAM */
-        WRAM_SIZE = 0x2000, /* Work RAM */
-        OAM_SIZE  = 0xA0,
-        IO_HRAM_SIZE = 0x80 /* I/O registers/HRAM */
+        VRAM_SIZE     = 0x2000, /* Video RAM*/
+        ERAM_SIZE     = 0x2000, /* External RAM */
+        WRAM_SIZE     = 0x2000, /* Work RAM */
+        OAM_SIZE      = 0xA0,
+        IO_HRAM_SIZE  = 0x80, /* I/O registers/HRAM */
+        ROM_BANK_SIZE = 0x4000 
     }
     ramSizes;
 
@@ -39,8 +41,18 @@ typedef struct MMU_struct
     uint8_t oam[OAM_SIZE];
     uint8_t hram[0x80];
 
+    /* MBC type and information */
+    uint8_t mbc;
+    uint16_t romBanks;
+
     /* I/O registers */
     uint8_t io[0x80];
+
+    /* MBC related registers */
+    uint16_t bank16;
+    uint8_t  bank8;
+    uint8_t  bankMode;
+    uint8_t  ramEnable;
 
     /* Direct access to frontend data */
     struct
@@ -54,8 +66,8 @@ typedef struct MMU_struct
 }
 MMU;
 
-void mmu_reset (MMU * const);
-void mmu_load (MMU * const);
+void mmu_init (MMU * const);
+void mmu_boot_reset (MMU * const);
 
 /* Read functions */
 
