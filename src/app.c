@@ -1,4 +1,5 @@
 #include <string.h>
+#include <time.h>
 #include "app.h"
 
 void app_config (struct App * app, uint8_t const argc, char * const argv[])
@@ -10,6 +11,8 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
 
     app->draw = 1;
     app->scale = 3;
+
+    app->paused = 0;
 }
 
 /* GLFW callback functions */
@@ -43,8 +46,9 @@ void app_init (struct App * app)
     //GameBoy GB;
 
     /* Define structs for data and concrete functions */
-    struct gb_data newData = {
-        .rom = app_load (app),
+    app->gbData = (struct gb_data) 
+    {
+        .rom = app_load (app->defaultFile),
         .bootRom = NULL,
         .tileMap = {
             .width = 128,
@@ -57,7 +61,6 @@ void app_init (struct App * app)
             .data = calloc(DISPLAY_WIDTH * DISPLAY_HEIGHT * 3, sizeof(uint8_t))
         }
     };
-    app->gbData = newData;
 
     /* Select image to display */
     app->image = &app->gbData.frameBuffer;
@@ -96,10 +99,10 @@ void app_init (struct App * app)
     }
 }
 
-uint8_t * app_load (struct App const * app) 
+uint8_t * gb_load (const char * fileName) 
 {
     /* Load file from command line */
-    FILE * f = fopen (app->defaultFile, "rb");
+    FILE * f = fopen (fileName, "rb");
 
     fseek (f, 0, SEEK_END);
     uint32_t size = ftell(f);
@@ -108,7 +111,7 @@ uint8_t * app_load (struct App const * app)
     if (!f)
     {
         fclose (f);
-        LOG_("Failed to load file \"%s\"\n", app->defaultFile);
+        LOG_("Failed to load file \"%s\"\n", fileName);
         return NULL;
     }
     else
@@ -126,7 +129,7 @@ uint8_t * app_load (struct App const * app)
 void app_run (struct App * app)
 {
     /* Start clock */
-    app->time = clock();
+    clock_t time = clock();
     uint32_t frames = 0;
 
     /* Frames for time keeping */
@@ -142,7 +145,7 @@ void app_run (struct App * app)
             if (frames < -1 && !app->paused)
             {
                 //frames = gb_frame (&GB);
-                printf("\033[A\33[2KT\rFrames: %d\n", frames);
+                printf("\033[A\33[2KT\rFrames: %d\n", ++frames);
             }
 
             /* Select image to display */
@@ -153,11 +156,6 @@ void app_run (struct App * app)
 
             glfwSwapBuffers (app->window);
             glfwPollEvents();
-
-            if (glfwWindowShouldClose (app->window))
-            {
-                goto shutdown;
-            }
         }
     }
     else
@@ -167,20 +165,17 @@ void app_run (struct App * app)
             //gb_frame (&GB);
             frames++;
         }
-        goto shutdown;
     }
 
-    /* Todo: remove the need for this goto */
-    shutdown:
-        //gb_shutdown (&GB);
-        app->time = clock() - app->time;
-        totalSeconds = (float)frames / 60.0;
+    //gb_shutdown (&GB);
+    time = clock() - time;
+    totalSeconds = (float)frames / 60.0;
 
-        free (app->gbData.rom);
+    free (app->gbData.rom);
 
-        double timeTaken = ((double) app->time) / CLOCKS_PER_SEC; /* Elapsed time */
-        LOG_("The program ran %f seconds for %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, frames, totalSeconds / timeTaken);
-        LOG_("For each second, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));  
+    double timeTaken = ((double) time) / CLOCKS_PER_SEC; /* Elapsed time */
+    LOG_("The program ran %f seconds for %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, frames, totalSeconds / timeTaken);
+    LOG_("For each second, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));  
 
     if (app->draw)
     {
