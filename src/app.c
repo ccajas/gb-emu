@@ -2,21 +2,9 @@
 #include <time.h>
 #include "app.h"
 
-void app_config (struct App * app, uint8_t const argc, char * const argv[])
-{
-    if (argc >= 2) {
-        char * fileName = argv[1];
-        strcpy (app->defaultFile, fileName);
-    }
-
-    app->draw = 1;
-    app->scale = 3;
-
-    app->paused = 0;
-}
-
 /* GLFW callback functions */
 
+#if APP_DRAW
 static void error_callback(int error, const char* description)
 {
     fprintf(stderr, "Error (%d): %s\n", error, description);
@@ -36,20 +24,28 @@ void framebuffer_size_callback (GLFWwindow* window, int width, int height)
        height will be significantly larger than specified on retina displays. */
     glViewport(0, 0, width, height);
 }
+#endif
+
+void app_config (struct App * app, uint8_t const argc, char * const argv[])
+{
+    if (argc >= 2) {
+        char * fileName = argv[1];
+        strcpy (app->defaultFile, fileName);
+    }
+
+    app->draw = 0;
+    app->scale = 3;
+    app->paused = 0;
+}
 
 void app_init (struct App * app)
 {    
-    /* Main objects */
-    GLFWwindow * window;
-    Scene newDisplay = { .bgColor = { 173, 175, 186 }};
-    app->display = newDisplay;
-    //GameBoy GB;
-
     /* Define structs for data and concrete functions */
     app->gbData = (struct gb_data) 
     {
-        .rom = app_load (app->defaultFile),
+        .rom = gb_load (app->defaultFile),
         .bootRom = NULL,
+#if APP_DRAW
         .tileMap = {
             .width = 128,
             .height = 128,
@@ -60,7 +56,14 @@ void app_init (struct App * app)
             .height = DISPLAY_HEIGHT,
             .data = calloc(DISPLAY_WIDTH * DISPLAY_HEIGHT * 3, sizeof(uint8_t))
         }
+#endif
     };
+#if APP_DRAW
+
+    /* Objects for drawing */
+    GLFWwindow * window;
+    Scene newDisplay = { .bgColor = { 173, 175, 186 }};
+    app->display = newDisplay;
 
     /* Select image to display */
     app->image = &app->gbData.frameBuffer;
@@ -97,6 +100,7 @@ void app_init (struct App * app)
         graphics_init (&app->display);
         app->window = window;
     }
+#endif
 }
 
 uint8_t * gb_load (const char * fileName) 
@@ -116,11 +120,26 @@ uint8_t * gb_load (const char * fileName)
     }
     else
     {
-        LOG_("ROM file size: %d\n", size);
-
         uint8_t * rom = calloc(size, sizeof (uint8_t));
         fread (rom, size, 1, f);
         fclose (f);
+
+        /* Get cartridge type and MBC from header */
+        const uint8_t cartType = rom[0x147];
+        uint8_t mbc = 0;
+
+        switch (cartType) 
+        {
+            case 0:            mbc = 0; break;
+            case 0x1 ... 0x3:  mbc = 1; break;
+            case 0x5 ... 0x6:  mbc = 2; break;
+            case 0xF ... 0x13: mbc = 3; break;
+            default: 
+                LOG_("GB: MBC not supported.\n"); return rom;
+        }
+
+        LOG_("GB: ROM file size: %d\n", size);
+        LOG_("GB: Cart type: %02X\n\n", cartType);
 
         return rom;
     }
@@ -133,11 +152,12 @@ void app_run (struct App * app)
     uint32_t frames = 0;
 
     /* Frames for time keeping */
-    const int32_t totalFrames = 30;
+    const int32_t totalFrames = 1000;
     float totalSeconds = (float) totalFrames / 60.0;
 
     if (app->draw)
     {
+#if APP_DRAW
         while (!glfwWindowShouldClose (app->window))
         {
             glfwMakeContextCurrent (app->window);
@@ -150,20 +170,20 @@ void app_run (struct App * app)
 
             /* Select image to display */
             app->image = &app->gbData.tileMap;
-
             draw_begin (app->window, &app->display);
             //draw_screen_quad (app->window, &app->display, app->image, app->scale);
 
             glfwSwapBuffers (app->window);
             glfwPollEvents();
         }
+#endif
     }
     else
     {
         while (frames < totalFrames)
         {
             //gb_frame (&GB);
-            frames++;
+            printf("Frames: %d\n", ++frames);
         }
     }
 
@@ -177,10 +197,12 @@ void app_run (struct App * app)
     LOG_("The program ran %f seconds for %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, frames, totalSeconds / timeTaken);
     LOG_("For each second, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));  
 
+#if APP_DRAW
     if (app->draw)
     {
         glfwDestroyWindow (app->window);
         glfwTerminate();
         exit (EXIT_SUCCESS);
     }
+#endif
 }

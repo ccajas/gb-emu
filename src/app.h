@@ -2,11 +2,13 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include <glad/glad.h>
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
+#ifdef APP_DRAW
+    #include <glad/glad.h>
+    #define GLFW_INCLUDE_NONE
+    #include <GLFW/glfw3.h>
 
-#include "api/glfw/graphics.h"
+    #include "api/glfw/graphics.h"
+#endif
 
 #define DISPLAY_WIDTH   160
 #define DISPLAY_HEIGHT  144
@@ -34,15 +36,19 @@ struct App
         uint8_t * rom;
 
         /* Used for drawing the display and tilemap */
+#if APP_DRAW
         struct Texture tileMap;
         struct Texture frameBuffer;
+#endif
     };
     struct gb_data gbData;
-
+    
+#if APP_DRAW
     /* Drawing elements */
     GLFWwindow     * window;
     Scene            display;
     struct Texture * image;
+#endif
 };
 
 uint8_t * gb_load (const char *);
