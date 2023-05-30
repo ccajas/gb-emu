@@ -111,12 +111,13 @@ uint32_t gb_frame (GameBoy * const gb)
     /* Call update to debug visualizations after frame is done */
     if (gb->gb_debug != NULL)
     {
+        const uint16_t offset = (gb->direct.debugMode - 1) * 0x800;
         /* Fetch VRAM data */
         if (gb->gb_debug->peek_vram)
             gb->gb_debug->peek_vram (gb->direct.ptr, gb->VRAM_DATA);
         /* Convert tileset data into pixels */
         if (gb->gb_debug->update_tiles)
-            gb->gb_debug->update_tiles (gb->direct.ptr, gb->VRAM_DATA);
+            gb->gb_debug->update_tiles (gb->direct.ptr, gb->VRAM_DATA + offset);
     }
 
     return gb->frames;

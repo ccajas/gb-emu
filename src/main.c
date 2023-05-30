@@ -32,7 +32,10 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
         gb->direct.paused = !gb->direct.paused;
     
     if (key == GLFW_KEY_Q && action == GLFW_PRESS)
-        gb->direct.debugMode = !gb->direct.debugMode;
+    {
+        gb->direct.debugMode++;
+        if (gb->direct.debugMode > 3) gb->direct.debugMode = 0;
+    }
 
     if (key == GLFW_KEY_R && action == GLFW_PRESS)
         gb->direct.shouldReset = 1;
