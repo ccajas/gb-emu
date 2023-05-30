@@ -15,6 +15,7 @@ inline void gb_reset(GameBoy * const gb)
     gb->frames = 0;
     gb->frameClock = 0;
     gb->direct.paused = 0;
+    gb->direct.debugMode = 0;
 
     /* Init PPU with default values */
     gb->ppu.ticks = 0;
@@ -93,19 +94,21 @@ uint8_t gb_step (GameBoy * const gb)
     return frameDone;
 }
 
-void gb_frame (GameBoy * const gb)
+uint32_t gb_frame (GameBoy * const gb)
 {
     /* Returns 1 when frame is completed */
-    while (!gb_step(gb))
-    {
-        /* Do extra stuff in between steps */
-    }
-    /* Call update to debug visualizations after frame is done */
-    gb_debug_update (gb);
-}
+    while (!gb_step(gb)) { /* Do extra stuff in between steps */ }
 
-void gb_debug_update (GameBoy * const gb)
-{
+    if (gb->gb_func != NULL)
+    {
+        if (gb->direct.shouldReset)
+        {
+            gb_reset(gb);
+            gb->direct.shouldReset = 0;
+        }
+    }
+
+    /* Call update to debug visualizations after frame is done */
     if (gb->gb_debug != NULL)
     {
         /* Fetch VRAM data */
@@ -115,6 +118,8 @@ void gb_debug_update (GameBoy * const gb)
         if (gb->gb_debug->update_tiles)
             gb->gb_debug->update_tiles (gb->direct.ptr, gb->VRAM_DATA);
     }
+
+    return gb->frames;
 }
 
 #ifdef GB_DEBUG

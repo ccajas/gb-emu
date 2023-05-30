@@ -60,6 +60,8 @@ typedef struct gb_struct
 	{
         /* Set status of the emulation */
         uint8_t paused;
+        uint8_t debugMode;
+        uint8_t shouldReset;
 
         /* Pointer to frontend data */
 		void * ptr;
@@ -75,10 +77,9 @@ GameBoy;
 void gb_init     (GameBoy * const, void *, struct gb_func  *, struct gb_debug *);
 void gb_shutdown (GameBoy * const);
 
-uint8_t gb_step         (GameBoy * const);
-void    gb_frame        (GameBoy * const);
-void    gb_debug_update (GameBoy * const);
-void    gb_print_logo   (GameBoy * const, const uint8_t);
-void    gb_unload_cart  (GameBoy * const);
+uint8_t  gb_step         (GameBoy * const);
+uint32_t gb_frame        (GameBoy * const);
+void     gb_print_logo   (GameBoy * const, const uint8_t);
+void     gb_unload_cart  (GameBoy * const);
 
 #endif

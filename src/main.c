@@ -29,9 +29,13 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
         glfwSetWindowShouldClose(window, GLFW_TRUE);
 
     if (key == GLFW_KEY_P && action == GLFW_PRESS)
-    {
         gb->direct.paused = !gb->direct.paused;
-    }
+    
+    if (key == GLFW_KEY_Q && action == GLFW_PRESS)
+        gb->direct.debugMode = !gb->direct.debugMode;
+
+    if (key == GLFW_KEY_R && action == GLFW_PRESS)
+        gb->direct.shouldReset = 1;
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -45,8 +49,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 
 struct gb_data
 {
-    //struct VArray rom;
-
+    /* Store ROM data */
     uint8_t * bootRom;
     uint8_t * rom;
 
@@ -154,7 +157,7 @@ int main (int argc, char * argv[])
     
     /* Main objects */
     GLFWwindow * window;
-    Scene scene = { .bgColor = { 173, 175, 186 }};
+    Scene display = { .bgColor = { 173, 175, 186 }};
     GameBoy GB;
 
     /* Define structs for data and concrete functions */
@@ -180,17 +183,17 @@ int main (int argc, char * argv[])
     if (argc > 1) defaultROM = argv[1];
 
     LOG_("GB: Loading file \"%s\"...\n", defaultROM);
-    gbData.rom = (uint8_t*) read_file (defaultROM);
+    //gbData.rom = (uint8_t*) read_file (defaultROM);
 
-    if (gbData.rom == NULL)
+    if ((gbData.rom = (uint8_t*) read_file (defaultROM)) == NULL)
     {
-        LOG_("GB: Failed to load file! .\n");
+        LOG_("GB: Failed to load file!\n");
         return 1;
     }
 
     /* Load ROM */
     gb_init (&GB, &gbData, 
-        &(struct gb_func)  { rom_read, draw_line },
+        &(struct gb_func)  { rom_read,  draw_line },
         &(struct gb_debug) { peek_vram, update_tiles }
     );
 
@@ -219,7 +222,7 @@ int main (int argc, char * argv[])
         glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
         glfwMakeContextCurrent(window);
 
-        graphics_init (&scene);
+        graphics_init (&display);
     }
 
     /* Start clock */
@@ -230,18 +233,23 @@ int main (int argc, char * argv[])
     if (draw)
     {
         while (!glfwWindowShouldClose(window))
-        { 
+        {
             glfwMakeContextCurrent(window);
 
             if (frames < -1 && !GB.direct.paused)
             {
-                gb_frame (&GB);
-                frames++;
+                frames = gb_frame (&GB);
                 printf("\033[A\33[2KT\rFrames: %d\n", frames);
             }
 
-            draw_begin (window, &scene);
-            draw_screen_quad (window, &scene, image, scale);
+            /* Select image to display */
+            if (!GB.direct.debugMode)
+                image = &gbData.frameBuffer;
+            else
+                image = &gbData.tileMap;
+
+            draw_begin (window, &display);
+            draw_screen_quad (window, &display, image, scale);
 
             glfwSwapBuffers(window);
             glfwPollEvents();
