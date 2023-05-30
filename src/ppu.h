@@ -56,12 +56,8 @@ typedef struct PPU_struct
     uint16_t ticks;
     uint32_t frameTicks;
     
-#ifdef USING_DYNAMIC_ARRAY
     /* Video memory access for fetching/drawing pixels */
-    struct VArray * vram;
-#else
     uint8_t * vram;
-#endif
 
     /* Row of pixels stored for a line */
     uint8_t pixels[DISPLAY_WIDTH];

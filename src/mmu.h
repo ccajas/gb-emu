@@ -7,7 +7,7 @@
 
 #define CART_MIN_SIZE_KB  32
 
-#define USING_DYNAMIC_ARRAY__
+#define USING_DYNAMIC_ARRAY
 #define FAST_ROM_READ
 
 typedef struct MMU_struct

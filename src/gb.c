@@ -1,5 +1,23 @@
-
 #include "gb.h"
+
+#ifdef USING_DYNAMIC_ARRAY
+    #define VRAM_DATA  mmu.vram.data
+#else
+    #define VRAM_DATA  mmu.vram
+#endif
+
+inline void gb_reset(GameBoy * const gb)
+{
+    cpu_boot_reset (&gb->cpu);
+    mmu_reset (&gb->mmu);
+
+    gb->frameClock = 0;
+    gb->direct.paused = 0;
+
+    /* Init PPU with default values */
+    gb->ppu.ticks = 0;
+    gb->ppu.vram = gb->VRAM_DATA;
+}
 
 void gb_init (GameBoy * const gb, void * dataPtr,
               struct gb_func  * gb_func,
@@ -22,15 +40,11 @@ void gb_init (GameBoy * const gb, void * dataPtr,
 
     /* Copy ROM header */
     int i;
-    uint8_t header[GB_HEADER_SIZE];
-
     for (i = 0; i < GB_HEADER_SIZE; i++)
-        header[i] = gb->mmu.rom_read(gb->direct.ptr, 0x100 + i);
-
-    memcpy (&gb->cart.header, header, GB_HEADER_SIZE);
+        gb->cart.header[i] = gb->mmu.rom_read(gb->direct.ptr, 0x100 + i);
 
     /* Assign MBC and available hardware */
-    gb->cart.hardware_MBC = cartTypes[gb->cart.cartType];
+    gb->cart.hardwareType = cartTypes[gb->cart.cartType];
 
     const uint_fast32_t romSize = (CART_MIN_SIZE_KB << gb->cart.romSize) << 10;
 
@@ -92,20 +106,12 @@ void gb_debug_update (GameBoy * const gb)
 {
     if (gb->gb_debug != NULL)
     {
-#ifdef USING_DYNAMIC_ARRAY
-        if (gb->gb_debug->peek_vram)
-            gb->gb_debug->peek_vram (gb->direct.ptr, gb->mmu.vram.data);
-
-        if (gb->gb_debug->update_tiles)
-            gb->gb_debug->update_tiles (gb->direct.ptr, gb->mmu.vram.data);
-#else
         /* Fetch VRAM data */
         if (gb->gb_debug->peek_vram)
-            gb->gb_debug->peek_vram (gb->direct.ptr, gb->mmu.vram);
+            gb->gb_debug->peek_vram (gb->direct.ptr, gb->VRAM_DATA);
         /* Convert tileset data into pixels */
         if (gb->gb_debug->update_tiles)
-            gb->gb_debug->update_tiles (gb->direct.ptr, gb->mmu.vram);
-#endif
+            gb->gb_debug->update_tiles (gb->direct.ptr, gb->VRAM_DATA);
     }
 }
 
