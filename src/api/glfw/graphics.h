@@ -5,6 +5,15 @@
 #include "gl_gen.h"
 #include "shader.h"
 
+struct Texture
+{
+    uint16_t width;
+    uint16_t height;
+
+    /* Pixel data */
+    uint8_t * data;
+};
+
 typedef struct Scene_struct
 {
     uint8_t bgColor[3];
@@ -28,7 +37,7 @@ void graphics_init  (Scene * const);
 void draw_lazy_quad (const float width, const float height, const int i);
 
 void draw_begin       (GLFWwindow *, Scene * const);
-void draw_screen_quad (GLFWwindow *, Scene * const, uint8_t * pixels, const float scale);
+void draw_screen_quad (GLFWwindow *, Scene * const, struct Texture * const, const float scale);
 
 inline void texture_setup (uint32_t * const textureID, uint16_t width, uint16_t height, GLenum filter, const void * data)
 {

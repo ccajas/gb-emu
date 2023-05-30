@@ -52,10 +52,10 @@ struct gb_data
 
     /* Used in drawing VRAM */
     uint8_t vram_raw[VRAM_SIZE * 2 * 3];
-    uint8_t tilemap[256 * 64 * 3];
 
-    /* Used for drawing the display */
-    uint8_t framebuffer[DISPLAY_WIDTH * DISPLAY_HEIGHT * 3];
+    /* Used for drawing the display and tilemap */
+    struct Texture tileMap;
+    struct Texture frameBuffer;
 };
 
 /* Concrete function definitions for the emulator frontend */
@@ -78,9 +78,9 @@ void draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 		uint8_t pixel = 3 - (*pixels);
         pixel = (pixel * 0x55 == 0xFF) ? 0xEE : pixel * 0x55;
 
-        gbData->framebuffer[yOffset + (x * 3)] = pixel;
-        gbData->framebuffer[yOffset + (x * 3) + 1] = pixel;
-        gbData->framebuffer[yOffset + (x * 3) + 2] = pixel;
+        gbData->frameBuffer.data[yOffset + (x * 3)] = pixel;
+        gbData->frameBuffer.data[yOffset + (x * 3) + 1] = pixel;
+        gbData->frameBuffer.data[yOffset + (x * 3) + 2] = pixel;
 
         pixels++;
 	}
@@ -135,9 +135,9 @@ void update_tiles (void * dataPtr, const uint8_t * data)
                 const uint8_t  colorID = 3 - ((col1 & 1) + ((col2 & 1) << 1));
                 const uint16_t pixelData = (tileYoffset + yOffset + tileXoffset + x) * 3;
 
-                gbData->tilemap[pixelData] = colorID * 0x55;
-                gbData->tilemap[pixelData + 1] = colorID * 0x55;
-                gbData->tilemap[pixelData + 2] = colorID * 0x55;
+                gbData->tileMap.data[pixelData] = colorID * 0x55;
+                gbData->tileMap.data[pixelData + 1] = colorID * 0x55;
+                gbData->tileMap.data[pixelData + 2] = colorID * 0x55;
             }
         }
         data += tileSize;
@@ -158,20 +158,29 @@ int main (int argc, char * argv[])
     GameBoy GB;
 
     /* Define structs for data and concrete functions */
-    struct gb_data gbData = { .bootRom = NULL };
+    struct gb_data gbData = { 
+        .bootRom = NULL,
+        .tileMap = {
+            .width = 128,
+            .height = 128,
+            .data = calloc(128 * 128 * 3, sizeof(uint8_t))
+        },
+        .frameBuffer = {
+            .width = DISPLAY_WIDTH,
+            .height = DISPLAY_HEIGHT,
+            .data = calloc(DISPLAY_WIDTH * DISPLAY_HEIGHT * 3, sizeof(uint8_t))
+        }
+    };
+
+    /* Select image to display */
+    struct Texture * image = &gbData.frameBuffer;
 
     /* Load file from command line */
     char * defaultROM = NULL;
     if (argc > 1) defaultROM = argv[1];
 
     LOG_("GB: Loading file \"%s\"...\n", defaultROM);
-
-    //uint32_t fileSize = file_size (defaultROM);
-    //uint8_t * filebuf = (uint8_t*) read_file (defaultROM);
     gbData.rom = (uint8_t*) read_file (defaultROM);
-
-    //vc_init (&gbData.rom, 1);
-    //vc_push_array (&gbData.rom, filebuf, fileSize, 0);
 
     if (gbData.rom == NULL)
     {
@@ -185,7 +194,6 @@ int main (int argc, char * argv[])
         &(struct gb_debug) { peek_vram, update_tiles }
     );
 
-
     if (draw)
     {
         glfwSetErrorCallback(error_callback);
@@ -197,7 +205,7 @@ int main (int argc, char * argv[])
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
         glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
 
-        window = glfwCreateWindow(160 * scale, 144 * scale, "GB Emu", NULL, NULL);
+        window = glfwCreateWindow(image->width * scale, image->height * scale, "GB Emu", NULL, NULL);
         if (!window)
         {
             glfwTerminate();
@@ -233,16 +241,14 @@ int main (int argc, char * argv[])
             }
 
             draw_begin (window, &scene);
-            draw_screen_quad (window, &scene, gbData.framebuffer, scale);
+            draw_screen_quad (window, &scene, image, scale);
 
             glfwSwapBuffers(window);
             glfwPollEvents();
 
             if (glfwWindowShouldClose(window))
             {
-                glfwDestroyWindow(window);
-                glfwTerminate();
-                exit(EXIT_SUCCESS);
+                goto shutdown;
             }
         }
     }
@@ -253,24 +259,11 @@ int main (int argc, char * argv[])
             gb_frame (&GB);
             frames++;
         }
-
-        gb_shutdown (&GB);
-        t = clock() - t;   
-        totalSeconds = (float)frames / 60.0; 
-
-        if (gbData.rom != NULL)
-            free (gbData.rom);
-
-        //if (vc_size(&gbData.rom) > 0)
-        //    vc_free(&gbData.rom);
-
-        double timeTaken = ((double)t)/CLOCKS_PER_SEC; /* Elapsed time */
-        LOG_("The program ran %f seconds for %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, totalFrames, totalSeconds / timeTaken);
-        LOG_("For each second, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));   
+        goto shutdown;
     }
 
-    if (draw)
-    {
+    /* Todo: remove the need for this goto */
+    shutdown:
         gb_shutdown (&GB);
         t = clock() - t;
         totalSeconds = (float)frames / 60.0;
@@ -278,12 +271,15 @@ int main (int argc, char * argv[])
         if (gbData.rom != NULL)
             free (gbData.rom);
 
-        //if (vc_size(&gbData.rom) > 0)
-        //    vc_free(&gbData.rom);
-
         double timeTaken = ((double)t)/CLOCKS_PER_SEC; /* Elapsed time */
         LOG_("The program ran %f seconds for %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, frames, totalSeconds / timeTaken);
         LOG_("For each second, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));  
+
+    if (draw)
+    {
+        glfwDestroyWindow(window);
+        glfwTerminate();
+        exit(EXIT_SUCCESS);
     }
 
     return 0;

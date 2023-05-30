@@ -3,6 +3,18 @@
 const char * default_fs_source =
 "#version 330\n"
 "varying vec2 TexCoords;\n"
+"uniform sampler2D indexed;\n"
+"uniform vec2 screenSize;\n"
+
+"void main()\n"
+"{\n"
+"    vec3 sampled = texture2D(indexed, TexCoords).rgb;\n"
+"    gl_FragColor = vec4(sampled, 1.0);\n"
+"}\n";
+
+const char * ppu_fs_source =
+"#version 330\n"
+"varying vec2 TexCoords;\n"
 "uniform sampler2D colorPalette;\n"
 "uniform sampler2D indexed;\n"
 "uniform vec3 textColor;\n"
@@ -91,8 +103,8 @@ void graphics_init (Scene * const scene)
     glBlendEquation(GL_FUNC_ADD);
 
     /* Create shaders */
-    scene->fbufferShader = shader_init_source (ppu_vs_source, default_fs_source);
-    scene->debugShader   = shader_init_source (ppu_vs_source, default_fs_source);
+    scene->fbufferShader = shader_init_source (ppu_vs_source, ppu_fs_source);
+    scene->debugShader   = shader_init_source (ppu_vs_source, ppu_fs_source);
 
     /* Create main textures */
     texture_setup (&scene->fbufferTexture, 160, 144, GL_NEAREST, NULL);
@@ -110,7 +122,7 @@ void draw_begin (GLFWwindow * window, Scene * const scene)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void draw_screen_quad (GLFWwindow * window, Scene * const scene, uint8_t * pixels, const float scale)
+void draw_screen_quad (GLFWwindow * window, Scene * const scene, struct Texture * const pixels, const float scale)
 {
     int32_t width, height;
     glfwGetFramebufferSize (window, &width, &height);
@@ -132,16 +144,8 @@ void draw_screen_quad (GLFWwindow * window, Scene * const scene, uint8_t * pixel
 
     /* Draw framebuffer */
     glBindTexture (GL_TEXTURE_2D, scene->debugTexture);
-    glTexImage2D  (GL_TEXTURE_2D, 0, GL_RGBA, width / scale, height / scale, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+    glTexImage2D  (GL_TEXTURE_2D, 0, GL_RGBA, pixels->width, pixels->height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels->data);
 	draw_lazy_quad(1.0f, 1.0f, 0);
 
     glBindTexture(GL_TEXTURE_2D, 0);
-
-#ifdef CPU_DEBUG
-    draw_debug (window);
-#endif
-
-#ifdef PPU_DEBUG  
-    draw_ntable_debug (window, scene);
-#endif
 }
