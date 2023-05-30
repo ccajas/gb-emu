@@ -36,7 +36,7 @@ const char * ppu_fs_source =
 "    vec3 tint = vec3(0.37, 0.84, 0.87);\n"
 "    vec3 tint2 = vec3(0.51, 0.54, 0.03);\n"
 "    vec3 sampled = texture2D(indexed, TexCoords).rgb;\n"
-"    gl_FragColor = vec4(dotMatrix(sampled, tint), 1.0);\n"
+"    gl_FragColor = vec4(sampled, 1.0);\n"
 "}\n";
 
 const char * ppu_vs_source =

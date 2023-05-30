@@ -52,7 +52,7 @@ void cpu_state (CPU * const cpu, MMU * const mmu)
 void cpu_boot_reset (CPU * const cpu)
 {
     cpu->r[A]	= 0x01;
-    cpu->flags	= 0xB0; /* FLAG_Z | FLAG_H | FLAG_C; */
+    cpu->flags	= 0xB0;
     cpu->r[B]	= 0x0;
     cpu->r[C]	= 0x13;
     cpu->r[D]	= 0x0;
@@ -64,6 +64,7 @@ void cpu_boot_reset (CPU * const cpu)
 
     cpu->ime = 1;
     cpu->invalid = 0;
+    cpu->halted = 0;
 }
 
 inline void cpu_handle_interrupts (CPU * const cpu, MMU * const mmu)

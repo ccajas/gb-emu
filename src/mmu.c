@@ -58,8 +58,6 @@ inline uint8_t mbc_read (MMU * const mmu, uint16_t const addr)
     const uint8_t mbc = mmu->mbc & 0xF0;
 
     switch (mbc) {
-        case NO_MBC:
-            if (addr <= 0x7FFF) return ROM_READ_(addr);
         case MBC1:
             if (addr <= 0x3FFF) return ROM_READ_(addr); /* ROM bank X0      */
             if (addr <= 0x7FFF) {                       /* ROM bank 01 - 7F */
@@ -133,11 +131,17 @@ uint8_t mmu_readByte (MMU * const mmu, uint16_t const addr)
     /* Hardcode $FF44 for testing */
     if (addr == 0xFF44) return 0x90;
 #endif
+    if ((mmu->mbc >> 4) != 0)
+    {
+        printf("MBC read 1\n");
+        if (addr <= 0x7FFF)                   return mbc_read(mmu, addr);
+        if (addr >= 0xA000 && addr <= 0xBFFF) return mbc_read(mmu, addr);
+    }
 
     /* Read 8-bit byte from a given address */
-    if (addr <= 0x7FFF) return mbc_read(mmu, addr);   /* ROM banks        */
+    if (addr <= 0x7FFF) return ROM_READ_(addr);       /* ROM banks        */
     if (addr <= 0x9FFF) return VRAM_DATA_(addr);      /* Video RAM        */
-    if (addr <= 0xBFFF) return mbc_read(mmu, addr);   /* External RAM     */
+    if (addr <= 0xBFFF) return ERAM_DATA_(addr);      /* External RAM     */
     if (addr <= 0xDFFF) return WRAM_DATA_(addr);      /* Work RAM         */
     if (addr <= 0xFDFF) return 0xFF;                  /* Echo RAM         */
     if (addr <  0xFEA0) return mmu->oam[addr & 0x9F]; /* OAM              */
@@ -158,7 +162,6 @@ uint16_t mmu_readWord (MMU * const mmu, uint16_t const addr)
 void mmu_writeByte (MMU * const mmu, uint16_t const addr, uint8_t val) 
 { 
     /* Write 8-bit byte to a given address */ 
-
     if (addr <= 0x7FFF) { mbc_write (mmu, addr, val); return; }    /* MBC write         */
     if (addr <= 0x9FFF) { VRAM_DATA_(addr) = val; return; }        /* Video RAM         */
     if (addr <= 0xBFFF) { ERAM_DATA_(addr) = val; return; }        /* External RAM      */

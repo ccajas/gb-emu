@@ -50,12 +50,12 @@ void gb_init (GameBoy * const gb, void * dataPtr,
 
     const uint32_t romSize = (CART_MIN_SIZE_KB << gb->cart.romSize) << 10;
 
-    LOG_("GB: ROM loaded (%s, %d KiB)\n", gb->cart.title, romSize >> 10);
-    LOG_("GB: Cart type: %02X\n", gb->cart.cartType);
-
     /* Assign MBC and available hardware */
     gb->mmu.mbc = cartTypes[gb->cart.cartType];
     gb->mmu.romBanks = romSize >> 14;
+
+    LOG_("GB: ROM loaded (%s, %d KiB)\n", gb->cart.title, romSize >> 10);
+    LOG_("GB: Cart type: %02X\n", gb->cart.cartType);
 
 #ifdef FAST_ROM_READ
     vc_init (&gb->mmu.rom, romSize);
