@@ -45,8 +45,10 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 
 struct gb_data
 {
+    //struct VArray rom;
+
     uint8_t * bootRom;
-    struct VArray rom;
+    uint8_t * rom;
 
     /* Used in drawing VRAM */
     uint8_t vram_raw[VRAM_SIZE * 2 * 3];
@@ -61,7 +63,7 @@ struct gb_data
 uint8_t rom_read (void * dataPtr, const uint_fast32_t addr)
 {
     const struct gb_data * const gbData = dataPtr;
-    return gbData->rom.data[addr];
+    return *(gbData->rom + addr);
 };
 
 void draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
@@ -73,11 +75,12 @@ void draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 
 	for (x = 0; x < DISPLAY_WIDTH; x++)
 	{
-		const uint8_t pixel = 3 - (*pixels);
+		uint8_t pixel = 3 - (*pixels);
+        pixel = (pixel * 0x55 == 0xFF) ? 0xEE : pixel * 0x55;
 
-        gbData->framebuffer[yOffset + (x * 3)] = pixel * 0x55;
-        gbData->framebuffer[yOffset + (x * 3) + 1] = pixel * 0x55;
-        gbData->framebuffer[yOffset + (x * 3) + 2] = pixel * 0x55;
+        gbData->framebuffer[yOffset + (x * 3)] = pixel;
+        gbData->framebuffer[yOffset + (x * 3) + 1] = pixel;
+        gbData->framebuffer[yOffset + (x * 3) + 2] = pixel;
 
         pixels++;
 	}
@@ -93,8 +96,8 @@ void peek_vram (void * dataPtr, const uint8_t * data)
     int v = 0;
     for (i = 0; i < VRAM_SIZE; i++)
     {
-        const uint8_t hi = (data[i] >> 4)  * 0x11;
-        const uint8_t lo = (data[i] & 0xF) * 0x11;
+        const uint8_t hi = (gbData->rom[i] >> 4)  * 0x11;
+        const uint8_t lo = (gbData->rom[i] & 0xF) * 0x11;
         
         v+= 2;
         gbData->vram_raw[v++] = hi;
@@ -163,13 +166,14 @@ int main (int argc, char * argv[])
 
     LOG_("GB: Loading file \"%s\"...\n", defaultROM);
 
-    uint32_t fileSize = file_size(defaultROM);
-    uint8_t * filebuf = (uint8_t*) read_file (defaultROM);
+    //uint32_t fileSize = file_size (defaultROM);
+    //uint8_t * filebuf = (uint8_t*) read_file (defaultROM);
+    gbData.rom = (uint8_t*) read_file (defaultROM);
 
-    vc_init (&gbData.rom, 1);
-    vc_push_array (&gbData.rom, filebuf, fileSize, 0);
+    //vc_init (&gbData.rom, 1);
+    //vc_push_array (&gbData.rom, filebuf, fileSize, 0);
 
-    if (vc_size(&gbData.rom) == 0)
+    if (gbData.rom == NULL)
     {
         LOG_("GB: Failed to load file! .\n");
         return 1;
@@ -225,7 +229,7 @@ int main (int argc, char * argv[])
             {
                 gb_frame (&GB);
                 frames++;
-                printf("Frames: %d\n", frames);
+                printf("\033[A\33[2KT\rFrames: %d\n", frames);
             }
 
             draw_begin (window, &scene);
@@ -254,8 +258,11 @@ int main (int argc, char * argv[])
         t = clock() - t;   
         totalSeconds = (float)frames / 60.0; 
 
-        if (vc_size(&gbData.rom) > 0)
-            vc_free(&gbData.rom);
+        if (gbData.rom != NULL)
+            free (gbData.rom);
+
+        //if (vc_size(&gbData.rom) > 0)
+        //    vc_free(&gbData.rom);
 
         double timeTaken = ((double)t)/CLOCKS_PER_SEC; /* Elapsed time */
         LOG_("The program ran %f seconds for %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, totalFrames, totalSeconds / timeTaken);
@@ -268,8 +275,11 @@ int main (int argc, char * argv[])
         t = clock() - t;
         totalSeconds = (float)frames / 60.0;
 
-        if (vc_size(&gbData.rom) > 0)
-            vc_free(&gbData.rom);
+        if (gbData.rom != NULL)
+            free (gbData.rom);
+
+        //if (vc_size(&gbData.rom) > 0)
+        //    vc_free(&gbData.rom);
 
         double timeTaken = ((double)t)/CLOCKS_PER_SEC; /* Elapsed time */
         LOG_("The program ran %f seconds for %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, frames, totalSeconds / timeTaken);
