@@ -72,8 +72,8 @@ void cpu_state ()
 {
     const uint16_t pc = cpu.pc;
 
-    printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X\
-        SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",
+    printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X"
+        "SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",
         cpu.r[A], cpu.flags, cpu.r[B], cpu.r[C], cpu.r[D], cpu.r[E], cpu.r[H], cpu.r[L], 
         cpu.sp, cpu.pc, cpu_read (pc), cpu_read (pc+1), cpu_read (pc+2), cpu_read (pc+3)
     );
@@ -159,10 +159,11 @@ uint8_t cpu_step()
     /* Load next op and execute */
     const uint8_t op = cpu_read (cpu.pc++);
     const uint8_t tCycles = cpu_exec (op);
+
     cpu.frameClock += tCycles;
 
 #ifdef GB_DEBUG
-    cpu_state ();
+    cpu_state();
 #endif
 
     /* Check if a frame is done */

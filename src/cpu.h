@@ -48,8 +48,8 @@ struct CPU
 
     /* Memory and I/O registers */
     uint8_t ram[0x2000]; /* Work RAM  */
-    uint8_t io[0x80];
     uint8_t hram[0x80];  /* High RAM  */
+    uint8_t io[0x80];
 
     /* Interrupt master enable */
     uint8_t ime;

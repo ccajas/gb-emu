@@ -126,20 +126,19 @@ uint8_t * gb_load (const char * fileName)
 
         /* Get cartridge type and MBC from header */
         const uint8_t cartType = rom[0x147];
-        uint8_t mbc = 0;
+        uint8_t mbcType = 0;
 
         switch (cartType) 
         {
-            case 0:            mbc = 0; break;
-            case 0x1 ... 0x3:  mbc = 1; break;
-            case 0x5 ... 0x6:  mbc = 2; break;
-            case 0xF ... 0x13: mbc = 3; break;
+            case 0:      mbc_init(rom); break;
+            case 0x1 ... 0x3:  mbc_init(rom); break;
+            case 0x5 ... 0x6:  mbcType = 2; break;
+            case 0xF ... 0x13: mbcType = 3; break;
             default: 
                 LOG_("GB: MBC not supported.\n"); return rom;
         }
 
-        LOG_("GB: ROM file size: %d\n", size);
-        LOG_("GB: Cart type: %02X\n\n", cartType);
+        cpu_boot_reset();
 
         return rom;
     }
