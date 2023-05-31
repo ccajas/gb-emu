@@ -2,8 +2,9 @@
 #include <string.h>
 #include <profileapi.h>
 #include "cpu.h"
-#include "mmu.h"
 #include "ops.h"
+
+struct CPU cpu;
 
 const int8_t opTicks[256] = {
 /*   0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  A, B,  C,  D, E,  F*/
@@ -31,57 +32,86 @@ const int8_t opTicks[256] = {
 /* CPU related functions */
 
 #ifdef GB_DEBUG
-void cpu_init (CPU * const cpu)
+void cpu_init ()
 {
-    strcpy(cpu->reg_names, "ABCDEHL");
-    cpu->ni = 0;
+    strcpy (cpu.reg_names, "ABCDEHL");
+    cpu.ni = 0;
+    cpu.frameClock = 0;
 }
 #endif
 
-void cpu_state (CPU * const cpu, MMU * const mmu)
+uint8_t cpu_mem_access (const uint16_t addr, const uint8_t val, const uint8_t write)
 {
-    const uint16_t pc = cpu->pc;
+    /* Byte to be accessed from memory */
+    uint8_t * b;
+    switch (addr)
+    {
+        case 0x0000 ... 0x7FFF:  return mbc_rw (write, addr, val);       /* ROM from MBC     */
+        case 0x8000 ... 0x9FFF:  return ppu_rw (write, addr, val);       /* Video RAM        */
+        case 0xA000 ... 0xBFFF:  return mbc_rw (write, addr, val);       /* External RAM     */
+                                                                         /* Work RAM         */
+        case 0xC000 ... 0xDFFF:  b = &cpu.ram[addr % 0x2000]; if (write) *b = val; return *b;
+        case 0xE000 ... 0xFDFF:  return 0xFF;                            /* Echo RAM         */
+        case 0xFE00 ... 0xFE9F:  return ppu_rw (write, addr, val);       /* OAM              */
+        case 0xFEA0 ... 0xFEFF:  return 0xFF;                            /* Not usable       */
+                                                                         /* I/O registers    */
+        case 0xFF00 ... 0xFF7F:  b = &cpu.io[addr % 0x80]; if (write) *b = val; return *b;
+                                                                         /* High RAM         */                          
+        case 0xFF80 ... 0xFFFE:  b = &cpu.hram[addr % 0x80]; if (write) *b = val; return *b;  
+                                                                         /* Interrupt enable */
+        case 0xFFFF:             b = &cpu.io[addr & 0x7F]; if (write) *b = val; return *b;  
+    }
+}
 
-    printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",
-        cpu->r[A], cpu->flags, cpu->r[B], cpu->r[C], cpu->r[D], cpu->r[E], cpu->r[H], cpu->r[L], 
-        cpu->sp, cpu->pc, 
-        mmu_readByte (mmu, pc), mmu_readByte (mmu, pc+1), mmu_readByte (mmu, pc+2), mmu_readByte (mmu, pc+3)
+inline uint8_t cpu_read(const uint16_t addr)
+{
+    return cpu_mem_access(addr, 0, 0);
+}
+
+void cpu_state ()
+{
+    const uint16_t pc = cpu.pc;
+
+    printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X\
+        SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",
+        cpu.r[A], cpu.flags, cpu.r[B], cpu.r[C], cpu.r[D], cpu.r[E], cpu.r[H], cpu.r[L], 
+        cpu.sp, cpu.pc, cpu_read (pc), cpu_read (pc+1), cpu_read (pc+2), cpu_read (pc+3)
     );
 }
 
-void cpu_boot_reset (CPU * const cpu)
+void cpu_boot_reset ()
 {
-    cpu->r[A]	= 0x01;
-    cpu->flags	= 0xB0;
-    cpu->r[B]	= 0x0;
-    cpu->r[C]	= 0x13;
-    cpu->r[D]	= 0x0;
-    cpu->r[E]	= 0xD8;
-    cpu->r[H]	= 0x01;
-    cpu->r[L]	= 0x4D;
-    cpu->sp     = 0xFFFE;
-    cpu->pc     = 0x0100;
+    cpu.r[A]	= 0x01;
+    cpu.flags	= 0xB0;
+    cpu.r[B]	= 0x0;
+    cpu.r[C]	= 0x13;
+    cpu.r[D]	= 0x0;
+    cpu.r[E]	= 0xD8;
+    cpu.r[H]	= 0x01;
+    cpu.r[L]	= 0x4D;
+    cpu.sp     = 0xFFFE;
+    cpu.pc     = 0x0100;
 
-    cpu->ime = 1;
-    cpu->invalid = 0;
-    cpu->halted = 0;
+    cpu.ime = 1;
+    cpu.invalid = 0;
+    cpu.halted = 0;
 }
 
-inline void cpu_handle_interrupts (CPU * const cpu, MMU * const mmu)
+inline void cpu_handle_interrupts ()
 {
     /* Handle interrupts */
     const uint8_t intrEnabled = CPU_RB (0xFF00 + IO_IntrEnabled);
     const uint8_t intrFlags   = CPU_RB (0xFF00 + IO_IntrFlags);
 
     /* Run if CPU ran HALT instruction or IME enabled w/flags */
-    if (cpu->halted || (cpu->ime && (intrEnabled & intrFlags & IF_Any)))
+    if (cpu.halted || (cpu.ime && (intrEnabled & intrFlags & IF_Any)))
     {
-        cpu->halted = 0;
-        cpu->ime = 0;
+        cpu.halted = 0;
+        cpu.ime = 0;
 
         /* Increment clock and push PC to SP */
-        cpu->clock_t += 8;
-        CPU_WW (cpu->sp, cpu->pc);
+        cpu.clock_t += 8;
+        CPU_WW (cpu.sp, cpu.pc);
 
         /* Check all 5 IE and IF bits for flag confirmations 
            This loop also services interrupts by priority (0 = highest)
@@ -96,35 +126,61 @@ inline void cpu_handle_interrupts (CPU * const cpu, MMU * const mmu)
             {
                 /* Clear flag bit */
                 CPU_WB (0xFF00 + IO_IntrFlags, intrFlags ^ flag);
-                cpu->sp -= 2;
+                cpu.sp -= 2;
 
                 /* Move PC to request address */
-                cpu->clock_t += 8;
-                cpu->pc = requestAddress;
-                cpu->clock_t += 4;
+                cpu.clock_t += 8;
+                cpu.pc = requestAddress;
+                cpu.clock_t += 4;
             }
         }
     }
 }
 
-uint8_t cpu_step (CPU * const cpu, MMU * const mmu)
+void cpu_frame()
+{
+    /* Returns 1 when frame is completed */
+    while (!cpu_step()) { /* Do extra stuff in between steps */ }
+}
+
+uint8_t cpu_step()
 {
     /* Interrupt handling and timers */
-    cpu_handle_interrupts (cpu, mmu);
+    cpu_handle_interrupts();
 
-    if (cpu->halted)
+    if (cpu.halted)
     {
-        cpu->rt = 4;
-        cpu->clock_t += cpu->rt;
+        cpu.rt = 4;
+        cpu.clock_t += cpu.rt;
 
-        return cpu->rt;
+        return cpu.rt;
     }
 
     /* Load next op and execute */
-    uint8_t op = mmu_readByte(mmu, cpu->pc++);
+    const uint8_t op = cpu_read (cpu.pc++);
+    const uint8_t tCycles = cpu_exec (op);
+    cpu.frameClock += tCycles;
 
-    cpu->rm = 0;
-    cpu->rt = 0;
+#ifdef GB_DEBUG
+    cpu_state ();
+#endif
+
+    /* Check if a frame is done */
+    uint8_t frameDone = 0;
+
+    if (cpu.frameClock >= FRAME_CYCLES)
+    {
+        cpu.frameClock -= FRAME_CYCLES;
+        frameDone = 1;
+    }
+
+    return frameDone;
+}
+
+uint8_t cpu_exec (const uint8_t op)
+{
+    cpu.rm = 0;
+    cpu.rt = 0;
 
     uint8_t  opL = op & 0xf;
     uint8_t  opHh = op >> 3; /* Octal divisions */
@@ -134,7 +190,7 @@ uint8_t cpu_step (CPU * const cpu, MMU * const mmu)
     uint8_t  r1 = ((opHh & 7) == 7) ? A : B + (opHh & 7);
     uint8_t  r2 = ((opL & 7)  == 7) ? A : ((opL & 7) < 6) ? B + (opL & 7) : 255;
 
-    uint8_t tmp = cpu->r[A];
+    uint8_t tmp = cpu.r[A];
 
     switch (opHh)
     {
@@ -243,14 +299,14 @@ uint8_t cpu_step (CPU * const cpu, MMU * const mmu)
         break;
     }
 
-    cpu->rt += opTicks[op];
-    cpu->clock_t += cpu->rt;
-    cpu->clock_m += (cpu->rt >> 2);
+    cpu.rt += opTicks[op];
+    cpu.clock_t += cpu.rt;
+    cpu.clock_m += (cpu.rt >> 2);
 
-    return cpu->rt;
+    return cpu.rt;
 }
 
-void cpu_exec_cb (CPU * const cpu, MMU * const mmu, uint8_t const op)
+void cpu_exec_cb (const uint8_t op)
 {   
     uint8_t opL  = op & 0xf;
     uint8_t opHh = op >> 3; /* Octal divisions */

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include "cpu.h"
 
 #ifdef APP_DRAW
     #include <glad/glad.h>

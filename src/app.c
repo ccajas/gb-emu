@@ -152,7 +152,7 @@ void app_run (struct App * app)
     uint32_t frames = 0;
 
     /* Frames for time keeping */
-    const int32_t totalFrames = 1000;
+    const int32_t totalFrames = 15;
     float totalSeconds = (float) totalFrames / 60.0;
 
     if (app->draw)
@@ -182,8 +182,8 @@ void app_run (struct App * app)
     {
         while (frames < totalFrames)
         {
-            //gb_frame (&GB);
-            printf("Frames: %d\n", ++frames);
+            cpu_frame();
+            printf("\033[A\33[2KT\rFrames: %d\n", ++frames);
         }
     }
 

@@ -73,7 +73,7 @@ void gb_init (GameBoy * const gb, void * dataPtr,
 uint8_t gb_step (GameBoy * const gb)
 {
     int16_t tCycles = cpu_step (&gb->cpu, &gb->mmu);
-    
+
     gb->clockCount += tCycles;
     gb->frameClock += tCycles;
 
