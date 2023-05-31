@@ -46,9 +46,9 @@ uint8_t cpu_mem_access (const uint16_t addr, const uint8_t val, const uint8_t wr
     uint8_t * b;
     switch (addr)
     {
-        case 0x0000 ... 0x7FFF:  return mbc_rw (write, addr, val);       /* ROM from MBC     */
-        case 0x8000 ... 0x9FFF:  return ppu_rw (write, addr, val);       /* Video RAM        */
-        case 0xA000 ... 0xBFFF:  return mbc_rw (write, addr, val);       /* External RAM     */
+        case 0x0000 ... 0x7FFF:  return mbc_rw (addr, val, write);       /* ROM from MBC     */
+        case 0x8000 ... 0x9FFF:  return ppu_rw (addr, val, write);       /* Video RAM        */
+        case 0xA000 ... 0xBFFF:  return mbc_rw (addr, val, write);       /* External RAM     */
                                                                          /* Work RAM         */
         case 0xC000 ... 0xDFFF:  b = &cpu.ram[addr % 0x2000]; if (write) *b = val; return *b;
         case 0xE000 ... 0xFDFF:  return 0xFF;                            /* Echo RAM         */

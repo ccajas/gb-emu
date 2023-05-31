@@ -130,14 +130,16 @@ uint8_t * gb_load (const char * fileName)
 
         switch (cartType) 
         {
-            case 0:      mbc_init(rom); break;
-            case 0x1 ... 0x3:  mbc_init(rom); break;
+            case 0:            mbcType = 0; break;
+            case 0x1 ... 0x3:  mbcType = 1; break;
             case 0x5 ... 0x6:  mbcType = 2; break;
             case 0xF ... 0x13: mbcType = 3; break;
             default: 
                 LOG_("GB: MBC not supported.\n"); return rom;
         }
 
+        mbc.type = mbcType;
+        mbc.rom = rom;
         cpu_boot_reset();
 
         return rom;
