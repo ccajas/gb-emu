@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include "mbc.h"
-#include "io.h"
+#include "ppu.h"
 
 #define GB_DEBUG
 

@@ -104,11 +104,11 @@ void cpu_boot_reset ()
 inline void cpu_handle_interrupts ()
 {
     /* Handle interrupts */
-    const uint8_t intrEnabled = CPU_RB (0xFF00 + IO_IntrEnabled);
-    const uint8_t intrFlags   = CPU_RB (0xFF00 + IO_IntrFlags);
+    const uint8_t io_IE = CPU_RB (0xFF00 + IntrEnabled);
+    const uint8_t io_IF = CPU_RB (0xFF00 + IntrFlags);
 
     /* Run if CPU ran HALT instruction or IME enabled w/flags */
-    if (cpu.halted || (cpu.ime && (intrEnabled & intrFlags & IF_Any)))
+    if (cpu.halted || (cpu.ime && (io_IE & io_IF & IF_Any)))
     {
         cpu.halted = 0;
         cpu.ime = 0;
@@ -118,18 +118,17 @@ inline void cpu_handle_interrupts ()
         CPU_WW (cpu.sp, cpu.pc);
 
         /* Check all 5 IE and IF bits for flag confirmations 
-           This loop also services interrupts by priority (0 = highest)
-           */
+           This loop also services interrupts by priority (0 = highest) */
         uint8_t i;
         for (i = 0; i <= 5; i++)
         {
             const uint16_t requestAddress = 0x40 + (i * 8);
             const uint8_t flag = 1 << i;
 
-            if ((intrEnabled & flag) && (intrFlags & flag))
+            if ((io_IE & flag) && (io_IF & flag))
             {
                 /* Clear flag bit */
-                CPU_WB (0xFF00 + IO_IntrFlags, intrFlags ^ flag);
+                CPU_WB (0xFF00 + IntrFlags, io_IF ^ flag);
                 cpu.sp -= 2;
 
                 /* Move PC to request address */

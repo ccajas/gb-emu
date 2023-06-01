@@ -5,27 +5,27 @@
 
 static const enum
 {
-    IO_Joypad       = 0x0,
-    IO_SerialData   = 0x01,
-    IO_SerialCtrl   = 0x02,
-    IO_Divider      = 0x04,
+    Joypad       = 0x0,
+    SerialData   = 0x01,
+    SerialCtrl   = 0x02,
+    Divider      = 0x04,
 
-    IO_LCDControl	= 0x40,
-    IO_LCDStatus	= 0x41,
-    IO_ScrollY	    = 0x42,
-    IO_ScrollX	    = 0x43,
-    IO_LineY	    = 0x44,
-    IO_LineYC	    = 0x45,
-    IO_DMA	        = 0x46,
-    IO_BGPalette	= 0x47,
-    IO_OBJPalette0	= 0x48,
-    IO_OBJPalette1	= 0x49,
-    IO_WindowY	    = 0x4A,
-    IO_WindowX	    = 0x4B,
+    LCDControl	= 0x40,
+    LCDStatus	= 0x41,
+    ScrollY	    = 0x42,
+    ScrollX	    = 0x43,
+    LY	        = 0x44,
+    LYC	        = 0x45,
+    DMA	        = 0x46,
+    BGPalette	= 0x47,
+    OBJPalette0	= 0x48,
+    OBJPalette1	= 0x49,
+    WindowY	    = 0x4A,
+    WindowX	    = 0x4B,
 
-    IO_BootROM      = 0x50,
-    IO_IntrFlags    = 0x0F,
-    IO_IntrEnabled  = 0xFF
+    BootROM      = 0x50,
+    IntrFlags    = 0x0F,
+    IntrEnabled  = 0xFF
 }
 registers;
 
