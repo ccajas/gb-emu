@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include "mbc.h"
 
+/* Define MBC used by the program */
+
 struct MBC mbc;
 
 void mbc_init (uint8_t * rom)
@@ -34,11 +36,4 @@ uint8_t mbc_rw (const uint16_t addr, const uint8_t val, const uint8_t write)
 {
     if (write) return mbc_write (addr, val);
     else return mbc_read(addr);
-}
-
-/* PPU read/write, temporary */
-
-uint8_t ppu_rw (const uint16_t addr, const uint8_t val, const uint8_t write)
-{
-    return 0;
 }

@@ -10,9 +10,6 @@
     #include "api/glfw/graphics.h"
 #endif
 
-#define DISPLAY_WIDTH   160
-#define DISPLAY_HEIGHT  144
-
 #ifdef GB_DEBUG
     #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
 #else
