@@ -34,7 +34,7 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
         strcpy (app->defaultFile, fileName);
     }
 
-    app->draw = 1;
+    app->draw = 0;
     app->scale = 3;
     app->paused = 0;
 }
@@ -68,9 +68,6 @@ void app_init (struct App * app)
 
     /* Select image to display */
     app->image = &app->gbData.tileMap;
-
-    if (cpu.appData == NULL)
-        cpu.appData = (void*) &app->gbData; 
 
     if (app->draw)
     {
@@ -144,8 +141,8 @@ uint8_t * gb_load (const char * fileName)
 
         memcpy (mbc.header, rom + 0x100, 80 * sizeof(uint8_t));
 
-        printf ("GB: ROM file size (KiB): %d\n", 32 * (1 << rom[0x147]));
-        printf ("GB: Cart type: %02X\n", rom[0x148]);
+        printf ("GB: ROM file size (KiB): %d\n", 32 * (1 << rom[0x148]));
+        printf ("GB: Cart type: %02X\n", rom[0x147]);
 
         mbc.type = mbcType;
         mbc.romData = rom;
@@ -166,7 +163,7 @@ void app_run (struct App * app)
     uint32_t frames = 0;
 
     /* Frames for time keeping */
-    const int32_t totalFrames = 200;
+    const int32_t totalFrames = 100;
     float totalSeconds = (float) totalFrames / 60.0;
 
     if (app->draw)
@@ -181,7 +178,7 @@ void app_run (struct App * app)
                 cpu_frame (app->gbData);
                 ppu_dump_tiles (app->gbData.tileMap.data);
 
-                printf("\033[A\33[2KT\rFrames: %d\n", ++frames);
+                //printf("\033[A\33[2KT\rFrames: %d\n", ++frames);
             }
 
             /* Select image to display */
