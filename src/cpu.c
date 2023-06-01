@@ -42,6 +42,9 @@ void cpu_init ()
 
 uint8_t cpu_mem_access (const uint16_t addr, const uint8_t val, const uint8_t write)
 {
+    /* For debug logging purposes */
+    if (addr == 0xFF44 && !write) return 0x90;
+
     /* Byte to be accessed from memory */
     uint8_t * b;
     switch (addr)
@@ -72,7 +75,8 @@ void cpu_state ()
 {
     const uint16_t pc = cpu.pc;
 
-    printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X"
+    //printf("%08X ", (uint32_t) cpu.clock_t);
+    printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X "
         "SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",
         cpu.r[A], cpu.flags, cpu.r[B], cpu.r[C], cpu.r[D], cpu.r[E], cpu.r[H], cpu.r[L], 
         cpu.sp, cpu.pc, cpu_read (pc), cpu_read (pc+1), cpu_read (pc+2), cpu_read (pc+3)
@@ -158,13 +162,8 @@ uint8_t cpu_step()
 
     /* Load next op and execute */
     const uint8_t op = cpu_read (cpu.pc++);
-    const uint8_t tCycles = cpu_exec (op);
-
-    cpu.frameClock += tCycles;
-
-#ifdef GB_DEBUG
-    cpu_state();
-#endif
+    cpu.frameClock += cpu_exec (op);
+    //cpu_state();
 
     /* Check if a frame is done */
     uint8_t frameDone = 0;
@@ -180,7 +179,6 @@ uint8_t cpu_step()
 
 uint8_t cpu_exec (const uint8_t op)
 {
-    cpu.rm = 0;
     cpu.rt = 0;
 
     uint8_t  opL = op & 0xf;
@@ -284,15 +282,12 @@ uint8_t cpu_exec (const uint8_t op)
                 case 0x80      ... 0x85:  case 0x87: ADD     break;
                 case 0x88      ... 0x8D:  case 0x8F: ADC     break;
                 case 0x86: ADHL    break; case 0x8E: ACHL    break;
-
                 case 0x90      ... 0x95:  case 0x97: SUB     break;
                 case 0x98      ... 0x9D:  case 0x9F: SBC     break;
                 case 0x96: SBHL    break; case 0x9E: SCHL    break;
-
                 case 0xA0      ... 0xA5:  case 0xA7: AND     break;
                 case 0xA8      ... 0xAD:  case 0xAF: XOR     break;
                 case 0xA6: ANHL    break; case 0xAE: XRHL    break; 
-
                 case 0xB0      ... 0xB5:  case 0xB7: OR      break;
                 case 0xB8      ... 0xBD:  case 0xBF: CP      break;
                 case 0xB6: ORHL    break; case 0xBE: CPHL    break; 
@@ -302,7 +297,6 @@ uint8_t cpu_exec (const uint8_t op)
 
     cpu.rt += opTicks[op];
     cpu.clock_t += cpu.rt;
-    cpu.clock_m += (cpu.rt >> 2);
 
     return cpu.rt;
 }

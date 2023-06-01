@@ -13,18 +13,9 @@ struct CPU
 {
     enum { A = 0, B, C, D, E, H, L, F = 10 } registers;
 
-    union
-    {
-        /* Only works for little endian */
-        struct {
-            uint8_t  _a;
-            uint16_t _bc;
-            uint16_t _de;
-            uint16_t _hl;
-        };
-        uint8_t r[7];     /* A-E, H, L - 8-bit registers */
-    };
-    uint8_t rm, rt;
+    uint8_t r[7];     /* A-E, H, L - 8-bit registers */
+    uint8_t rt;
+    
     union
     {
         /* data */
@@ -40,7 +31,7 @@ struct CPU
     };
     
     uint16_t pc, sp;
-    uint64_t clock_m, clock_t;
+    uint64_t clock_t;
     uint32_t frameClock;
 
     uint8_t stop, halted;

@@ -4,7 +4,8 @@
 
 /* GLFW callback functions */
 
-#if APP_DRAW
+#ifdef GB_APP_DRAW
+
 static void error_callback(int error, const char* description)
 {
     fprintf(stderr, "Error (%d): %s\n", error, description);
@@ -33,7 +34,7 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
         strcpy (app->defaultFile, fileName);
     }
 
-    app->draw = 0;
+    app->draw = 1;
     app->scale = 3;
     app->paused = 0;
 }
@@ -45,20 +46,20 @@ void app_init (struct App * app)
     {
         .rom = gb_load (app->defaultFile),
         .bootRom = NULL,
-#if APP_DRAW
+#ifdef GB_APP_DRAW
         .tileMap = {
             .width = 128,
             .height = 128,
-            .data = calloc(128 * 128 * 3, sizeof(uint8_t))
+            .data = calloc (128 * 128 * 3, sizeof(uint8_t))
         },
         .frameBuffer = {
             .width = DISPLAY_WIDTH,
             .height = DISPLAY_HEIGHT,
-            .data = calloc(DISPLAY_WIDTH * DISPLAY_HEIGHT * 3, sizeof(uint8_t))
+            .data = calloc (DISPLAY_WIDTH * DISPLAY_HEIGHT * 3, sizeof(uint8_t))
         }
 #endif
     };
-#if APP_DRAW
+#ifdef GB_APP_DRAW
 
     /* Objects for drawing */
     GLFWwindow * window;
@@ -138,9 +139,13 @@ uint8_t * gb_load (const char * fileName)
                 LOG_("GB: MBC not supported.\n"); return rom;
         }
 
+        mbc_init (rom);
         mbc.type = mbcType;
-        mbc.rom = rom;
+        mbc.romData = rom;
+
+        /* Restart components */
         cpu_boot_reset();
+        cpu_state();
 
         return rom;
     }
@@ -153,19 +158,19 @@ void app_run (struct App * app)
     uint32_t frames = 0;
 
     /* Frames for time keeping */
-    const int32_t totalFrames = 15;
+    const int32_t totalFrames = 200;
     float totalSeconds = (float) totalFrames / 60.0;
 
     if (app->draw)
     {
-#if APP_DRAW
+#ifdef GB_APP_DRAW
         while (!glfwWindowShouldClose (app->window))
         {
             glfwMakeContextCurrent (app->window);
 
             if (frames < -1 && !app->paused)
             {
-                //frames = gb_frame (&GB);
+                cpu_frame();
                 printf("\033[A\33[2KT\rFrames: %d\n", ++frames);
             }
 
@@ -184,7 +189,7 @@ void app_run (struct App * app)
         while (frames < totalFrames)
         {
             cpu_frame();
-            printf("\033[A\33[2KT\rFrames: %d\n", ++frames);
+            frames++;
         }
     }
 
@@ -195,10 +200,12 @@ void app_run (struct App * app)
     free (app->gbData.rom);
 
     double timeTaken = ((double) time) / CLOCKS_PER_SEC; /* Elapsed time */
-    LOG_("The program ran %f seconds for %d frames.\nGB performance is %.2f times as fast.\n", timeTaken, frames, totalSeconds / timeTaken);
-    LOG_("For each second, there is on average %.2f milliseconds free for overhead.", 1000 - (1.0f / (totalSeconds / timeTaken) * 1000));  
+    LOG_("The program ran %f seconds for %d frames.\nGB performance is %.2f times as fast.\n",
+        timeTaken, frames, totalSeconds / timeTaken);
+    LOG_("For each second, there is on average %.2f milliseconds free for overhead.",
+        1000 - (1.0f / (totalSeconds / timeTaken) * 1000));  
 
-#if APP_DRAW
+#ifdef GB_APP_DRAW
     if (app->draw)
     {
         glfwDestroyWindow (app->window);
