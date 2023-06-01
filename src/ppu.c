@@ -105,11 +105,11 @@ void ppu_dump_tiles (uint8_t * pixelData)
                 uint8_t col2 = row2 >> (7 - x);
                 
                 const uint8_t  colorID = 3 - ((col1 & 1) + ((col2 & 1) << 1));
-                const uint16_t pixelIndex = (tileYoffset + yOffset + tileXoffset + x) * 3;
+                const uint16_t idx = (tileYoffset + yOffset + tileXoffset + x) * 3;
 
-                pixelData[pixelIndex] = colorID * 0x55;
-                pixelData[pixelIndex + 1] = colorID * 0x55;
-                pixelData[pixelIndex + 2] = colorID * 0x55;
+                pixelData[idx] = colorID * 0x55;
+                pixelData[idx + 1] = colorID * 0x55;
+                pixelData[idx + 2] = colorID * 0x55;
             }
         }
         data += TILE_SIZE_BYTES;

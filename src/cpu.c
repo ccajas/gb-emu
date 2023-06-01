@@ -75,7 +75,7 @@ void cpu_state ()
 {
     const uint16_t pc = cpu.pc;
 
-    //printf("%08X ", (uint32_t) cpu.clock_t);
+    printf("%08X ", (uint32_t) cpu.clock_t);
     printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X "
         "SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",
         cpu.r[A], cpu.flags, cpu.r[B], cpu.r[C], cpu.r[D], cpu.r[E], cpu.r[H], cpu.r[L], 
