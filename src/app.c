@@ -45,7 +45,7 @@ void app_init (struct App * app)
     /* Define structs for data and concrete functions */
     app->gbData = (struct gb_data) 
     {
-        .rom = mbc_load_rom (app->defaultFile),
+        .rom = NULL,// mbc_load_rom (app->defaultFile),
         .bootRom = NULL,
 #ifdef GB_APP_DRAW
         .tileMap = {
@@ -105,18 +105,22 @@ void app_init (struct App * app)
 #endif
 }
 
+#ifdef APP_DRAW
+
 void app_draw (struct App * app)
 {
     /* Select image to display */
     app->image = &app->gbData.tileMap;
     draw_begin (app->window, &app->display);
 
-    if (mbc_rom_loaded())
+    //if (mbc_rom_loaded())
         draw_quad (app->window, &app->display, app->image, 224, 0, 2);
 
     glfwSwapBuffers (app->window);
     glfwPollEvents();
 }
+
+#endif
 
 void app_run (struct App * app)
 {
@@ -137,10 +141,10 @@ void app_run (struct App * app)
 
             if (frames < -1 && !app->paused)
             {
-                if (mbc_rom_loaded())
-                    cpu_frame (app->gbData);
+                //if (mbc_rom_loaded())
+                    //cpu_frame (app->gbData);
 
-                ppu_dump_tiles (app->gbData.tileMap.data);
+                //ppu_dump_tiles (app->gbData.tileMap.data);
                 printf("\033[A\33[2KT\rFrames: %d\n", ++frames);
             }
             app_draw (app);
@@ -151,7 +155,7 @@ void app_run (struct App * app)
     {
         while (frames < totalFrames)
         {
-            cpu_frame();
+            //cpu_frame();
             frames++;
             printf("Frames: %d\n", frames);
         }

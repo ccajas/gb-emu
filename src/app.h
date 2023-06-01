@@ -1,13 +1,25 @@
+#ifndef APP_H
+#define APP_H
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
-#include "cpu.h"
+//#include "cpu.h"
+#include "gb.h"
 
-#define GB_APP_DRAW
+#define GB_APP_DRAW_
 #define GB_DEBUG
 
 #ifdef GB_APP_DRAW
     #include "api/glfw/graphics.h"
+#endif
+
+#define GB_DEBUG
+
+#ifdef GB_DEBUG
+    #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
+#else
+    #define LOG_(f_, ...)
 #endif
 
 struct App
@@ -47,3 +59,5 @@ uint8_t * gb_load (const char *);
 void app_config (struct App * app, uint8_t const argc, char * const argv[]);
 void app_init   (struct App * app);
 void app_run    (struct App * app);
+
+#endif
