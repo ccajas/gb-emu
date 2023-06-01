@@ -289,4 +289,10 @@ static uint8_t gb_step (struct GB * gb)
     return frameDone;
 }
 
+static void gb_frame (struct GB * gb)
+{
+    /* Returns 1 when frame is completed */
+    while (!gb_step (gb)) { /* Do extra stuff in between steps here */ }
+}
+
 #endif
