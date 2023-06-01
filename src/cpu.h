@@ -7,6 +7,12 @@
 
 #define GB_DEBUG
 
+#ifdef GB_DEBUG
+    #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
+#else
+    #define LOG_(f_, ...)
+#endif
+
 #define FRAME_CYCLES  70224
 
 struct CPU
@@ -51,6 +57,8 @@ struct CPU
     char reg_names[7];
 #endif
 };
+
+extern struct CPU cpu;
 
 /* Function definitions */
 void cpu_init       ();

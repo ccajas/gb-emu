@@ -67,7 +67,10 @@ void app_init (struct App * app)
     app->display = newDisplay;
 
     /* Select image to display */
-    app->image = &app->gbData.frameBuffer;
+    app->image = &app->gbData.tileMap;
+
+    if (cpu.appData == NULL)
+        cpu.appData = (void*) &app->gbData; 
 
     if (app->draw)
     {
@@ -139,12 +142,17 @@ uint8_t * gb_load (const char * fileName)
                 LOG_("GB: MBC not supported.\n"); return rom;
         }
 
-        mbc_init (rom);
+        memcpy (mbc.header, rom + 0x100, 80 * sizeof(uint8_t));
+
+        printf ("GB: ROM file size (KiB): %d\n", 32 * (1 << rom[0x147]));
+        printf ("GB: Cart type: %02X\n", rom[0x148]);
+
         mbc.type = mbcType;
         mbc.romData = rom;
 
         /* Restart components */
         cpu_boot_reset();
+        ppu_reset();
         cpu_state();
 
         return rom;
@@ -170,14 +178,16 @@ void app_run (struct App * app)
 
             if (frames < -1 && !app->paused)
             {
-                cpu_frame();
+                cpu_frame (app->gbData);
+                ppu_dump_tiles (app->gbData.tileMap.data);
+
                 printf("\033[A\33[2KT\rFrames: %d\n", ++frames);
             }
 
             /* Select image to display */
             app->image = &app->gbData.tileMap;
             draw_begin (app->window, &app->display);
-            //draw_screen_quad (app->window, &app->display, app->image, app->scale);
+            draw_screen_quad (app->window, &app->display, app->image, app->scale);
 
             glfwSwapBuffers (app->window);
             glfwPollEvents();

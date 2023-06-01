@@ -4,11 +4,19 @@ struct PPU ppu;
 
 #define LCDC_(bit)  (io[LCDControl] & (1 << bit))
 
+void ppu_reset()
+{
+    memset(ppu.vram, 0, 0x2000);
+
+    ppu.ticks = 0;
+    ppu.frameTicks = 0;
+    ppu.vramBlocked = 0;
+}
+
 inline uint8_t ppu_read (const uint16_t addr)
 {
     //assert (mbc.rom[addr] != NULL);
     if (ppu.vramBlocked) return 0xFF;
-
     return ppu.vram[addr & 0x1FFF];
 }
 
@@ -64,5 +72,46 @@ void ppu_step (uint8_t * io)
     //if (++io[LY] > SCAN_LINES)
     {
         //ppu.frameTicks -= 70224;
+    }
+}
+
+/* Debug function for viewing tiles */
+
+void ppu_dump_tiles (uint8_t * pixelData)
+{
+    const uint8_t * data = ppu.vram;
+    const uint8_t TILE_SIZE_BYTES = 16;
+
+    const uint16_t NUM_TILES = 256;
+    const uint16_t TILE_SIZE = 8;
+
+    int t;
+    for (t = 0; t < NUM_TILES; t++)
+    {
+        const uint16_t tileXoffset = (t % 16) * TILE_SIZE;
+        const uint16_t tileYoffset = (t >> 4) * 1024;
+
+        int y;
+        for (y = 0; y < 8; y++)
+        {
+            const uint8_t row1 = *(data + (y * 2));
+            const uint8_t row2 = *(data + (y * 2) + 1);
+            const uint16_t yOffset = y * 128;
+
+            int x;
+            for (x = 0; x < 8; x++)
+            {
+                uint8_t col1 = row1 >> (7 - x);
+                uint8_t col2 = row2 >> (7 - x);
+                
+                const uint8_t  colorID = 3 - ((col1 & 1) + ((col2 & 1) << 1));
+                const uint16_t pixelIndex = (tileYoffset + yOffset + tileXoffset + x) * 3;
+
+                pixelData[pixelIndex] = colorID * 0x55;
+                pixelData[pixelIndex + 1] = colorID * 0x55;
+                pixelData[pixelIndex + 2] = colorID * 0x55;
+            }
+        }
+        data += TILE_SIZE_BYTES;
     }
 }

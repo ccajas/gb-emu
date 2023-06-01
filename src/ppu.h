@@ -28,8 +28,10 @@ struct PPU
     uint8_t  vramBlocked;
 };
 
-void ppu_init ();
+void ppu_reset ();
 
 uint8_t ppu_rw (const uint16_t, const uint8_t val, const uint8_t);
+
+void ppu_dump_tiles (uint8_t * pixelData);
 
 #endif

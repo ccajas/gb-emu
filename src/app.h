@@ -10,12 +10,6 @@
     #include "api/glfw/graphics.h"
 #endif
 
-#ifdef GB_DEBUG
-    #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
-#else
-    #define LOG_(f_, ...)
-#endif
-
 struct App
 {
     uint8_t draw;
@@ -37,6 +31,8 @@ struct App
 #endif
     };
     struct gb_data gbData;
+
+    /* Pointers to main and debug functions */
     
 #ifdef GB_APP_DRAW
     /* Drawing elements */
