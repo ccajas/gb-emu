@@ -25,7 +25,7 @@ struct MBC
 /* For reference in app.c */
 extern struct MBC mbc;
 
-void mbc_init (uint8_t * rom);
+uint8_t * mbc_load_rom (const char *);
 
 uint8_t mbc_rw    (const uint16_t, const uint8_t val, const uint8_t);
 uint8_t mbc_read  (const uint16_t);
@@ -33,6 +33,10 @@ uint8_t mbc_write (const uint16_t, const uint8_t val);
 
 /* PPU read/write, temporary */
 
-uint8_t ppu_rw (const uint16_t addr, const uint8_t val, const uint8_t write);
+inline uint8_t mbc_rom_loaded()
+{
+    if (mbc.romData != NULL) return 1;
+    return 0;
+}
 
 #endif
