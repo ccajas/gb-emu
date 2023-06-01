@@ -24,7 +24,6 @@ struct CPU
     
     union
     {
-        /* data */
         struct 
         {
             uint8_t f_lb : 4; /* Unused */
@@ -44,9 +43,9 @@ struct CPU
     uint8_t invalid;
 
     /* Memory and I/O registers */
-    uint8_t ram[0x2000]; /* Work RAM  */
-    uint8_t hram[0x80];  /* High RAM  */
-    uint8_t io[0x80];
+    uint8_t ram [0x2000]; /* Work RAM  */
+    uint8_t hram[0x80];   /* High RAM  */
+    uint8_t io  [0x80];
 
     /* Interrupt master enable */
     uint8_t ime;
@@ -65,7 +64,6 @@ void cpu_init       ();
 void cpu_boot_reset ();
 void cpu_state      ();
 
-uint8_t cpu_step  ();
 void    cpu_frame ();
 uint8_t cpu_mem_access(const uint16_t addr, const uint8_t val, const uint8_t);
 uint8_t cpu_exec    (const uint8_t op);

@@ -42,4 +42,16 @@ static const enum
 }
 interruptFlags;
 
+/* LCD Status flags by bit */
+
+static const enum
+{
+    LYC_LY    = 2,
+    IR_HBlank = 3,
+    IR_VBLank = 4,
+    IR_OAM    = 5,
+    IR_LYC    = 6,
+}
+LCD_STATFlags;
+
 #endif

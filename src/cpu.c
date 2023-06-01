@@ -58,11 +58,11 @@ uint8_t cpu_mem_access (const uint16_t addr, const uint8_t val, const uint8_t wr
         case 0xFE00 ... 0xFE9F:  return ppu_rw (write, addr, val);       /* OAM              */
         case 0xFEA0 ... 0xFEFF:  return 0xFF;                            /* Not usable       */
                                                                          /* I/O registers    */
-        case 0xFF00 ... 0xFF7F:  b = &cpu.io[addr % 0x80]; if (write) *b = val; return *b;
+        case 0xFF00 ... 0xFF7F:  b = &cpu.io[addr % 0x80];   if (write) *b = val; return *b;
                                                                          /* High RAM         */                          
         case 0xFF80 ... 0xFFFE:  b = &cpu.hram[addr % 0x80]; if (write) *b = val; return *b;  
                                                                          /* Interrupt enable */
-        case 0xFFFF:             b = &cpu.io[addr & 0x7F]; if (write) *b = val; return *b;  
+        case 0xFFFF:             b = &cpu.io[addr & 0x7F];   if (write) *b = val; return *b;  
     }
 }
 
@@ -140,13 +140,7 @@ inline void cpu_handle_interrupts ()
     }
 }
 
-void cpu_frame()
-{
-    /* Returns 1 when frame is completed */
-    while (!cpu_step()) { /* Do extra stuff in between steps */ }
-}
-
-uint8_t cpu_step()
+inline uint8_t cpu_step()
 {
     /* Interrupt handling and timers */
     cpu_handle_interrupts();
@@ -162,6 +156,7 @@ uint8_t cpu_step()
     /* Load next op and execute */
     const uint8_t op = cpu_read (cpu.pc++);
     cpu.frameClock += cpu_exec (op);
+    //ppu_step (cpu.io);
     //cpu_state();
 
     /* Check if a frame is done */
@@ -176,17 +171,24 @@ uint8_t cpu_step()
     return frameDone;
 }
 
+void cpu_frame()
+{
+    /* Returns 1 when frame is completed */
+    while (!cpu_step()) { /* Do extra stuff in between steps here */ }
+}
+
+
 uint8_t cpu_exec (const uint8_t op)
 {
     cpu.rt = 0;
 
-    uint8_t  opL = op & 0xf;
-    uint8_t  opHh = op >> 3; /* Octal divisions */
+    const uint8_t  opL = op & 0xf;
+    const uint8_t  opHh = op >> 3; /* Octal divisions */
     uint16_t hl = ADDR_HL;
 
     /* Default values for operands (can be overridden for other opcodes) */
-    uint8_t  r1 = ((opHh & 7) == 7) ? A : B + (opHh & 7);
-    uint8_t  r2 = ((opL & 7)  == 7) ? A : ((opL & 7) < 6) ? B + (opL & 7) : 255;
+    const uint8_t  r1 = ((opHh & 7) == 7) ? A : B + (opHh & 7);
+    const uint8_t  r2 = ((opL & 7)  == 7) ? A : ((opL & 7) < 6) ? B + (opL & 7) : 255;
 
     uint8_t tmp = cpu.r[A];
 
@@ -302,11 +304,11 @@ uint8_t cpu_exec (const uint8_t op)
 
 void cpu_exec_cb (const uint8_t op)
 {   
-    uint8_t opL  = op & 0xf;
-    uint8_t opHh = op >> 3; /* Octal divisions */
+    const uint8_t opL  = op & 0xf;
+    const uint8_t opHh = op >> 3; /* Octal divisions */
 
-    uint8_t r = ((opL & 7) == 7) ? A : ((opL & 7) < 6) ? B + (opL & 7) : 255;
-    uint8_t r_bit  = opHh & 7;
+    const uint8_t r = ((opL & 7) == 7) ? A : ((opL & 7) < 6) ? B + (opL & 7) : 255;
+    const uint8_t r_bit  = opHh & 7;
 
     /* Fetch value at address (HL) if it's needed */
     uint8_t hl = (opL == 0x6 || opL == 0xE) ? CPU_RB (ADDR_HL) : 0;

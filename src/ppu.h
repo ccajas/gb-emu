@@ -22,16 +22,19 @@ struct PPU
     modeTicks;
 
     uint8_t vram[0x2000];
+    uint8_t oam [0xA0];
 
     uint16_t ticks;
     uint32_t frameTicks;
-    uint8_t  vramBlocked;
+    uint8_t  
+        vramBlocked,
+        oamBlocked;
 };
 
-void ppu_reset ();
-
 uint8_t ppu_rw (const uint16_t, const uint8_t val, const uint8_t);
+void    ppu_reset ();
+void    ppu_step (uint8_t * io);
 
-void ppu_dump_tiles (uint8_t * pixelData);
+void    ppu_dump_tiles (uint8_t * pixelData);
 
 #endif

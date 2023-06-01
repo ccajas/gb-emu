@@ -3,27 +3,34 @@
 struct PPU ppu;
 
 #define LCDC_(bit)  (io[LCDControl] & (1 << bit))
+#define STAT_(bit)  (io[LCDStatus]  & (1 << bit))
 
 void ppu_reset()
 {
     memset(ppu.vram, 0, 0x2000);
 
     ppu.ticks = 0;
-    ppu.frameTicks = 0;
+    ppu.frameTicks  = 0;
     ppu.vramBlocked = 0;
+    ppu.oamBlocked  = 0;
 }
+
+/** Memory read/write functions **/
 
 inline uint8_t ppu_read (const uint16_t addr)
 {
-    //assert (mbc.rom[addr] != NULL);
-    if (ppu.vramBlocked) return 0xFF;
-    return ppu.vram[addr & 0x1FFF];
+    if (addr >= 0xFE00)
+        return (!ppu.oamBlocked)  ? ppu.oam[addr & 0x9F] : 0xFF;
+    else
+        return (!ppu.vramBlocked) ? ppu.vram[addr & 0x1FFF] : 0xFF;
 }
 
 inline uint8_t ppu_write (const uint16_t addr, const uint8_t val)
 {
-    //assert (mbc.rom[addr] != NULL);
-    ppu.vram[addr & 0x1FFF] = val;
+    if (addr >= 0xFE00)
+        ppu.oam[addr & 0x9F] = val;
+    else
+        ppu.vram[addr & 0x1FFF] = val;
     return 0;
 }
 
@@ -35,13 +42,35 @@ uint8_t ppu_rw (const uint16_t addr, const uint8_t val, const uint8_t write)
     else return ppu_read(addr);
 }
 
+/* Evaluate LY=LYC */
+
+inline void ppu_eval_LYC (uint8_t * io)
+{
+    /* Set bit 02 flag for comparing lYC and LY
+       If STAT interrupt is enabled, an interrupt is requested */
+    if (io[LYC] == io[LY])
+    {
+        io[LCDStatus] |= (1 << LYC_LY);
+        if (STAT_(IR_LYC)) io[IntrFlags] |= IF_LCD_STAT;
+    }
+    else /* Unset the flag */
+        io[LCDStatus] &= ~(1 << LYC_LY);
+}
+
 /* Called in mode 0 */
 
 inline void ppu_hblank() { }
 
 /* Called in mode 1 */
 
-inline void ppu_vblank() { }
+inline void ppu_vblank (uint8_t * io) 
+{ 
+    /* Reset counter after scanline resets */    
+    if (io[LY] == 0)
+    {
+        ppu.frameTicks -= FRAME_CYCLES;
+    }
+}
 
 /* Called in mode 2 */
 
@@ -58,20 +87,16 @@ void ppu_step (uint8_t * io)
     switch (io[LY])
     {
         case 0 ... DISPLAY_HEIGHT - 1:
-            if (ppu.ticks < TICKS_OAM_READ) { ppu_oam();       break; }
+            if (ppu.ticks < TICKS_OAM_READ) { ppu_oam ();      break; }
             if (ppu.ticks < TICKS_TRANSFER) { ppu_pixelFIFO(); break; }
             if (ppu.ticks < TICKS_HBLANK)   { ppu_hblank();    break; }
-            // Starting a new line 
-            //io[LY] = io[LY]++ % SCAN_LINES;
+            /* Starting a new line */ 
+            io[LY] = (io[LY] + 1) % SCAN_LINES;
             ppu.ticks -= TICKS_HBLANK;
+            ppu_eval_LYC (io);
         break;
         default:
-            ppu_vblank();
-    }
-    // Update dot and scanline counters:    
-    //if (++io[LY] > SCAN_LINES)
-    {
-        //ppu.frameTicks -= 70224;
+            ppu_vblank (io);
     }
 }
 
@@ -82,7 +107,7 @@ void ppu_dump_tiles (uint8_t * pixelData)
     const uint8_t * data = ppu.vram;
     const uint8_t TILE_SIZE_BYTES = 16;
 
-    const uint16_t NUM_TILES = 256;
+    const uint16_t NUM_TILES = 384;
     const uint16_t TILE_SIZE = 8;
 
     int t;
@@ -105,7 +130,7 @@ void ppu_dump_tiles (uint8_t * pixelData)
                 uint8_t col2 = row2 >> (7 - x);
                 
                 const uint8_t  colorID = 3 - ((col1 & 1) + ((col2 & 1) << 1));
-                const uint16_t idx = (tileYoffset + yOffset + tileXoffset + x) * 3;
+                const uint32_t idx = (tileYoffset + yOffset + tileXoffset + x) * 3;
 
                 pixelData[idx] = colorID * 0x55;
                 pixelData[idx + 1] = colorID * 0x55;
