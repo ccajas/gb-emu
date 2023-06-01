@@ -115,9 +115,3 @@ void graphics_init (Scene * const scene)
     glEnable(GL_MULTISAMPLE);
     glDepthFunc(GL_LEQUAL);
 }
-
-void draw_begin (GLFWwindow * window, Scene * const scene)
-{
-	glClearColor((GLfloat)scene->bgColor[0] / 255, (GLfloat)scene->bgColor[1] / 255, (GLfloat)scene->bgColor[2] / 255, 1.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}

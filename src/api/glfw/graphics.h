@@ -36,8 +36,6 @@ extern uint32_t quadVAO[2];
 void graphics_init  (Scene * const);
 void draw_lazy_quad (const float width, const float height, const int i);
 
-void draw_begin       (GLFWwindow *, Scene * const);
-
 inline void texture_setup (uint32_t * const textureID, uint16_t width, uint16_t height, GLenum filter, const void * data)
 {
     glGenTextures (1, textureID);
@@ -51,6 +49,11 @@ inline void texture_setup (uint32_t * const textureID, uint16_t width, uint16_t 
 	glTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
 }
 
+static inline void draw_begin (GLFWwindow * window, Scene * const scene)
+{
+	glClearColor((GLfloat)scene->bgColor[0] / 255, (GLfloat)scene->bgColor[1] / 255, (GLfloat)scene->bgColor[2] / 255, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
 
 static inline void draw_quad (GLFWwindow * window, Scene * const scene, struct Texture * const pixels, 
     const int xpos, const int ypos, const float scale)
