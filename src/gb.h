@@ -69,6 +69,7 @@ struct GB
 
     /* Catridge which holds ROM and RAM */
     struct Cartridge cart;
+    uint8_t bootrom;
 };
 
 uint8_t mbc_rw        (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
@@ -83,6 +84,20 @@ void gb_handle_interrupts (struct GB * gb);
 void gb_handle_timings    (struct GB * gb);
 void gb_render            (struct GB * gb);
 
+#define cpu_read(X)     gb_mem_access (gb, X, 0, 0)
+
+inline void gb_cpu_state (struct GB * gb)
+{
+    const uint16_t pc = gb->pc;
+
+    //printf("%08X ", (uint32_t) gb->clock_t);
+    printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X "
+        "SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",
+        gb->r[A], gb->flags, gb->r[B], gb->r[C], gb->r[D], gb->r[E], gb->r[H], gb->r[L], 
+        gb->sp, pc, cpu_read (pc), cpu_read (pc+1), cpu_read (pc+2), cpu_read (pc+3)
+    );
+}
+
 inline void gb_step (struct GB * gb)
 {
     gb_handle_interrupts (gb);
@@ -91,6 +106,8 @@ inline void gb_step (struct GB * gb)
     const uint8_t op = gb_mem_access (gb, gb->pc++, 0, 0);
     gb->frameClock += gb_cpu_exec (gb, op);
 
+    gb_cpu_state (gb);
+
     gb_handle_timings (gb);
     gb_render (gb);
 }
@@ -98,11 +115,11 @@ inline void gb_step (struct GB * gb)
 inline void gb_frame (struct GB * gb)
 {
     uint8_t frameDone = 0;
-    printf("Running frame\n");
     /* Returns when frame is completed */
     while (!frameDone) 
     {
         gb_step (gb);
+
         /* Check if a frame is done */
         const uint32_t lastClock = gb->frameClock;
         gb->frameClock %= FRAME_CYCLES;

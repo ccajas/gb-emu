@@ -4,6 +4,11 @@
 
 uint8_t mbc_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
+    if (!write)
+        return gb->cart.romData[addr];
+    else
+        gb->cart.romData[addr] = val;
+
     return 0;
 }
 
@@ -71,6 +76,28 @@ void gb_init (struct GB * gb)
     printf ("GB: Cart type: %02X\n", header[0x47]);
 
     gb->cart.mbc = mbcType;
+    gb->bootrom = 0;
+
+    /* Setup CPU registers as if bootrom was loaded */
+    if (!gb->bootrom)
+    {
+        gb->r[A]  = 0x01;
+        gb->flags = 0xB0;
+        gb->r[B]  = 0x0;
+        gb->r[C]  = 0x13;
+        gb->r[D]  = 0x0;
+        gb->r[E]  = 0xD8;
+        gb->r[H]  = 0x01;
+        gb->r[L]  = 0x4D;
+        gb->sp    = 0xFFFE;
+        gb->pc    = 0x0100;
+
+        gb->ime = 1;
+        gb->invalid = 0;
+        gb->halted = 0;
+    }
+
+    gb_cpu_state (gb);
 }
 
 #include "ops.h"
