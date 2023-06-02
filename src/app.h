@@ -45,6 +45,7 @@ struct App
     struct gb_data gbData;
 
     /* Pointers to main and debug functions */
+    struct GB gb;
     
 #ifdef GB_APP_DRAW
     /* Drawing elements */
@@ -54,10 +55,10 @@ struct App
 #endif
 };
 
-uint8_t * gb_load (const char *);
+uint8_t * app_load (const char *);
 
-void app_config (struct App * app, uint8_t const argc, char * const argv[]);
-void app_init   (struct App * app);
-void app_run    (struct App * app);
+void app_config (struct App *, uint8_t const argc, char * const argv[]);
+void app_init   (struct App *);
+void app_run    (struct App *);
 
 #endif

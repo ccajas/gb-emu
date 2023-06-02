@@ -35,7 +35,7 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
         strcpy (app->defaultFile, fileName);
     }
 
-    app->draw = 1;
+    app->draw = 0;
     app->scale = 3;
     app->paused = 0;
 }
@@ -60,6 +60,13 @@ void app_init (struct App * app)
         }
 #endif
     };
+
+    /* Copy ROM to cart */
+    app->gb.cart.romData = app_load(app->defaultFile);
+
+    LOG_("Initializing emulator...\n");
+    gb_init (&app->gb);
+
 #ifdef GB_APP_DRAW
 
     /* Objects for drawing */
@@ -103,6 +110,28 @@ void app_init (struct App * app)
         app->window = window;
     }
 #endif
+}
+
+uint8_t * app_load (const char * fileName)
+{ 
+    /* Load file from command line */
+    FILE * f = fopen (fileName, "rb");
+
+    fseek (f, 0, SEEK_END);
+    uint32_t size = ftell(f);
+    fseek (f, 0, SEEK_SET);
+
+    if (!f)
+    {
+        fclose (f);
+        LOG_("Failed to load file \"%s\"\n", fileName);
+        return NULL;
+    }
+
+    uint8_t * rom = calloc(size, sizeof (uint8_t));
+    fread (rom, size, 1, f);
+    fclose (f);
+    return rom;
 }
 
 #ifdef APP_DRAW
@@ -155,9 +184,8 @@ void app_run (struct App * app)
     {
         while (frames < totalFrames)
         {
-            //cpu_frame();
+            gb_frame (&app->gb);
             frames++;
-            printf("Frames: %d\n", frames);
         }
     }
 

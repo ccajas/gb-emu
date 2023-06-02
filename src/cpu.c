@@ -31,15 +31,6 @@ const int8_t opTicks[256] = {
 
 /* CPU related functions */
 
-#ifdef GB_DEBUG
-void cpu_init ()
-{
-    strcpy (cpu.reg_names, "ABCDEHL");
-    cpu.ni = 0;
-    cpu.frameClock = 0;
-}
-#endif
-
 uint8_t cpu_mem_access (const uint16_t addr, const uint8_t val, const uint8_t write)
 {
     /* For debug logging purposes */
@@ -47,22 +38,21 @@ uint8_t cpu_mem_access (const uint16_t addr, const uint8_t val, const uint8_t wr
 
     /* Byte to be accessed from memory */
     uint8_t * b;
+    #define BYTE_RW(b)  { if (write) *b = val; return *b; }
     switch (addr)
     {
-        case 0x0000 ... 0x7FFF:  return mbc_rw (addr, val, write);       /* ROM from MBC     */
-        case 0x8000 ... 0x9FFF:  return ppu_rw (addr, val, write);       /* Video RAM        */
-        case 0xA000 ... 0xBFFF:  return mbc_rw (addr, val, write);       /* External RAM     */
-                                                                         /* Work RAM         */
-        case 0xC000 ... 0xDFFF:  b = &cpu.ram[addr % 0x2000]; if (write) *b = val; return *b;
-        case 0xE000 ... 0xFDFF:  return 0xFF;                            /* Echo RAM         */
-        case 0xFE00 ... 0xFE9F:  return ppu_rw (write, addr, val);       /* OAM              */
-        case 0xFEA0 ... 0xFEFF:  return 0xFF;                            /* Not usable       */
-                                                                         /* I/O registers    */
-        case 0xFF00 ... 0xFF7F:  b = &cpu.io[addr % 0x80];   if (write) *b = val; return *b;
-                                                                         /* High RAM         */                          
-        case 0xFF80 ... 0xFFFE:  b = &cpu.hram[addr % 0x80]; if (write) *b = val; return *b;  
-                                                                         /* Interrupt enable */
-        case 0xFFFF:             b = &cpu.io[addr & 0x7F];   if (write) *b = val; return *b;  
+        case 0x0000 ... 0x7FFF: return mbc_rw (addr, val, write);      /* ROM from MBC     */
+        case 0x8000 ... 0x9FFF: return ppu_rw (addr, val, write);      /* Video RAM        */
+        case 0xA000 ... 0xBFFF: return mbc_rw (addr, val, write);      /* External RAM     */
+        case 0xC000 ... 0xDFFF: b = &cpu.ram[addr % 0x2000];           /* Work RAM         */
+                                BYTE_RW (b);
+        case 0xE000 ... 0xFDFF: return 0xFF;                           /* Echo RAM         */
+        case 0xFE00 ... 0xFE9F: return ppu_rw (write, addr, val);      /* OAM              */
+        case 0xFEA0 ... 0xFEFF: return 0xFF;                           /* Not usable       */
+        case 0xFF00 ... 0xFF7F: b = &cpu.io[addr % 0x80]; BYTE_RW(b);  /* I/O registers    */                        
+        case 0xFF80 ... 0xFFFE: b = &cpu.hram[addr % 0x80];            /* High RAM         */  
+                                BYTE_RW (b);
+        case 0xFFFF:            b = &cpu.io[addr & 0x7F]; BYTE_RW(b);  /* Interrupt enable */
     }
 }
 
