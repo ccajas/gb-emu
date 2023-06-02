@@ -4,17 +4,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
-//#include "cpu.h"
 #include "gb.h"
 
-#define GB_APP_DRAW_
+#define GB_APP_DRAW
 #define GB_DEBUG
 
-#ifdef GB_APP_DRAW
-    #include "api/glfw/graphics.h"
-#endif
-
-#define GB_DEBUG
+#include "api/glfw/graphics.h"
 
 #ifdef GB_DEBUG
     #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
@@ -37,10 +32,8 @@ struct App
         uint8_t * rom;
 
         /* Used for drawing the display and tilemap */
-#ifdef GB_APP_DRAW
         struct Texture tileMap;
         struct Texture frameBuffer;
-#endif
     };
     struct gb_data gbData;
 

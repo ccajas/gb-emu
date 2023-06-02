@@ -47,7 +47,6 @@ void app_init (struct App * app)
     {
         .rom = NULL,// mbc_load_rom (app->defaultFile),
         .bootRom = NULL,
-#ifdef GB_APP_DRAW
         .tileMap = {
             .width = 128,
             .height = 192,
@@ -58,16 +57,11 @@ void app_init (struct App * app)
             .height = DISPLAY_HEIGHT,
             .data = calloc (DISPLAY_WIDTH * DISPLAY_HEIGHT * 3, sizeof(uint8_t))
         }
-#endif
     };
 
     /* Copy ROM to cart */
     app->gb.cart.romData = app_load(app->defaultFile);
-
-    LOG_("Initializing emulator...\n");
     gb_init (&app->gb);
-
-#ifdef GB_APP_DRAW
 
     /* Objects for drawing */
     GLFWwindow * window;
@@ -80,12 +74,12 @@ void app_init (struct App * app)
     if (app->draw)
     {
         glfwSetErrorCallback(error_callback);
-
+    
         if (!glfwInit())
             exit(EXIT_FAILURE);
 
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
         glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
 
         window = glfwCreateWindow(
@@ -93,7 +87,7 @@ void app_init (struct App * app)
             app->gbData.frameBuffer.height * app->scale,
             "GB Emu", NULL, NULL);
         
-        if (!app->window)
+        if (!window)
         {
             glfwTerminate();
             exit (EXIT_FAILURE);
@@ -109,7 +103,6 @@ void app_init (struct App * app)
         graphics_init (&app->display);
         app->window = window;
     }
-#endif
 }
 
 uint8_t * app_load (const char * fileName)
@@ -134,51 +127,44 @@ uint8_t * app_load (const char * fileName)
     return rom;
 }
 
-#ifdef APP_DRAW
-
 void app_draw (struct App * app)
 {
     /* Select image to display */
     app->image = &app->gbData.tileMap;
     draw_begin (app->window, &app->display);
 
-    //if (mbc_rom_loaded())
+    if (gb_rom_loaded(&app->gb))
         draw_quad (app->window, &app->display, app->image, 224, 0, 2);
 
     glfwSwapBuffers (app->window);
     glfwPollEvents();
 }
 
-#endif
-
 void app_run (struct App * app)
 {
     /* Start clock */
-    clock_t time = clock();
+    //clock_t time = clock();
     uint32_t frames = 0;
 
-    /* Frames for time keeping */
-    const int32_t totalFrames = 550;
-    float totalSeconds = (float) totalFrames / 60.0;
+    const int32_t totalFrames = 50;
+    //float totalSeconds = (float) totalFrames / 60.0;
 
     if (app->draw)
     {
-#ifdef GB_APP_DRAW
         while (!glfwWindowShouldClose (app->window))
         {
             glfwMakeContextCurrent (app->window);
 
             if (frames < -1 && !app->paused)
             {
-                //if (mbc_rom_loaded())
-                    //cpu_frame (app->gbData);
+                if (gb_rom_loaded (&app->gb))
+                    gb_frame (&app->gb);
 
                 //ppu_dump_tiles (app->gbData.tileMap.data);
                 printf("\033[A\33[2KT\rFrames: %d\n", ++frames);
             }
             app_draw (app);
         }
-#endif
     }
     else
     {
@@ -189,24 +175,19 @@ void app_run (struct App * app)
         }
     }
 
-    //gb_shutdown (&GB);
-    time = clock() - time;
-    totalSeconds = (float)frames / 60.0;
+    free (app->gb.cart.romData);
 
-    free (app->gbData.rom);
-
-    double timeTaken = ((double) time) / CLOCKS_PER_SEC; /* Elapsed time */
-    LOG_("The program ran %f seconds for %d frames.\nGB performance is %.2f times as fast.\n",
-        timeTaken, frames, totalSeconds / timeTaken);
-    LOG_("For each second, there is on average %.2f milliseconds free for overhead.",
-        1000 - (1.0f / (totalSeconds / timeTaken) * 1000));  
-
-#ifdef GB_APP_DRAW
     if (app->draw)
     {
         glfwDestroyWindow (app->window);
         glfwTerminate();
         exit (EXIT_SUCCESS);
     }
-#endif
 }
+
+/*    double timeTaken = ((double) time) / CLOCKS_PER_SEC; 
+Elapsed time 
+    LOG_("The program ran %f seconds for %d frames.\nGB performance is %.2f times as fast.\n",
+        timeTaken, frames, totalSeconds / timeTaken);
+    LOG_("For each second, there is on average %.2f milliseconds free for overhead.",
+        1000 - (1.0f / (totalSeconds / timeTaken) * 1000));  */
