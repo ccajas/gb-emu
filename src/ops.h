@@ -349,7 +349,12 @@
     gb->f_c = tmp & 1;\
 }
 
-#define RRCHL   NYI("RRCHL");
+#define RRCHL   OP(RRCHL); {\
+    uint8_t tmp = hl;\
+    hl >>= 1; hl |= (tmp << 7);\
+    gb->flags = (!hl) * FLAG_Z;\
+    gb->f_c = tmp & 1;\
+}
 
 #define RR      OP(RR); {\
     uint8_t tmp = gb->r[r];\
@@ -358,7 +363,12 @@
     gb->f_c = tmp & 1;\
 }
 
-#define RRHL    NYI("RRHL");
+#define RRHL    OP(RRHL); {\
+    uint8_t tmp = hl;\
+    hl >>= 1; hl |= gb->f_c << 7;\
+    gb->flags = (!hl) * FLAG_Z;\
+    gb->f_c = tmp & 1;\
+}
 
 #define SRL     OP(SRL);   { uint8_t co = (gb->r[r] & 1) ? 0x10 : 0; gb->r[r] >>= 1; gb->flags = (gb->r[r]) ? 0 : FLAG_Z; gb->flags = (gb->flags & 0xEF) + co; }
 
