@@ -24,14 +24,14 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
 
     /* Byte to be accessed from memory */
     uint8_t * b;
-    #define DIRECT_RW(b)  { if (write) *b = val; return *b; }
+    #define DIRECT_RW(b)  if (write) { *b = val; } return *b;
     switch (addr)
     {
         case 0x0000 ... 0x7FFF: return mbc_rw (gb, addr, val, write);   /* ROM from MBC     */
         case 0x8000 ... 0x9FFF: return ppu_rw (gb, addr, val, write);   /* Video RAM        */
         case 0xA000 ... 0xBFFF: return mbc_rw (gb, addr, val, write);   /* External RAM     */
         case 0xC000 ... 0xDFFF: b = &gb->ram[addr % 0x2000];            /* Work RAM         */
-                                DIRECT_RW (b);
+                                if (write) { *b = val; } return *b;
         case 0xE000 ... 0xFDFF: return 0xFF;                            /* Echo RAM         */
         case 0xFE00 ... 0xFE9F: return ppu_rw (gb, addr, val, write);   /* OAM              */
         case 0xFEA0 ... 0xFEFF: return 0xFF;                            /* Not usable       */
@@ -97,6 +97,11 @@ void gb_init (struct GB * gb)
         gb->halted = 0;
     }
 
+    /* Clear memory */
+    memset (gb->ram,  0, WRAM_SIZE);
+    memset (gb->vram, 0, VRAM_SIZE);
+    memset (gb->hram, 0, HRAM_SIZE);
+
     gb_cpu_state (gb);
 }
 
@@ -127,7 +132,43 @@ const int8_t opTicks[256] = {
 
 void gb_exec_cb (struct GB * gb, const uint8_t op)
 {
-    return;
+    const uint8_t opL  = op & 0xf;
+    const uint8_t opHh = op >> 3; /* Octal divisions */
+
+    const uint8_t r = ((opL & 7) == 7) ? A : ((opL & 7) < 6) ? B + (opL & 7) : 255;
+    const uint8_t r_bit  = opHh & 7;
+
+    /* Fetch value at address (HL) if it's needed */
+    uint8_t hl = (opL == 0x6 || opL == 0xE) ? CPU_RB (ADDR_HL) : 0;
+
+    switch (opHh)
+    {
+        case 0 ... 7:
+            switch (op)
+            {
+                case 0x00      ... 0x05:  case 0x07: RLC     break;
+                case 0x08      ... 0x0D:  case 0x0F: RRC     break;
+                case 0x06: RLCHL   break; case 0x0E: RRCHL   break;
+                case 0x10      ... 0x15:  case 0x17: RL      break;
+                case 0x18      ... 0x1D:  case 0x1F: RR      break;
+                case 0x16: RLHL   break;  case 0x1E: RRHL    break;
+                
+                case 0x38      ... 0x3D:  case 0x3F: SRL     break;
+            }
+        break;
+        case 8 ... 0xF:
+            /* Bit test */
+            if (opL == 0x6 || opL == 0xE ) { BITHL } else { BIT }
+        break;
+        case 0x10 ... 0x17:
+            /* Bit reset */
+            if (opL == 0x6 || opL == 0xE ) { RESHL } else { RES }
+        break;
+        case 0x18 ... 0x1F:
+            /* Bit set */
+            if (opL == 0x6 || opL == 0xE ) { SETHL } else { SET }
+        break;
+    }
 }
 
 uint8_t gb_cpu_exec (struct GB * gb, const uint8_t op)
