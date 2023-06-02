@@ -12,6 +12,7 @@
 
 #define VRAM_SIZE     0x2000
 #define WRAM_SIZE     0x2000
+#define OAM_SIZE      0xA0
 #define HRAM_SIZE     0x80
 #define IO_SIZE       0x80
 
@@ -47,11 +48,13 @@ struct GB
     uint32_t frameClock;
     uint8_t  rt; /* Tracks individual step clocks */
 
-    uint8_t  stop, halted;
-    uint8_t  invalid;
+    uint8_t stop, halted;
+    uint8_t vramBlocked, oamBlocked;
+    uint8_t invalid;
 
     /* Memory and I/O registers */
     uint8_t vram[VRAM_SIZE];
+    uint8_t oam [OAM_SIZE];
     uint8_t ram [WRAM_SIZE];   /* Work RAM  */
     uint8_t hram[HRAM_SIZE];   /* High RAM  */
     uint8_t io  [IO_SIZE];
@@ -86,7 +89,12 @@ void gb_render            (struct GB * gb);
 
 #define cpu_read(X)     gb_mem_access (gb, X, 0, 0)
 
-inline void gb_cpu_state (struct GB * gb)
+inline uint8_t gb_rom_loaded (struct GB * gb)
+{
+    return gb->cart.romData != NULL;
+};
+
+static inline void gb_cpu_state (struct GB * gb)
 {
     const uint16_t pc = gb->pc;
 
@@ -98,13 +106,21 @@ inline void gb_cpu_state (struct GB * gb)
     );
 }
 
-inline void gb_step (struct GB * gb)
+static inline void gb_step (struct GB * gb)
 {
     gb_handle_interrupts (gb);
 
-    /* Load next op and execute */
-    const uint8_t op = gb_mem_access (gb, gb->pc++, 0, 0);
-    gb->frameClock += gb_cpu_exec (gb, op);
+    if (gb->halted)
+    {
+        gb->rt = 4;
+        gb->clock_t += gb->rt;
+        gb->frameClock += gb->rt;
+    }
+    else
+    {    /* Load next op and execute */
+        const uint8_t op = gb_mem_access (gb, gb->pc++, 0, 0);
+        gb->frameClock += gb_cpu_exec (gb, op);      
+    }
 
     gb_cpu_state (gb);
 
@@ -112,7 +128,7 @@ inline void gb_step (struct GB * gb)
     gb_render (gb);
 }
 
-inline void gb_frame (struct GB * gb)
+static inline void gb_frame (struct GB * gb)
 {
     uint8_t frameDone = 0;
     /* Returns when frame is completed */

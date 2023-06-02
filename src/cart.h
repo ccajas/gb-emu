@@ -16,17 +16,26 @@ struct Cartridge
     uint8_t  
         header[GB_HEADER_SIZE],
         mbc,
-        cartType,
-        hardware;
+        cartType;
+
+    /* Other hardware present */
+    uint8_t ram     : 1;
+    uint8_t battery : 1;
+    uint8_t rtc     : 1;
 
     /* MBC registers */
-    uint8_t  bank8;     /* for most ROMS, 4 MiB and under */
-    uint16_t bank16;    /* for large ROMS over 4 MiB      */
+    uint8_t bankLo;  /* for most ROMS, 4 MiB and under               */
+    uint8_t bankHi;  /* for RAM bank and/or additional ROM bank bits */
 
+    uint32_t 
+        romSizeKB,
+        ramSizeKB,
+        romOffset,
+        ramOffset;
     uint8_t  
         totalBanks,
         bankMode,
-        ramEnable;
+        ramEnabled;
 };
 
 #endif

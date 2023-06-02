@@ -4,16 +4,71 @@
 
 uint8_t mbc_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
-    if (!write)
-        return gb->cart.romData[addr];
-    else
-        gb->cart.romData[addr] = val;
+    struct Cartridge * cart = &gb->cart;
+
+    if (!write) /* Read from cartridge */
+        switch (addr)
+        {
+            case 0x0000 ... 0x3FFF:
+                return cart->romData[addr];
+            case 0x4000 ... 0x7FFF:
+                if (cart->mbc == 1) {
+                    if (!cart->bankMode && cart->romSizeKB >= 1024)
+                        cart->romOffset = ((cart->bankHi << 5) + cart->bankLo) * 0x4000;
+                    else
+                        cart->romOffset = cart->bankLo * 0x4000;
+                    return cart->romData[(addr % 0x4000) + cart->romOffset]; 
+                }
+                return cart->romData[addr];
+            case 0xA000 ... 0xBFFF:
+                if (cart->mbc == 1 && cart->ram) {
+                    /* Select RAM bank and fetch data (if enabled) */ 
+                    if (!cart->ramEnabled) return 0xFF;
+                    const uint16_t ramAddr = ((cart->bankMode) ? cart->ramOffset : 0);
+                    return cart->ramData[(addr % 0x2000) + ramAddr];
+                }
+            default: return 0xFF;
+        }
+    else /* Write to cartridge/registers */
+        switch (addr)
+        {
+            case 0x0000 ... 0x1FFF:
+                if (cart->mbc == 1) {
+                    cart->ramEnabled = ((val & 0xF) == 0xA) ? 1 : 0; }
+            break;
+            case 0x2000 ... 0x3FFF:
+                if (cart->mbc == 1) {
+                    cart->bankLo = (val & 0x1F) | (cart->bankLo & 0x60);
+                    if (cart->bankLo == 0) cart->bankLo++;
+                }
+                cart->romOffset = cart->bankLo * 0x4000;
+            break;
+            case 0x4000 ... 0x5FFF: 
+                /* MBC1: Write upper 2 bank bits*/
+                if (cart->mbc == 1) cart->bankHi = val;   
+            break;
+            case 0x6000 ... 0x7FFF:
+                if (cart->mbc == 1) cart->bankMode = (val & 1); 
+            break;
+        }
 
     return 0;
 }
 
 uint8_t ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
+    if (!write) {
+        if (addr >= 0xFE00)
+            return (!gb->oamBlocked)  ? gb->oam[addr & 0x9F] : 0xFF;
+        else
+            return (!gb->vramBlocked) ? gb->vram[addr & 0x1FFF] : 0xFF;
+    }
+    else {
+        if (addr >= 0xFE00 && !gb->oamBlocked)
+            gb->oam[addr & 0x9F] = val;
+        else if (!gb->vramBlocked)
+            gb->vram[addr & 0x1FFF] = val;
+    }
     return 0;
 }
 
@@ -31,13 +86,13 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
         case 0x8000 ... 0x9FFF: return ppu_rw (gb, addr, val, write);   /* Video RAM        */
         case 0xA000 ... 0xBFFF: return mbc_rw (gb, addr, val, write);   /* External RAM     */
         case 0xC000 ... 0xDFFF: b = &gb->ram[addr % 0x2000];            /* Work RAM         */
-                                if (write) { *b = val; } return *b;
+                                DIRECT_RW(b);
         case 0xE000 ... 0xFDFF: return 0xFF;                            /* Echo RAM         */
         case 0xFE00 ... 0xFE9F: return ppu_rw (gb, addr, val, write);   /* OAM              */
         case 0xFEA0 ... 0xFEFF: return 0xFF;                            /* Not usable       */
         case 0xFF00 ... 0xFF7F: b = &gb->io[addr % 0x80]; DIRECT_RW(b); /* I/O registers    */                        
         case 0xFF80 ... 0xFFFE: b = &gb->hram[addr % 0x80];             /* High RAM         */  
-                                DIRECT_RW (b);
+                                DIRECT_RW(b);
         case 0xFFFF:            b = &gb->io[addr & 0x7F]; DIRECT_RW(b); /* Interrupt enable */
     }
 }
@@ -60,22 +115,30 @@ void gb_init (struct GB * gb)
     uint8_t * header = gb->cart.header;
 
     const uint8_t cartType = header[0x47];
-    uint8_t mbcType = 0;
+    uint8_t mbc = 0;
 
-    switch (cartType) 
+    switch (cartType)
     {
-        case 0:            mbcType = 0; break;
-        case 0x1 ... 0x3:  mbcType = 1; break;
-        case 0x5 ... 0x6:  mbcType = 2; break;
-        case 0xF ... 0x13: mbcType = 3; break;
+        case 0:            mbc = 0; break;
+        case 0x1 ... 0x3:  mbc = 1; break;
+        case 0x5 ... 0x6:  mbc = 2; break;
+        case 0xF ... 0x13: mbc = 3; break;
         default: 
             LOG_("GB: MBC not supported.\n"); return;
     }
 
     printf ("GB: ROM file size (KiB): %d\n", 32 * (1 << header[0x48]));
     printf ("GB: Cart type: %02X\n", header[0x47]);
+    const uint8_t ramBanks[] = { 0, 0, 1, 4, 16, 8 };
 
-    gb->cart.mbc = mbcType;
+    /* Add other metadata */
+    gb->cart.romSizeKB = 32 * (1 << header[0x48]);
+    gb->cart.ramSizeKB = 8 * ramBanks[header[0x49]];
+    gb->cart.bankLo = 1;
+    gb->cart.bankHi = 0;
+    gb->cart.romOffset = 0x4000;
+    gb->cart.ramOffset = 0;
+    gb->cart.mbc = mbc;
     gb->bootrom = 0;
 
     /* Setup CPU registers as if bootrom was loaded */
@@ -96,6 +159,8 @@ void gb_init (struct GB * gb)
         gb->invalid = 0;
         gb->halted = 0;
     }
+
+    gb->vramBlocked = gb->oamBlocked = 0;
 
     /* Clear memory */
     memset (gb->ram,  0, WRAM_SIZE);
@@ -297,7 +362,41 @@ uint8_t gb_cpu_exec (struct GB * gb, const uint8_t op)
 
 void gb_handle_interrupts (struct GB * gb)
 {
+    /* Get interrupt flags */
+    const uint8_t io_IE = CPU_RB (0xFF00 + IntrEnabled);
+    const uint8_t io_IF = CPU_RB (0xFF00 + IntrFlags);
 
+    /* Run if CPU ran HALT instruction or IME enabled w/flags */
+    if (gb->halted || (gb->ime && (io_IE & io_IF & IF_Any)))
+    {
+        gb->halted = 0;
+        gb->ime = 0;
+
+        /* Increment clock and push PC to SP */
+        gb->clock_t += 8;
+        CPU_WW (gb->sp, gb->pc);
+
+        /* Check all 5 IE and IF bits for flag confirmations 
+           This loop also services interrupts by priority (0 = highest) */
+        uint8_t i;
+        for (i = 0; i <= 5; i++)
+        {
+            const uint16_t requestAddress = 0x40 + (i * 8);
+            const uint8_t flag = 1 << i;
+
+            if ((io_IE & flag) && (io_IF & flag))
+            {
+                /* Clear flag bit */
+                CPU_WB (0xFF00 + IntrFlags, io_IF ^ flag);
+                gb->sp -= 2;
+
+                /* Move PC to request address */
+                gb->clock_t += 8;
+                gb->pc = requestAddress;
+                gb->clock_t += 4;
+            }
+        }
+    }
 }
 
 void gb_handle_timings (struct GB * gb)
