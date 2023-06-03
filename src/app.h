@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include "gbdebug.h"
 #include "gb.h"
 
 #define GB_APP_DRAW

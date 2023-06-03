@@ -35,7 +35,7 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
         strcpy (app->defaultFile, fileName);
     }
 
-    app->draw = 0;
+    app->draw = 1;
     app->scale = 3;
     app->paused = 0;
 }
@@ -160,7 +160,7 @@ void app_run (struct App * app)
                 if (gb_rom_loaded (&app->gb))
                     gb_frame (&app->gb);
 
-                //ppu_dump_tiles (app->gbData.tileMap.data);
+                debug_dump_tiles (&app->gb, app->gbData.tileMap.data);
                 printf("\033[A\33[2KT\rFrames: %d\n", ++frames);
             }
             app_draw (app);
