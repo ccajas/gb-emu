@@ -58,9 +58,9 @@ struct GB
     /* PPU timing */
 
     /* Memory and I/O registers */
-    uint8_t vram[VRAM_SIZE];
+    uint8_t * ram;             /* Work RAM  */
+    uint8_t * vram;
     uint8_t oam [OAM_SIZE];
-    uint8_t ram [WRAM_SIZE];   /* Work RAM  */
     uint8_t hram[HRAM_SIZE];   /* High RAM  */
     uint8_t io  [IO_SIZE];
 
@@ -123,16 +123,15 @@ static inline void gb_step (struct GB * gb)
     if (gb->halted)
     {
         gb->rt = 4;
-        gb->clock_t    += gb->rt;
-        gb->lineClock  += gb->rt;
-        gb->frameClock += gb->rt;
     }
     else
     {    /* Load next op and execute */
-        gb->frameClock += gb_cpu_exec (gb);
-        gb->clock_t    += gb->rt;
-        gb->lineClock  += gb->rt;
+        gb_cpu_exec (gb);
     }
+
+    gb->clock_t    += gb->rt;
+    gb->lineClock  += gb->rt;
+    gb->frameClock += gb->rt;
 
     gb_handle_timings (gb);
     //gb_ppu_step (gb);

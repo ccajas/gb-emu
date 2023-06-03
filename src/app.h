@@ -8,7 +8,6 @@
 #include "gb.h"
 
 #define GB_DEBUG
-#define USE_TIGR
 
 #ifdef USE_GLFW
     #include "api/glfw/graphics.h"

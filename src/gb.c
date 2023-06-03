@@ -180,11 +180,12 @@ void gb_init (struct GB * gb)
     gb->io[LY]         = 0x90;
     gb->io[DMA]        = 0xFF;
 
+    /* Initialize RAM and settings */
+    gb->ram  = calloc(WRAM_SIZE, sizeof (uint8_t));
+    gb->vram = calloc(VRAM_SIZE, sizeof (uint8_t));
     gb->vramBlocked = gb->oamBlocked = 0;
 
     /* Clear memory */
-    memset (gb->ram,  0, WRAM_SIZE);
-    memset (gb->vram, 0, VRAM_SIZE);
     memset (gb->hram, 0, HRAM_SIZE);
 
     gb_cpu_state (gb);
@@ -410,9 +411,7 @@ void gb_handle_interrupts (struct GB * gb)
             {
                 gb->clock_t += 8;
                 gb->sp -= 2;
-                //CPU_WB (gb->sp, gb->pc >> 8);
-                //gb->sp--;
-                //CPU_WB (gb->sp, gb->pc & 0xFF);
+
                 CPU_WW (gb->sp, gb->pc);
                 gb->clock_t += 8;
                 gb->pc = requestAddress;
