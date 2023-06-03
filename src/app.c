@@ -146,7 +146,7 @@ void app_run (struct App * app)
     //clock_t time = clock();
     uint32_t frames = 0;
 
-    const int32_t totalFrames = 50;
+    const int32_t totalFrames = 600;
     //float totalSeconds = (float) totalFrames / 60.0;
 
     if (app->draw)

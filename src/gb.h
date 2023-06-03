@@ -122,8 +122,6 @@ static inline void gb_step (struct GB * gb)
         gb->frameClock += gb_cpu_exec (gb, op);      
     }
 
-    gb_cpu_state (gb);
-
     gb_handle_timings (gb);
     gb_render (gb);
 }
