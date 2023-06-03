@@ -166,6 +166,7 @@ void gb_init (struct GB * gb)
     memset(gb->io, 0, sizeof (gb->io));  
     gb->io[Joypad]     = 0xCF;
     gb->io[SerialCtrl] = 0x7E;
+    gb->io[TimerCtrl]  = 0xF8;
     gb->io[IntrFlags]  = 0xE1;
     gb->io[LCDControl] = 0x91;
     gb->io[LCDStatus]  = 0x81;
@@ -387,10 +388,6 @@ void gb_handle_interrupts (struct GB * gb)
         gb->halted = 0;
         gb->ime = 0;
 
-        /* Increment clock and push PC to SP */
-        gb->clock_t += 8;
-        CPU_WW (gb->sp, gb->pc);
-
         /* Check all 5 IE and IF bits for flag confirmations 
            This loop also services interrupts by priority (0 = highest) */
         uint8_t i;
@@ -402,13 +399,18 @@ void gb_handle_interrupts (struct GB * gb)
             if ((io_IE & flag) && (io_IF & flag))
             {
                 /* Clear flag bit */
-                CPU_WB (0xFF00 + IntrFlags, io_IF ^ flag);
-                gb->sp -= 2;
+                gb->io[IntrFlags] = io_IF ^ flag;
+
+                /* Increment clock and push PC to SP */
+                gb->clock_t += 8;
+                CPU_WW (gb->sp, gb->pc);
 
                 /* Move PC to request address */
                 gb->clock_t += 8;
                 gb->pc = requestAddress;
                 gb->clock_t += 4;
+
+                break;
             }
         }
     }
@@ -447,7 +449,7 @@ inline uint8_t * gb_pixel_fetch (const struct GB * gb)
     uint8_t * pixels = calloc(DISPLAY_WIDTH, sizeof(uint8_t));
 
 	/* Check if background is enabled */
-	//if (!LCDC_(0))
+	if (LCDC_(0))
 	{
         /* Get minimum starting address depends on LCDC bits 3 and 6 are set.
         Starts at 0x1800 as this is the VRAM index minus 0x8000 */
@@ -576,14 +578,14 @@ void gb_render (struct GB * const gb)
             /* Mode 0 - H-blank */
             if (IO_STAT_MODE != Stat_HBlank)
             {   
+                /* Fetch line of pixels for the screen and draw them */
+                uint8_t * pixels = gb_pixel_fetch (gb);
+                gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
+
                 gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;
 
                 if (gb->io[LCDStatus] & 0x08) /* Mode 0 interrupt */
 					gb->io[IntrFlags] |= IF_LCD_STAT;
-
-                /* Fetch line of pixels for the screen and draw them */
-                uint8_t * pixels = gb_pixel_fetch (gb);
-                gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
             }
         }
         else
