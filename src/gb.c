@@ -408,18 +408,18 @@ void gb_handle_interrupts (struct GB * gb)
 
             if ((io_IE & flag) && (io_IF & flag))
             {
-                /* Clear flag bit */
-                gb->io[IntrFlags] = io_IF ^ flag;
-
-                /* Increment clock and push PC to SP */
                 gb->clock_t += 8;
+                gb->sp -= 2;
+                //CPU_WB (gb->sp, gb->pc >> 8);
+                //gb->sp--;
+                //CPU_WB (gb->sp, gb->pc & 0xFF);
                 CPU_WW (gb->sp, gb->pc);
-
-                /* Move PC to request address */
                 gb->clock_t += 8;
                 gb->pc = requestAddress;
                 gb->clock_t += 4;
 
+                /* Clear flag bit */
+                gb->io[IntrFlags] = io_IF & ~flag;
                 break;
             }
         }
