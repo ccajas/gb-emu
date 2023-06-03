@@ -12,13 +12,17 @@ obj = $(csrc:.c=.o)
 
 # Output
 target = bin/gb-emu
-#all: glfw
+all: glfw
 
 .PHONY: clean
 
 # main build	
 glfw: $(obj)
 	$(CC) $(CFLAGS) src/main.c src/app.c src/gb.c $(srcGL) -o $(target) -I../_include -lm -lglfw3 -lgdi32
+
+# no GLFW build
+min: $(obj)
+	$(CC) $(CFLAGS) src/main.c src/app.c src/gb.c -o $(target) -I../_include -lm -lgdi32
 
 clean:
 	rm -f $(obj) $(target)
