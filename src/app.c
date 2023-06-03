@@ -4,7 +4,7 @@
 
 /* GLFW callback functions */
 
-#ifdef GB_APP_DRAW
+#ifdef USE_GLFW
 
 static void error_callback(int error, const char* description)
 {
@@ -47,6 +47,7 @@ void app_init (struct App * app)
     {
         .rom = NULL,// mbc_load_rom (app->defaultFile),
         .bootRom = NULL,
+#ifdef USE_GLFW
         .tileMap = {
             .width = 128,
             .height = 192,
@@ -57,13 +58,15 @@ void app_init (struct App * app)
             .height = DISPLAY_HEIGHT,
             .data = calloc (DISPLAY_WIDTH * DISPLAY_HEIGHT * 3, sizeof(uint8_t))
         }
+#endif
     };
 
     /* Copy ROM to cart */
     app->gb.cart.romData = app_load(app->defaultFile);
     app->gb.extData.ptr = &app->gbData;
     gb_init (&app->gb);
-
+    
+#ifdef USE_GLFW
     /* Objects for drawing */
     GLFWwindow * window;
     Scene newDisplay = { .bgColor = { 173, 175, 186 }};
@@ -107,6 +110,7 @@ void app_init (struct App * app)
         graphics_init (&app->display);
         app->window = window;
     }
+#endif
 }
 
 uint8_t * app_load (const char * fileName)
@@ -131,9 +135,11 @@ uint8_t * app_load (const char * fileName)
     return rom;
 }
 
+#ifdef USE_GLFW
+
 void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 {
-    struct gb_data * const gbData = dataPtr;
+    struct gb_data * const data = dataPtr;
 
     const uint32_t yOffset = line * DISPLAY_WIDTH * 3;
     uint8_t x;
@@ -141,11 +147,11 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 	for (x = 0; x < DISPLAY_WIDTH; x++)
 	{
 		uint8_t pixel = 3 - (*pixels);
-        pixel = (pixel * 0x55 == 0xFF) ? 0xEE : pixel * 0x55;
+        pixel = (pixel == 3) ? 0xF5 : pixel * 0x55;
 
-        gbData->frameBuffer.data[yOffset + (x * 3)] = pixel;
-        gbData->frameBuffer.data[yOffset + (x * 3) + 1] = pixel;
-        gbData->frameBuffer.data[yOffset + (x * 3) + 2] = pixel;
+        data->frameBuffer.data[yOffset + (x * 3)] = pixel;
+        data->frameBuffer.data[yOffset + (x * 3) + 1] = pixel;
+        data->frameBuffer.data[yOffset + (x * 3) + 2] = pixel;
 
         pixels++;
 	}
@@ -164,6 +170,7 @@ void app_draw (struct App * app)
     glfwSwapBuffers (app->window);
     glfwPollEvents();
 }
+#endif
 
 void app_run (struct App * app)
 {
@@ -176,6 +183,7 @@ void app_run (struct App * app)
 
     if (app->draw)
     {
+#ifdef USE_GLFW
         while (!glfwWindowShouldClose (app->window))
         {
             glfwMakeContextCurrent (app->window);
@@ -190,6 +198,7 @@ void app_run (struct App * app)
             }
             app_draw (app);
         }
+#endif
     }
     else
     {
@@ -201,13 +210,14 @@ void app_run (struct App * app)
     }
 
     free (app->gb.cart.romData);
-
+#ifdef USE_GLFW
     if (app->draw)
     {
         glfwDestroyWindow (app->window);
         glfwTerminate();
         exit (EXIT_SUCCESS);
     }
+#endif
 }
 
 /*    double timeTaken = ((double) time) / CLOCKS_PER_SEC; 

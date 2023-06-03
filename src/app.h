@@ -7,10 +7,12 @@
 #include "gbdebug.h"
 #include "gb.h"
 
-#define GB_APP_DRAW
 #define GB_DEBUG
+#define USE_GLFW__
 
+#ifdef USE_GLFW
 #include "api/glfw/graphics.h"
+#endif
 
 #ifdef GB_DEBUG
     #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
@@ -31,17 +33,18 @@ struct App
     {
         uint8_t * bootRom;
         uint8_t * rom;
-
+#ifdef USE_GLFW
         /* Used for drawing the display and tilemap */
         struct Texture tileMap;
         struct Texture frameBuffer;
+#endif
     };
     struct gb_data gbData;
 
     /* Pointers to main and debug functions */
     struct GB gb;
     
-#ifdef GB_APP_DRAW
+#ifdef USE_GLFW
     /* Drawing elements */
     GLFWwindow     * window;
     Scene            display;
