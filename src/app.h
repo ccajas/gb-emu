@@ -8,7 +8,6 @@
 #include "gb.h"
 
 #define GB_DEBUG
-#define USE_GLFW__
 #define USE_TIGR
 
 #ifdef USE_GLFW
@@ -38,10 +37,15 @@ struct App
     {
         uint8_t * bootRom;
         uint8_t * rom;
-#ifdef USE_GLFW
+
         /* Used for drawing the display and tilemap */
+#ifdef USE_GLFW
         struct Texture tileMap;
         struct Texture frameBuffer;
+#endif
+#ifdef USE_TIGR
+        Tigr * tileMap;
+        Tigr * frameBuffer;
 #endif
     };
     struct gb_data gbData;

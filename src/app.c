@@ -27,6 +27,15 @@ void framebuffer_size_callback (GLFWwindow* window, int width, int height)
 }
 
 #endif
+#ifdef USE_TIGR
+
+static void key_input (Tigr * screen)
+{
+    if (tigrKeyHeld(screen, TK_LEFT) || tigrKeyHeld(screen, 'A')) { }
+        //playerxs -= 10;
+}
+
+#endif
 
 void app_config (struct App * app, uint8_t const argc, char * const argv[])
 {
@@ -63,6 +72,10 @@ void app_init (struct App * app)
             .data = calloc (DISPLAY_WIDTH * DISPLAY_HEIGHT * 3, sizeof(uint8_t))
         }
 #endif
+#ifdef USE_TIGR
+        .tileMap = tigrBitmap (128, 128),
+        .frameBuffer = tigrBitmap (DISPLAY_WIDTH, DISPLAY_HEIGHT)
+#endif
     };
 
     /* Copy ROM to cart */
@@ -71,7 +84,7 @@ void app_init (struct App * app)
     gb_init (&app->gb);
 
 #ifdef USE_TIGR
-    app->screen = tigrWindow(320, 240, "GB Emu", TIGR_FIXED);
+    app->screen = tigrWindow(DISPLAY_WIDTH * app->scale, DISPLAY_HEIGHT * app->scale, "GB Emu", TIGR_FIXED);
 #endif
 #ifdef USE_GLFW
     /* Objects for drawing */
@@ -181,6 +194,25 @@ void app_draw (struct App * app)
     glfwPollEvents();
 }
 #endif
+#ifdef USE_TIGR
+
+void app_draw (struct App * app)
+{
+    /* Test background fill */
+    tigrClear (app->gbData.frameBuffer, tigrRGB(80, 180, 255));
+    tigrFill (app->gbData.frameBuffer, 0, 100, 20, 40, tigrRGB(60, 120, 60));
+    tigrFill (app->gbData.frameBuffer, 0, 500, 40, 3, tigrRGB(0, 0, 0));
+    tigrLine (app->gbData.frameBuffer, 0, 101, 320, 201, tigrRGB(255, 255, 255));
+
+    tigrBlit (app->screen, app->gbData.frameBuffer, 0, 0, 0, 0, 
+        app->gbData.frameBuffer->w, app->gbData.frameBuffer->h);
+
+    tigrPrint (app->screen, tfont, 120, 110, tigrRGB(0xff, 0xff, 0xff), "Hello, world!");
+
+    tigrUpdate (app->screen);
+}
+
+#endif
 
 void app_run (struct App * app)
 {
@@ -197,8 +229,7 @@ void app_run (struct App * app)
         while (!tigrClosed(app->screen))
         {
             tigrClear (app->screen, tigrRGB(0x80, 0x90, 0xa0));
-            tigrPrint (app->screen, tfont, 120, 110, tigrRGB(0xff, 0xff, 0xff), "Hello, world!");
-            tigrUpdate (app->screen);
+            app_draw (app);
         }
         tigrFree (app->screen);
 #endif

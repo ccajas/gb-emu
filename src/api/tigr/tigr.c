@@ -1886,7 +1886,7 @@ TigrInternal* tigrInternal(Tigr* bmp) {
 #include <stdlib.h>
 #include <stddef.h>
 
-#if defined _MSC_VER && defined (_MSC_VER) >= 1800
+#if defined _MSC_VER
 #pragma comment(lib, "opengl32")  // glViewport
 #pragma comment(lib, "shell32")   // CommandLineToArgvW
 #pragma comment(lib, "user32")    // SetWindowLong
