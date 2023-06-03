@@ -1,6 +1,33 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
 #include "gb.h"
 #include "ops.h"
+
+uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
+{
+    /* For debug logging purposes */
+    //if (addr == 0xFF44 && !write) return 0x90;
+
+    /* Byte to be accessed from memory */
+    uint8_t * b;
+    #define DIRECT_RW(b)  if (write) { *b = val; } return *b;
+    switch (addr)
+    {
+        case 0x0000 ... 0x7FFF: return mbc_rw (gb, addr, val, write);   /* ROM from MBC     */
+        case 0x8000 ... 0x9FFF: return ppu_rw (gb, addr, val, write);   /* Video RAM        */
+        case 0xA000 ... 0xBFFF: return mbc_rw (gb, addr, val, write);   /* External RAM     */
+        case 0xC000 ... 0xDFFF: b = &gb->ram[addr % 0x2000];            /* Work RAM         */
+                                DIRECT_RW(b);
+        case 0xE000 ... 0xFDFF: return 0xFF;                            /* Echo RAM         */
+        case 0xFE00 ... 0xFE9F: return ppu_rw (gb, addr, val, write);   /* OAM              */
+        case 0xFEA0 ... 0xFEFF: return 0xFF;                            /* Not usable       */
+        case 0xFF00 ... 0xFF7F: b = &gb->io[addr % 0x80]; DIRECT_RW(b); /* I/O registers    */                        
+        case 0xFF80 ... 0xFFFE: b = &gb->hram[addr % 0x80];             /* High RAM         */  
+                                DIRECT_RW(b);
+        case 0xFFFF:            b = &gb->io[addr & 0x7F]; DIRECT_RW(b); /* Interrupt enable */
+    }
+}
 
 uint8_t mbc_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
@@ -18,7 +45,7 @@ uint8_t mbc_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const ui
                     else
                         cart->romOffset = cart->bankLo * 0x4000;
                     return cart->romData[(addr % 0x4000) + cart->romOffset]; 
-                }
+                } /* Fall-through for no MBC */
                 return cart->romData[addr];
             case 0xA000 ... 0xBFFF:
                 if (cart->mbc == 1 && cart->ram) {
@@ -70,31 +97,6 @@ uint8_t ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const ui
             gb->vram[addr & 0x1FFF] = val;
     }
     return 0;
-}
-
-uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
-{
-    /* For debug logging purposes */
-    if (addr == 0xFF44 && !write) return 0x90;
-
-    /* Byte to be accessed from memory */
-    uint8_t * b;
-    #define DIRECT_RW(b)  if (write) { *b = val; } return *b;
-    switch (addr)
-    {
-        case 0x0000 ... 0x7FFF: return mbc_rw (gb, addr, val, write);   /* ROM from MBC     */
-        case 0x8000 ... 0x9FFF: return ppu_rw (gb, addr, val, write);   /* Video RAM        */
-        case 0xA000 ... 0xBFFF: return mbc_rw (gb, addr, val, write);   /* External RAM     */
-        case 0xC000 ... 0xDFFF: b = &gb->ram[addr % 0x2000];            /* Work RAM         */
-                                DIRECT_RW(b);
-        case 0xE000 ... 0xFDFF: return 0xFF;                            /* Echo RAM         */
-        case 0xFE00 ... 0xFE9F: return ppu_rw (gb, addr, val, write);   /* OAM              */
-        case 0xFEA0 ... 0xFEFF: return 0xFF;                            /* Not usable       */
-        case 0xFF00 ... 0xFF7F: b = &gb->io[addr % 0x80]; DIRECT_RW(b); /* I/O registers    */                        
-        case 0xFF80 ... 0xFFFE: b = &gb->hram[addr % 0x80];             /* High RAM         */  
-                                DIRECT_RW(b);
-        case 0xFFFF:            b = &gb->io[addr & 0x7F]; DIRECT_RW(b); /* Interrupt enable */
-    }
 }
 
 void gb_init (struct GB * gb)
@@ -160,6 +162,8 @@ void gb_init (struct GB * gb)
         gb->halted = 0;
     }
 
+    /* Initalize I/O registers */
+
     gb->vramBlocked = gb->oamBlocked = 0;
 
     /* Clear memory */
@@ -169,8 +173,6 @@ void gb_init (struct GB * gb)
 
     gb_cpu_state (gb);
 }
-
-#include "ops.h"
 
 const int8_t opTicks[256] = {
 /*   0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  A, B,  C,  D, E,  F*/
@@ -240,12 +242,13 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
     }
 }
 
-uint8_t gb_cpu_exec (struct GB * gb, const uint8_t op)
+uint8_t gb_cpu_exec (struct GB * gb)
 {
     gb->rt = 0;
 
-    const uint8_t  opL = op & 0xf;
-    const uint8_t  opHh = op >> 3; /* Octal divisions */
+    const uint8_t op  = CPU_RB (gb->pc++);
+    const uint8_t opL = op & 0xf;
+    const uint8_t opHh = op >> 3; /* Octal divisions */
     uint16_t hl = ADDR_HL;
 
     /* Default values for operands (can be overridden for other opcodes) */
@@ -408,7 +411,241 @@ void gb_handle_timings (struct GB * gb)
 
 }
 
-void gb_render (struct GB * gb)
-{
+/* Used for comparing and setting PPU mode timings */
+enum {
+    Stat_HBlank = 0,
+    Stat_VBlank,
+    Stat_OAM_Search,
+    Stat_Transfer
+}
+modes;
 
+enum {
+    TICKS_OAM_READ    = 80,
+    TICKS_TRANSFER    = 172,
+    TICKS_HBLANK      = 204,
+    TICKS_VBLANK      = 456
+}
+modeTicks;
+
+#define IO_STAT_CLEAR   (gb->io[LCDStatus] & 0xFC)
+#define IO_STAT_MODE    (gb->io[LCDStatus] & 3)
+
+#define LCDC_(bit)  (gb->io[LCDControl] & (1 << bit))
+#define STAT_(bit)  (gb->io[LCDStatus]  & (1 << bit))
+
+inline uint8_t * gb_pixel_fetch (const struct GB * gb)
+{
+    uint8_t * pixels = calloc(DISPLAY_WIDTH, sizeof(uint8_t));
+
+	/* Check if background is enabled */
+	//if (!LCDC_(0))
+	{
+        /* Get minimum starting address depends on LCDC bits 3 and 6 are set.
+        Starts at 0x1800 as this is the VRAM index minus 0x8000 */
+        const uint16_t BGTileMap  = (gb->io[LCDControl] & 0x08) ? 0x9C00 : 0x9800;
+        //const uint16_t winTileMap = (gb->io[IO_LCDControl] & 0x40) ? 0x9C00 : 0x9800;
+
+        /* X position counter */
+        uint8_t lineX = 0;
+        const uint8_t lineY = gb->io[LY];
+
+        assert (gb->io[LY] < DISPLAY_HEIGHT);
+
+        /* Run at least 20 times (for the 160 pixel length) */
+        for (lineX = 0; lineX < DISPLAY_WIDTH; lineX += 8)
+        {
+            /* BG tile fetcher gets tile ID. Bits 0-4 define X loction, bits 5-9 define Y location
+            All related calculations following are found here:
+            https://github.com/ISSOtm/pandocs/blob/rendering-internals/src/Rendering_Internals.md */
+
+            const uint8_t posX = lineX + gb->io[ScrollX];
+            const uint8_t posY = lineY + gb->io[ScrollY];
+
+            uint16_t tileAddr = BGTileMap + 
+                ((posY / 8) << 5) +  /* Bits 5-9, Y location */
+                (posX / 8);          /* Bits 0-4, X location */
+
+            uint16_t tileID = gb->vram[tileAddr & 0x1FFF];
+
+            /* Tilemap location depends on LCDC 4 set, which are different rules for BG and Window tiles */
+
+            /* Fetcher gets low byte and high byte for tile */
+            const uint16_t bit12 = !((gb->io[LCDControl] & 0x10) || (tileID & 0x80)) << 12;
+            const uint16_t tileRow = 0x8000 + bit12 + (tileID << 4) + ((posY & 7) << 1);
+
+            /* Finally get the pixel bytes from these addresses */
+            const uint8_t byteLo = gb->vram[tileRow & 0x1FFF];
+            const uint8_t byteHi = gb->vram[(tileRow + 1) & 0x1FFF];
+
+            /* Produce pixel data from the combined bytes*/
+            int x;
+            for (x = 0; x < 8; x++)
+            {
+                const uint8_t bitLo = (byteLo >> (7 - x)) & 1;
+                const uint8_t bitHi = (byteHi >> (7 - x)) & 1;
+                pixels[lineX + x] = (bitHi << 1) + bitLo;
+            }
+        }
+    }
+
+    return pixels;
+}
+
+inline void gb_oam_read (struct GB * gb) { }
+
+inline void gb_hblank (struct GB * gb) { }
+
+inline void gb_vblank (uint8_t * io) { }
+
+/* Evaluate LY=LYC */
+
+inline void gb_eval_LYC (struct GB * const gb)
+{
+    /* Set bit 02 flag for comparing lYC and LY
+       If STAT interrupt is enabled, an interrupt is requested */
+    if (gb->io[LYC] == gb->io[LY])
+    {
+        gb->io[LCDStatus] |= (1 << LYC_LY);
+        if (STAT_(IR_LYC)) gb->io[IntrFlags] |= IF_LCD_STAT;
+    }
+    else /* Unset the flag */
+        gb->io[LCDStatus] &= ~(1 << LYC_LY);
+}
+
+void gb_ppu_step (struct GB * const gb)
+{
+    switch (gb->io[LY])
+    {
+        case 0 ... DISPLAY_HEIGHT - 1:
+            if (gb->lineClock < TICKS_OAM_READ) { gb_oam_read (gb);    break; }
+            if (gb->lineClock < TICKS_TRANSFER) { gb_pixel_fetch (gb); break; }
+            if (gb->lineClock < TICKS_HBLANK)   { gb_hblank (gb);      break; }
+
+            /* Fallthrough: lineClock >= TICKS_HBLANK. Starting a new line */ 
+            gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
+            gb->lineClock -= TICKS_HBLANK;
+            gb_eval_LYC (gb);
+        break;
+        default:
+            gb_vblank (gb->io);
+    }
+}
+
+void gb_render (struct GB * const gb)
+{
+    //uint8_t frame = 0;
+
+    /* Todo: continuously fetch pixels clock by clock for LCD data transfer.
+       Similarly do clock-based processing for the other actions. */
+    if (gb->io[LY] < DISPLAY_HEIGHT)
+    {
+        /* Visible line, within screen bounds */
+        if (gb->lineClock < TICKS_OAM_READ)
+        {
+            /* Mode 2 - OAM read */
+            if (IO_STAT_MODE != Stat_OAM_Search)
+            {
+                gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_OAM_Search;
+
+                if (gb->io[LCDStatus] & 0x20) /* Mode 2 interrupt */
+					gb->io[IntrFlags] |= IF_LCD_STAT;
+
+                /* Fetch OAM data for sprites to be drawn on this line */
+                //ppu_OAM_fetch (ppu, io_regs);
+            }
+        }
+        else if (gb->lineClock < TICKS_OAM_READ + TICKS_TRANSFER)
+        {
+            /* Mode 3 - Transfer to LCD */
+            if (IO_STAT_MODE != Stat_Transfer)
+            {
+                gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
+            }
+        }
+        else if (gb->lineClock < TICKS_OAM_READ + TICKS_TRANSFER + TICKS_HBLANK)
+        {
+            /* Mode 0 - H-blank */
+            if (IO_STAT_MODE != Stat_HBlank)
+            {   
+                gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;
+
+                if (gb->io[LCDStatus] & 0x08) /* Mode 0 interrupt */
+					gb->io[IntrFlags] |= IF_LCD_STAT;
+
+                /* Fetch line of pixels for the screen and draw them */
+                uint8_t * pixels = gb_pixel_fetch (gb);
+                gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
+            }
+        }
+        else
+        {
+            /* Starting new line */
+            gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
+            gb->lineClock -= (TICKS_OAM_READ + TICKS_TRANSFER + TICKS_HBLANK);
+
+            if (gb->io[LYC] == gb->io[LY])
+            {
+                /* Set bit 02 flag for comparing lYC and LY */
+                gb->io[LCDStatus] |= (1 << 2);
+
+                /* If STAT interrupt is enabled, an interrupt is requested */
+                if (gb->io[LCDStatus] & 0x40) /* LYC = LY stat interrupt */
+					gb->io[IntrFlags] |= IF_LCD_STAT;
+            }
+            else
+                /* Unset the flag */
+                gb->io[LCDStatus] &= ~(1 << 2);
+
+            /* Check if all visible lines are done */
+            if (gb->io[LY] == DISPLAY_HEIGHT)
+            {
+                /* Enter Vblank and indicate that a frame is completed */
+                gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
+
+                gb->io[IntrFlags] |= IF_VBlank;
+
+                if (gb->io[LCDStatus] & 0x10) /* Mode 1 interrupt */
+					gb->io[IntrFlags] |= IF_LCD_STAT;
+
+                //frame = 1;
+            }
+        }
+    }
+    else /* Outside of screen Y bounds */
+    {
+        /* Mode 1 - V-blank */
+        if(gb->lineClock >= TICKS_VBLANK)
+        {
+            //printf("Read %d lines. Took %d cycles. (%d leftover)\n", gb->io[IO_LineY], ppu->frameTicks, ppu->ticks);
+
+            /* Advance though lines below the screen */
+            gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
+            gb->lineClock -= TICKS_VBLANK;
+
+            if (gb->io[LYC] == gb->io[LY])
+            {
+                /* Set bit 02 flag for comparing lYC and LY */
+                gb->io[LCDStatus] |= (1 << 2);
+
+                /* If STAT interrupt is enabled, an interrupt is requested */
+                if (gb->io[LCDStatus] & 0x40) /* LYC = LY stat interrupt */
+					gb->io[IntrFlags] |= IF_LCD_STAT;
+            }
+            else
+                /* Unset the flag */
+                gb->io[LCDStatus] &= ~(1 << 2);
+
+            if (gb->io[LY] == 0)
+            {
+                /* Return to top line and OAM read */
+                //ppu->frameTicks -= 70224;
+            }
+        }
+    }
+
+    /* ...and DMA transfer to OMA, if needed */
+    //DMA_to_OAM_transfer (ppu);
+
+    //return frame;
 }

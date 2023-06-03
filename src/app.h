@@ -55,4 +55,7 @@ void app_config (struct App *, uint8_t const argc, char * const argv[]);
 void app_init   (struct App *);
 void app_run    (struct App *);
 
+/* Functions that reference frontend app data from emulator */
+void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line);
+
 #endif

@@ -4,6 +4,7 @@
 #include <string.h>
 #include "cart.h"
 #include "io.h"
+#include "ops.h"
 
 #define FRAME_CYCLES      70224
 #define DISPLAY_WIDTH     160
@@ -43,14 +44,18 @@ struct GB
         uint8_t flags;
     };
     
+    /* Other CPU registers/timing data */
     uint16_t pc, sp;
     uint64_t clock_t;
+    uint16_t lineClock;
     uint32_t frameClock;
     uint8_t  rt; /* Tracks individual step clocks */
 
     uint8_t stop, halted;
     uint8_t vramBlocked, oamBlocked;
     uint8_t invalid;
+
+    /* PPU timing */
 
     /* Memory and I/O registers */
     uint8_t vram[VRAM_SIZE];
@@ -62,17 +67,21 @@ struct GB
     /* Interrupt master enable */
     uint8_t ime;
 
-    /* Directly accessible data by frontend */
+    /* Catridge which holds ROM and RAM */
+    struct Cartridge cart;
+    uint8_t bootrom;
+
+    /* Directly accessible external data */
     struct gb_data_s
     {
         /* Joypad button inputs */
         uint8_t joypad;
+        void * ptr;
     }
-    gbData_;
+    extData;
 
-    /* Catridge which holds ROM and RAM */
-    struct Cartridge cart;
-    uint8_t bootrom;
+    /* Functions that rely on external data */
+    void (*draw_line)(void *, const uint8_t * pixels, const uint8_t line);
 };
 
 uint8_t mbc_rw        (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
@@ -80,11 +89,12 @@ uint8_t ppu_rw        (struct GB *, const uint16_t addr, const uint8_t val, cons
 uint8_t gb_mem_access (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
 
 void    gb_init     (struct GB *);
-uint8_t gb_cpu_exec (struct GB * gb, const uint8_t op);
+uint8_t gb_cpu_exec (struct GB *);
 void    gb_exec_cb  (struct GB * gb, const uint8_t op);
 
 void gb_handle_interrupts (struct GB * gb);
 void gb_handle_timings    (struct GB * gb);
+void gb_ppu_step          (struct GB * gb);
 void gb_render            (struct GB * gb);
 
 #define cpu_read(X)     gb_mem_access (gb, X, 0, 0)
@@ -113,16 +123,19 @@ static inline void gb_step (struct GB * gb)
     if (gb->halted)
     {
         gb->rt = 4;
-        gb->clock_t += gb->rt;
+        gb->clock_t    += gb->rt;
+        gb->lineClock  += gb->rt;
         gb->frameClock += gb->rt;
     }
     else
     {    /* Load next op and execute */
-        const uint8_t op = gb_mem_access (gb, gb->pc++, 0, 0);
-        gb->frameClock += gb_cpu_exec (gb, op);      
+        gb->frameClock += gb_cpu_exec (gb);
+        gb->clock_t    += gb->rt;
+        gb->lineClock  += gb->rt;
     }
 
     gb_handle_timings (gb);
+    //gb_ppu_step (gb);
     gb_render (gb);
 }
 

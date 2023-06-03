@@ -61,12 +61,16 @@ void app_init (struct App * app)
 
     /* Copy ROM to cart */
     app->gb.cart.romData = app_load(app->defaultFile);
+    app->gb.extData.ptr = &app->gbData;
     gb_init (&app->gb);
 
     /* Objects for drawing */
     GLFWwindow * window;
     Scene newDisplay = { .bgColor = { 173, 175, 186 }};
     app->display = newDisplay;
+
+    /* Assign functions to be used by emulator */
+    app->gb.draw_line = app_draw_line;
 
     /* Select image to display */
     app->image = &app->gbData.tileMap;
@@ -127,14 +131,35 @@ uint8_t * app_load (const char * fileName)
     return rom;
 }
 
+void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
+{
+    struct gb_data * const gbData = dataPtr;
+
+    const uint32_t yOffset = line * DISPLAY_WIDTH * 3;
+    uint8_t x;
+
+	for (x = 0; x < DISPLAY_WIDTH; x++)
+	{
+		uint8_t pixel = 3 - (*pixels);
+        pixel = (pixel * 0x55 == 0xFF) ? 0xEE : pixel * 0x55;
+
+        gbData->frameBuffer.data[yOffset + (x * 3)] = pixel;
+        gbData->frameBuffer.data[yOffset + (x * 3) + 1] = pixel;
+        gbData->frameBuffer.data[yOffset + (x * 3) + 2] = pixel;
+
+        pixels++;
+	}
+}
+
 void app_draw (struct App * app)
 {
     /* Select image to display */
     app->image = &app->gbData.tileMap;
     draw_begin (app->window, &app->display);
+    draw_quad (app->window, &app->display, &app->gbData.frameBuffer, 0, 0, 2);
 
     if (gb_rom_loaded(&app->gb))
-        draw_quad (app->window, &app->display, app->image, 224, 0, 2);
+        draw_quad (app->window, &app->display, app->image, 352, 0, 1);
 
     glfwSwapBuffers (app->window);
     glfwPollEvents();
