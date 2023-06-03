@@ -4,10 +4,17 @@
 #include "gb.h"
 #include "ops.h"
 
+#define CPU_INSTRS
+
 uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
     /* For debug logging purposes */
     //if (addr == 0xFF44 && !write) return 0x90;
+
+    /* For Blargg's CPU instruction tests */
+#ifdef CPU_INSTRS
+    if (gb->io[SerialCtrl] == 0x81) { LOG_("%c", gb->io[SerialData]); gb->io[SerialCtrl] = 0x0; }
+#endif
 
     /* Byte to be accessed from memory */
     uint8_t * b;

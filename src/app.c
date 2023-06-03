@@ -201,8 +201,8 @@ void app_run (struct App * app)
                     gb_frame (&app->gb);
 
                 debug_dump_tiles (&app->gb, app->gbData.tileMap.data);
-                printf("\033[A\33[2KT\rFrames: %d\n", ++frames);
-
+                //printf("\033[A\33[2KT\rFrames: %d\n", frames);
+                frames++;
                 app_draw (app);
             }
         }
