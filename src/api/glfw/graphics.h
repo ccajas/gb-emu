@@ -24,6 +24,7 @@ typedef struct Scene_struct
     Shader
         fbufferShader,
         debugShader;
+    Shader * activeShader;
 }
 Scene;
 
@@ -49,20 +50,28 @@ inline void texture_setup (uint32_t * const textureID, uint16_t width, uint16_t 
 	glTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
 }
 
+static inline void set_shader (Scene * const scene, Shader * shader)
+{
+    scene->activeShader = shader;
+}
+
 static inline void draw_begin (GLFWwindow * window, Scene * const scene)
 {
 	glClearColor((GLfloat)scene->bgColor[0] / 255, (GLfloat)scene->bgColor[1] / 255, (GLfloat)scene->bgColor[2] / 255, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glUseProgram(scene->debugShader.program);
 }
 
-static inline void draw_quad (GLFWwindow * window, Scene * const scene, struct Texture * const pixels, 
+static inline void draw_quad (GLFWwindow * window, Scene * const scene, 
+    struct Texture * const pixels, 
     const int xpos, const int ypos, const float scale)
 {
     int32_t width, height;
     glfwGetFramebufferSize (window, &width, &height);
 
     /* Setup matrix and send data to shader */
-    glUseProgram(scene->debugShader.program);
+    glUseProgram(scene->activeShader->program);
     mat4x4 model;
     mat4x4 projection;
 
@@ -73,9 +82,9 @@ static inline void draw_quad (GLFWwindow * window, Scene * const scene, struct T
     mat4x4_translate (model, xpos, height - (pixels->height * scale) - ypos, 0);
     mat4x4_scale_aniso (model, model, pixels->width * scale, pixels->height * scale, 1.0f);
 
-    glUniform2f (glGetUniformLocation(scene->debugShader.program, "screenSize"), (GLfloat) (width / scale), (GLfloat) (height / scale));
-    glUniformMatrix4fv (glGetUniformLocation(scene->debugShader.program, "model"),      1, GL_FALSE, (const GLfloat*) model);
-    glUniformMatrix4fv (glGetUniformLocation(scene->debugShader.program, "projection"), 1, GL_FALSE, (const GLfloat*) projection);
+    glUniform2f (glGetUniformLocation(scene->activeShader->program, "screenSize"), (GLfloat) (width / scale), (GLfloat) (height / scale));
+    glUniformMatrix4fv (glGetUniformLocation(scene->activeShader->program, "model"),      1, GL_FALSE, (const GLfloat*) model);
+    glUniformMatrix4fv (glGetUniformLocation(scene->activeShader->program, "projection"), 1, GL_FALSE, (const GLfloat*) projection);
 
     glActiveTexture (GL_TEXTURE0);
 

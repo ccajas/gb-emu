@@ -23,10 +23,9 @@ const char * ppu_fs_source =
 "vec3 dotMatrix(vec3 color, vec3 tint)\n"
 "{\n"
 "    vec2 position = (TexCoords.xy);\n"
-"    float px = 1.0/512.0;\n"
-"    color = vec3(0.2) + (color * vec3(0.8));\n"
-"    if (fract(position.x * screenSize.x) > 0.75) color = mix(color, vec3(1.0), 0.5);"
-"    if (fract(position.y * screenSize.y) > 0.75) color = mix(color, vec3(1.0), 0.5);"
+"    color = vec3(0.25) + (color * vec3(0.75));\n"
+"    if (fract(position.x * screenSize.x) > 0.95) color = mix(color, vec3(1.0), 0.35);"
+"    if (fract(position.y * screenSize.y) > 0.95) color = mix(color, vec3(1.0), 0.35);"
 "    color *= tint;\n"
 "    return color;\n"
 "}\n"
@@ -36,7 +35,7 @@ const char * ppu_fs_source =
 "    vec3 tint = vec3(0.37, 0.84, 0.87);\n"
 "    vec3 tint2 = vec3(0.51, 0.54, 0.03);\n"
 "    vec3 sampled = texture2D(indexed, TexCoords).rgb;\n"
-"    gl_FragColor = vec4(sampled, 1.0);\n"
+"    gl_FragColor = vec4(dotMatrix(sampled, tint), 1.0);\n"
 "}\n";
 
 const char * ppu_vs_source =
@@ -104,7 +103,9 @@ void graphics_init (Scene * const scene)
 
     /* Create shaders */
     scene->fbufferShader = shader_init_source (ppu_vs_source, ppu_fs_source);
-    scene->debugShader   = shader_init_source (ppu_vs_source, ppu_fs_source);
+    scene->debugShader   = shader_init_source (ppu_vs_source, default_fs_source);
+
+    scene->activeShader = &scene->debugShader;
 
     /* Create main textures */
     texture_setup (&scene->fbufferTexture, 160, 144, GL_NEAREST, NULL);

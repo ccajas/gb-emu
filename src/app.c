@@ -35,7 +35,11 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
         strcpy (app->defaultFile, fileName);
     }
 
+#ifdef USE_GLFW
     app->draw = 1;
+#else
+    app->draw = 0;
+#endif
     app->scale = 3;
     app->paused = 0;
 }
@@ -162,8 +166,11 @@ void app_draw (struct App * app)
     /* Select image to display */
     app->image = &app->gbData.tileMap;
     draw_begin (app->window, &app->display);
+
+    set_shader (&app->display, &app->display.fbufferShader);
     draw_quad (app->window, &app->display, &app->gbData.frameBuffer, 0, 0, 2);
 
+    set_shader (&app->display, &app->display.debugShader);
     if (gb_rom_loaded(&app->gb))
         draw_quad (app->window, &app->display, app->image, 352, 0, 1);
 
@@ -175,11 +182,11 @@ void app_draw (struct App * app)
 void app_run (struct App * app)
 {
     /* Start clock */
-    //clock_t time = clock();
+    clock_t time = clock();
     uint32_t frames = 0;
 
     const int32_t totalFrames = 600;
-    //float totalSeconds = (float) totalFrames / 60.0;
+    float totalSeconds = (float) totalFrames / 60.0;
 
     if (app->draw)
     {
@@ -195,8 +202,9 @@ void app_run (struct App * app)
 
                 debug_dump_tiles (&app->gb, app->gbData.tileMap.data);
                 printf("\033[A\33[2KT\rFrames: %d\n", ++frames);
+
+                app_draw (app);
             }
-            app_draw (app);
         }
 #endif
     }
@@ -206,10 +214,20 @@ void app_run (struct App * app)
         {
             gb_frame (&app->gb);
             frames++;
+            printf("\033[A\33[2KT\rFrames: %d\n", frames);
         }
     }
+    time = clock() - time;
+    double timeTaken = ((double) time) / CLOCKS_PER_SEC; 
 
     free (app->gb.cart.romData);
+    free (app->gb.cart.ramData);
+
+    LOG_("The program ran %f seconds for %d frames.\nGB performance is %.2f times as fast.\n",
+        timeTaken, frames, totalSeconds / timeTaken);
+    LOG_("For each second, there is on average %.2f milliseconds free for overhead.",
+        1000 - (1.0f / (totalSeconds / timeTaken) * 1000));
+
 #ifdef USE_GLFW
     if (app->draw)
     {
@@ -219,10 +237,3 @@ void app_run (struct App * app)
     }
 #endif
 }
-
-/*    double timeTaken = ((double) time) / CLOCKS_PER_SEC; 
-Elapsed time 
-    LOG_("The program ran %f seconds for %d frames.\nGB performance is %.2f times as fast.\n",
-        timeTaken, frames, totalSeconds / timeTaken);
-    LOG_("For each second, there is on average %.2f milliseconds free for overhead.",
-        1000 - (1.0f / (totalSeconds / timeTaken) * 1000));  */

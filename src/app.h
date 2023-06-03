@@ -8,7 +8,7 @@
 #include "gb.h"
 
 #define GB_DEBUG
-#define USE_GLFW__
+#define USE_GLFW
 
 #ifdef USE_GLFW
 #include "api/glfw/graphics.h"
