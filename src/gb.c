@@ -217,8 +217,12 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
                 case 0x10      ... 0x15:  case 0x17: RL      break;
                 case 0x18      ... 0x1D:  case 0x1F: RR      break;
                 case 0x16: RLHL   break;  case 0x1E: RRHL    break;
-                
+                case 0x20      ... 0x25:  case 0x27: SLA     break;
+                case 0x28      ... 0x2D:  case 0x2F: SRA     break;
+                case 0x26: SLAHL   break; case 0x2E: SRAHL   break;
+                case 0x30      ... 0x35:  case 0x37: SWAP    break;
                 case 0x38      ... 0x3D:  case 0x3F: SRL     break;
+                case 0x36: SWAPHL  break; case 0x3E: SRLHL   break;
             }
         break;
         case 8 ... 0xF:
