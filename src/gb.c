@@ -163,6 +163,14 @@ void gb_init (struct GB * gb)
     }
 
     /* Initalize I/O registers */
+    memset(gb->io, 0, sizeof (gb->io));  
+    gb->io[Joypad]     = 0xCF;
+    gb->io[SerialCtrl] = 0x7E;
+    gb->io[IntrFlags]  = 0xE1;
+    gb->io[LCDControl] = 0x91;
+    gb->io[LCDStatus]  = 0x81;
+    gb->io[LY]         = 0x90;
+    gb->io[DMA]        = 0xFF;
 
     gb->vramBlocked = gb->oamBlocked = 0;
 
