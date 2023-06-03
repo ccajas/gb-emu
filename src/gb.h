@@ -99,7 +99,7 @@ void gb_render            (struct GB * gb);
 
 #define cpu_read(X)     gb_mem_access (gb, X, 0, 0)
 
-inline uint8_t gb_rom_loaded (struct GB * gb)
+static inline uint8_t gb_rom_loaded (struct GB * gb)
 {
     return gb->cart.romData != NULL;
 };

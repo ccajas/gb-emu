@@ -19,12 +19,12 @@ uint32_t shader_link      (const int32_t vertexShader, const int32_t fragmentSha
 
 void shader_apply_direct (Shader const *shader, uint32_t location, void *value);
 
-inline int32_t shader_get_location (Shader const *shader, const char *uniformName)
+static inline int32_t shader_get_location (Shader const *shader, const char *uniformName)
 {
     return glGetUniformLocation(shader->program, uniformName);
 }
 
-inline int is_empty(const char* string)
+static inline int is_empty(const char* string)
 {
    return (string[0] == '\0');
 }

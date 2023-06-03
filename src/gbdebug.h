@@ -6,7 +6,7 @@
 
 /* Debug function for viewing tiles */
 
-inline void debug_dump_tiles (const struct GB * gb, uint8_t * pixelData)
+static inline void debug_dump_tiles (const struct GB * gb, uint8_t * pixelData)
 {
     const uint8_t * data = gb->vram;
     const uint8_t TILE_SIZE_BYTES = 16;

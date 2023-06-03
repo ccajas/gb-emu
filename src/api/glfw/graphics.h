@@ -37,7 +37,7 @@ extern uint32_t quadVAO[2];
 void graphics_init  (Scene * const);
 void draw_lazy_quad (const float width, const float height, const int i);
 
-inline void texture_setup (uint32_t * const textureID, uint16_t width, uint16_t height, GLenum filter, const void * data)
+static inline void texture_setup (uint32_t * const textureID, uint16_t width, uint16_t height, GLenum filter, const void * data)
 {
     glGenTextures (1, textureID);
     glBindTexture(GL_TEXTURE_2D, *textureID);

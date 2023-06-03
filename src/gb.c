@@ -454,7 +454,7 @@ modeTicks;
 #define LCDC_(bit)  (gb->io[LCDControl] & (1 << bit))
 #define STAT_(bit)  (gb->io[LCDStatus]  & (1 << bit))
 
-inline uint8_t * gb_pixel_fetch (const struct GB * gb)
+static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
 {
     uint8_t * pixels = calloc(DISPLAY_WIDTH, sizeof(uint8_t));
 
@@ -520,7 +520,7 @@ inline void gb_vblank (uint8_t * io) { }
 
 /* Evaluate LY=LYC */
 
-inline void gb_eval_LYC (struct GB * const gb)
+static inline void gb_eval_LYC (struct GB * const gb)
 {
     /* Set bit 02 flag for comparing lYC and LY
        If STAT interrupt is enabled, an interrupt is requested */
