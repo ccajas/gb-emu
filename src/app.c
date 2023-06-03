@@ -35,7 +35,7 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
         strcpy (app->defaultFile, fileName);
     }
 
-#ifdef USE_GLFW
+#if defined(USE_GLFW) || defined(USE_TIGR)
     app->draw = 1;
 #else
     app->draw = 0;
@@ -69,7 +69,10 @@ void app_init (struct App * app)
     app->gb.cart.romData = app_load(app->defaultFile);
     app->gb.extData.ptr = &app->gbData;
     gb_init (&app->gb);
-    
+
+#ifdef USE_TIGR
+    app->screen = tigrWindow(320, 240, "GB Emu", TIGR_FIXED);
+#endif
 #ifdef USE_GLFW
     /* Objects for drawing */
     GLFWwindow * window;
@@ -190,6 +193,15 @@ void app_run (struct App * app)
 
     if (app->draw)
     {
+#ifdef USE_TIGR
+        while (!tigrClosed(app->screen))
+        {
+            tigrClear (app->screen, tigrRGB(0x80, 0x90, 0xa0));
+            tigrPrint (app->screen, tfont, 120, 110, tigrRGB(0xff, 0xff, 0xff), "Hello, world!");
+            tigrUpdate (app->screen);
+        }
+        tigrFree (app->screen);
+#endif
 #ifdef USE_GLFW
         while (!glfwWindowShouldClose (app->window))
         {

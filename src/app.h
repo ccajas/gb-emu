@@ -8,10 +8,15 @@
 #include "gb.h"
 
 #define GB_DEBUG
-#define USE_GLFW
+#define USE_GLFW__
+#define USE_TIGR
 
 #ifdef USE_GLFW
-#include "api/glfw/graphics.h"
+    #include "api/glfw/graphics.h"
+#endif
+
+#ifdef USE_TIGR
+    #include "api/tigr/tigr.h"
 #endif
 
 #ifdef GB_DEBUG
@@ -49,6 +54,9 @@ struct App
     GLFWwindow     * window;
     Scene            display;
     struct Texture * image;
+#endif
+#ifdef USE_TIGR
+    Tigr * screen;
 #endif
 };
 
