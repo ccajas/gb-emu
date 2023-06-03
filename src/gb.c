@@ -217,6 +217,8 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
     /* Fetch value at address (HL) if it's needed */
     uint8_t hl = (opL == 0x6 || opL == 0xE) ? CPU_RB (ADDR_HL) : 0;
 
+    gb->rt += 8;
+
     switch (opHh)
     {
         case 0 ... 7:
@@ -235,18 +237,19 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
                 case 0x38      ... 0x3D:  case 0x3F: SRL     break;
                 case 0x36: SWAPHL  break; case 0x3E: SRLHL   break;
             }
+            if (op & 7) gb->rt += 8;
         break;
         case 8 ... 0xF:
             /* Bit test */
-            if (opL == 0x6 || opL == 0xE ) { BITHL } else { BIT }
+            if (opL == 0x6 || opL == 0xE ) { BITHL; gb->rt += 4; } else { BIT }
         break;
         case 0x10 ... 0x17:
             /* Bit reset */
-            if (opL == 0x6 || opL == 0xE ) { RESHL } else { RES }
+            if (opL == 0x6 || opL == 0xE ) { RESHL; gb->rt += 8; } else { RES }
         break;
         case 0x18 ... 0x1F:
             /* Bit set */
-            if (opL == 0x6 || opL == 0xE ) { SETHL } else { SET }
+            if (opL == 0x6 || opL == 0xE ) { SETHL; gb->rt += 8; } else { SET }
         break;
     }
 }
