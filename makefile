@@ -19,11 +19,11 @@ all: glfw
 
 # main build	
 glfw: $(obj)
-	$(CC) $(CFLAGS) src/main.c src/app.c src/gb.c $(srcGL) -o $(target) -I../_include -lm -lglfw3 -lgdi32
+	$(CC) $(CFLAGS) -DUSE_GLFW src/main.c src/app.c src/gb.c $(srcGL) -o $(target) -I../_include -lm -lglfw3 -lgdi32
 
 # no GLFW build
 tigr: $(obj)
-	$(CC) $(CFLAGS) src/main.c src/app.c src/gb.c $(srcTIGR) -o $(target) -I../_include -lm -lopengl32 -lgdi32
+	$(CC) $(CFLAGS) -DUSE_TIGR src/main.c src/app.c src/gb.c $(srcTIGR) -o $(target) -I../_include -lm -lopengl32 -lgdi32
 
 min: $(obj)
 	$(CC) $(CFLAGS) src/main.c src/app.c src/gb.c -o $(target) -I../_include -lm -lgdi32
