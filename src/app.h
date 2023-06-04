@@ -46,8 +46,8 @@ struct App
         Tigr * tileMap;
         Tigr * frameBuffer;
 #endif
-    };
-    struct gb_data gbData;
+    }
+    gbData;
 
     /* Pointers to main and debug functions */
     struct GB gb;

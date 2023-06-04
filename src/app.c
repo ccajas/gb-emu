@@ -150,7 +150,9 @@ uint8_t * app_load (const char * fileName)
     }
 
     uint8_t * rom = calloc(size, sizeof (uint8_t));
-    fread (rom, size, 1, f);
+    if (!fread (rom, size, 1, f))
+        return NULL;
+        
     fclose (f);
     return rom;
 }
