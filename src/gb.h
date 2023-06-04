@@ -104,6 +104,20 @@ static inline uint8_t gb_rom_loaded (struct GB * gb)
     return gb->cart.romData != NULL;
 };
 
+static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_t write)
+{
+    if (!write)
+        return gb->io[Joypad];
+    else {
+        if ((gb->io[Joypad] & 0x10) == 0)   /* Direction buttons */
+            gb->io[Joypad] = val | (gb->extData.joypad & 0xF);
+        else                                /* Action buttons */
+            gb->io[Joypad] = val | (gb->extData.joypad >> 4);                                                   
+    }
+    
+    return 0;
+}
+
 static inline void gb_cpu_state (struct GB * gb)
 {
     const uint16_t pc = gb->pc;

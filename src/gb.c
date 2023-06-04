@@ -6,36 +6,6 @@
 
 #define CPU_INSTRS
 
-uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
-{
-    /* For debug logging purposes */
-    //if (addr == 0xFF44 && !write) return 0x90;
-
-    /* For Blargg's CPU instruction tests */
-#ifdef CPU_INSTRS
-    if (gb->io[SerialCtrl] == 0x81) { LOG_("%c", gb->io[SerialData]); gb->io[SerialCtrl] = 0x0; }
-#endif
-
-    /* Byte to be accessed from memory */
-    uint8_t * b;
-    #define DIRECT_RW(b)  if (write) { *b = val; } return *b;
-    switch (addr)
-    {
-        case 0x0000 ... 0x7FFF: return mbc_rw (gb, addr, val, write);   /* ROM from MBC     */
-        case 0x8000 ... 0x9FFF: return ppu_rw (gb, addr, val, write);   /* Video RAM        */
-        case 0xA000 ... 0xBFFF: return mbc_rw (gb, addr, val, write);   /* External RAM     */
-        case 0xC000 ... 0xDFFF: b = &gb->ram[addr % 0x2000];            /* Work RAM         */
-                                DIRECT_RW(b);
-        case 0xE000 ... 0xFDFF: return 0xFF;                            /* Echo RAM         */
-        case 0xFE00 ... 0xFE9F: return ppu_rw (gb, addr, val, write);   /* OAM              */
-        case 0xFEA0 ... 0xFEFF: return 0xFF;                            /* Not usable       */
-        case 0xFF00 ... 0xFF7F: b = &gb->io[addr % 0x80]; DIRECT_RW(b); /* I/O registers    */                        
-        case 0xFF80 ... 0xFFFE: b = &gb->hram[addr % 0x80];             /* High RAM         */  
-                                DIRECT_RW(b);
-        case 0xFFFF:            b = &gb->io[addr & 0x7F]; DIRECT_RW(b); /* Interrupt enable */
-    }
-}
-
 uint8_t mbc_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
     struct Cartridge * cart = &gb->cart;
@@ -104,6 +74,37 @@ uint8_t ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const ui
             gb->vram[addr & 0x1FFF] = val;
     }
     return 0;
+}
+
+uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
+{
+    /* For debug logging purposes */
+    //if (addr == 0xFF44 && !write) return 0x90;
+
+    /* For Blargg's CPU instruction tests */
+#ifdef CPU_INSTRS
+    if (gb->io[SerialCtrl] == 0x81) { LOG_("%c", gb->io[SerialData]); gb->io[SerialCtrl] = 0x0; }
+#endif
+
+    /* Byte to be accessed from memory */
+    uint8_t * b;
+    #define DIRECT_RW(b)  if (write) { *b = val; } return *b;
+    switch (addr)
+    {
+        case 0x0000 ... 0x7FFF: return mbc_rw (gb, addr, val, write);   /* ROM from MBC     */
+        case 0x8000 ... 0x9FFF: return ppu_rw (gb, addr, val, write);   /* Video RAM        */
+        case 0xA000 ... 0xBFFF: return mbc_rw (gb, addr, val, write);   /* External RAM     */
+        case 0xC000 ... 0xDFFF: b = &gb->ram[addr % 0x2000];            /* Work RAM         */
+                                DIRECT_RW(b);
+        case 0xE000 ... 0xFDFF: return 0xFF;                            /* Echo RAM         */
+        case 0xFE00 ... 0xFE9F: return ppu_rw (gb, addr, val, write);   /* OAM              */
+        case 0xFEA0 ... 0xFEFF: return 0xFF;                            /* Not usable       */
+        case 0xFF00:            return gb_joypad (gb, val, write);      /* Joypad           */
+        case 0xFF01 ... 0xFF7F: b = &gb->io[addr % 0x80]; DIRECT_RW(b); /* I/O registers    */                      
+        case 0xFF80 ... 0xFFFE: b = &gb->hram[addr % 0x80];             /* High RAM         */  
+                                DIRECT_RW(b);
+        case 0xFFFF:            b = &gb->io[addr & 0x7F]; DIRECT_RW(b); /* Interrupt enable */
+    }
 }
 
 void gb_init (struct GB * gb)
