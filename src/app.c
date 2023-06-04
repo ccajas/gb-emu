@@ -220,6 +220,7 @@ void app_run (struct App * app)
 {
     /* Start clock */
     clock_t time = clock();
+    double totalTime = 0;
     uint32_t frames = 0;
 
     const int32_t totalFrames = 600;
@@ -242,9 +243,14 @@ void app_run (struct App * app)
 
             if (frames < -1 && !app->paused)
             {
+                /* Start and stop clock between emulation frame */
+                time = clock();
                 if (gb_rom_loaded (&app->gb))
                     gb_frame (&app->gb);
 
+                time = (clock() - time);
+                double timeTaken = ((double) time) / CLOCKS_PER_SEC;
+                totalTime += timeTaken;
                 debug_dump_tiles (&app->gb, app->gbData.tileMap.data);
                 //printf("\033[A\33[2KT\rFrames: %d\n", frames);
                 frames++;
@@ -262,16 +268,16 @@ void app_run (struct App * app)
             printf("\033[A\33[2KT\rFrames: %d\n", frames);
         }
     }
-    time = clock() - time;
-    double timeTaken = ((double) time) / CLOCKS_PER_SEC; 
+
+    totalSeconds = (float) frames / 60.0;
 
     free (app->gb.cart.romData);
     free (app->gb.cart.ramData);
 
-    LOG_("The program ran %f seconds for %d frames.\nGB performance is %.2f times as fast.\n",
-        timeTaken, frames, totalSeconds / timeTaken);
-    LOG_("For each second, there is on average %.2f milliseconds free for overhead.",
-        1000 - (1.0f / (totalSeconds / timeTaken) * 1000));
+    LOG_("The program ran %f seconds for %d frames.\nGB performance is %f times as fast.\n",
+        totalTime, frames, totalSeconds / totalTime);
+    LOG_("For each second, there is on average %.2f milliseconds free for overhead.\n",
+        1000 - (1.0f / (totalSeconds / totalTime) * 1000));
 
 #ifdef USE_GLFW
     if (app->draw)
