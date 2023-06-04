@@ -43,6 +43,7 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
         char * fileName = argv[1];
         strcpy (app->defaultFile, fileName);
     }
+    else app->defaultFile[0] = ' ';
 
 #if defined(USE_GLFW) || defined(USE_TIGR)
     app->draw = 1;
@@ -78,10 +79,17 @@ void app_init (struct App * app)
 #endif
     };
 
-    /* Copy ROM to cart */
-    app->gb.cart.romData = app_load(app->defaultFile);
-    app->gb.extData.ptr = &app->gbData;
-    gb_init (&app->gb);
+    if (strcmp(app->defaultFile, " ") != 0)
+    {
+        /* Copy ROM to cart */
+        app->gb.cart.romData = app_load(app->defaultFile);
+        app->gb.extData.ptr = &app->gbData;
+        gb_init (&app->gb);
+    }
+    else {
+        app->gb.cart.romData = NULL;
+        LOG_("No file selected.\n");
+    }
 
 #ifdef USE_TIGR
     app->screen = tigrWindow(DISPLAY_WIDTH * app->scale, DISPLAY_HEIGHT * app->scale, "GB Emu", TIGR_FIXED);
@@ -185,12 +193,15 @@ void app_draw (struct App * app)
     app->image = &app->gbData.tileMap;
     draw_begin (app->window, &app->display);
 
+    const uint16_t w = app->gbData.frameBuffer.width  * app->scale;
+    //const uint16_t h = app->gbData.frameBuffer.height * app->scale;
+
     set_shader (&app->display, &app->display.fbufferShader);
-    draw_quad (app->window, &app->display, &app->gbData.frameBuffer, 0, 0, 2);
+    draw_quad (app->window, &app->display, &app->gbData.frameBuffer, 0, 0, app->scale);
 
     set_shader (&app->display, &app->display.debugShader);
     if (gb_rom_loaded(&app->gb))
-        draw_quad (app->window, &app->display, app->image, 352, 0, 1);
+        draw_quad (app->window, &app->display, app->image, w - 128, 0, 1);
 
     glfwSwapBuffers (app->window);
     glfwPollEvents();
