@@ -6,12 +6,12 @@
 
 #ifdef USE_GLFW
 
-static void error_callback(int error, const char* description)
+void error_callback(int error, const char* description)
 {
     fprintf(stderr, "Error (%d): %s\n", error, description);
 }
  
-static void key_callback (GLFWwindow* window, int key, int scancode, int action, int mods)
+void key_callback (GLFWwindow * window, int key, int scancode, int action, int mods)
 {
     //struct App * app = glfwGetWindowUserPointer (window);
 
@@ -19,11 +19,20 @@ static void key_callback (GLFWwindow* window, int key, int scancode, int action,
         glfwSetWindowShouldClose (window, GLFW_TRUE);
 }
 
-void framebuffer_size_callback (GLFWwindow* window, int width, int height)
+void framebuffer_size_callback (GLFWwindow * window, int width, int height)
 {
     /* make sure the viewport matches the new window dimensions; note that width and 
        height will be significantly larger than specified on retina displays. */
     glViewport(0, 0, width, height);
+}
+
+void drop_callback(GLFWwindow * window, int count, const char** paths)
+{
+    struct App * app = glfwGetWindowUserPointer (window);
+
+    LOG_("%s\n", paths[0]);
+    strcpy(app->defaultFile, paths[0]);
+    LOG_("%s\n", app->defaultFile);
 }
 
 #endif
@@ -43,7 +52,7 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
         char * fileName = argv[1];
         strcpy (app->defaultFile, fileName);
     }
-    else app->defaultFile[0] = ' ';
+    else app->defaultFile[0] = '\0';
 
 #if defined(USE_GLFW) || defined(USE_TIGR)
     app->draw = 1;
@@ -57,6 +66,9 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
 void app_init (struct App * app)
 {    
     /* Define structs for data and concrete functions */
+    app->gb.cart.romData = NULL;
+    app->gb.cart.ramData = NULL;
+
     app->gbData = (struct gb_data) 
     {
         .rom = NULL,// mbc_load_rom (app->defaultFile),
@@ -78,16 +90,12 @@ void app_init (struct App * app)
         .frameBuffer = tigrBitmap (DISPLAY_WIDTH, DISPLAY_HEIGHT)
 #endif
     };
-
+    /* Handle file loading */
     if (strcmp(app->defaultFile, " ") != 0)
     {
         /* Copy ROM to cart */
-        app->gb.cart.romData = app_load(app->defaultFile);
-        app->gb.extData.ptr = &app->gbData;
-        gb_init (&app->gb);
     }
     else {
-        app->gb.cart.romData = NULL;
         LOG_("No file selected.\n");
     }
 
@@ -132,6 +140,7 @@ void app_init (struct App * app)
         glfwSetWindowAttrib(window, GLFW_RESIZABLE, GLFW_FALSE);
 
         glfwSetKeyCallback(window, key_callback);
+        glfwSetDropCallback(window, drop_callback);
         glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
         glfwMakeContextCurrent(window);
 
@@ -191,8 +200,6 @@ void app_draw (struct App * app)
 {
     /* Select image to display */
     app->image = &app->gbData.tileMap;
-    draw_begin (app->window, &app->display);
-
     const uint16_t w = app->gbData.frameBuffer.width  * app->scale;
     //const uint16_t h = app->gbData.frameBuffer.height * app->scale;
 
@@ -202,9 +209,6 @@ void app_draw (struct App * app)
     set_shader (&app->display, &app->display.debugShader);
     if (gb_rom_loaded(&app->gb))
         draw_quad (app->window, &app->display, app->image, w - 128, 0, 1);
-
-    glfwSwapBuffers (app->window);
-    glfwPollEvents();
 }
 #endif
 #ifdef USE_TIGR
@@ -250,23 +254,43 @@ void app_run (struct App * app)
 #ifdef USE_GLFW
         while (!glfwWindowShouldClose (app->window))
         {
+            /* Handle file loading */
+            if (strcmp(app->defaultFile, "\0") != 0 &&
+                !(gb_rom_loaded(&app->gb)))
+            {
+                /* Copy ROM to cart */
+                LOG_("%s\n", app->defaultFile);
+                app->gb.cart.romData = app_load(app->defaultFile);
+                if (gb_rom_loaded(&app->gb))
+                {
+                    app->gb.extData.ptr = &app->gbData;
+                    gb_init (&app->gb);
+                }
+                else app->defaultFile[0] = '\0';
+            }
+
             glfwMakeContextCurrent (app->window);
+            draw_begin (app->window, &app->display);
 
             if (frames < -1 && !app->paused)
             {
-                /* Start and stop clock between emulation frame */
-                time = clock();
                 if (gb_rom_loaded (&app->gb))
+                {
+                    /* Start and stop clock between emulation frame */
+                    time = clock();
                     gb_frame (&app->gb);
 
-                time = (clock() - time);
-                double timeTaken = ((double) time) / CLOCKS_PER_SEC;
-                totalTime += timeTaken;
-                debug_dump_tiles (&app->gb, app->gbData.tileMap.data);
-                //printf("\033[A\33[2KT\rFrames: %d\n", frames);
-                frames++;
-                app_draw (app);
+                    time = (clock() - time);
+                    double timeTaken = ((double) time) / CLOCKS_PER_SEC;
+                    totalTime += timeTaken;
+                    debug_dump_tiles (&app->gb, app->gbData.tileMap.data);
+                    //printf("\033[A\33[2KT\rFrames: %d\n", frames);
+                    frames++;
+                    app_draw (app);
+                }
             }
+            glfwSwapBuffers (app->window);
+            glfwPollEvents();
         }
 #endif
     }
