@@ -182,12 +182,10 @@ void gb_init (struct GB * gb)
     gb->io[DMA]        = 0xFF;
 
     /* Initialize RAM and settings */
-    gb->ram  = calloc(WRAM_SIZE, sizeof (uint8_t));
-    gb->vram = calloc(VRAM_SIZE, sizeof (uint8_t));
-    gb->vramBlocked = gb->oamBlocked = 0;
-
-    /* Clear memory */
+    memset (gb->ram,  0, WRAM_SIZE);
+    memset (gb->vram, 0, VRAM_SIZE);
     memset (gb->hram, 0, HRAM_SIZE);
+    gb->vramBlocked = gb->oamBlocked = 0;
 
     gb_cpu_state (gb);
 }

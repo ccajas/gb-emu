@@ -58,8 +58,8 @@ struct GB
     /* PPU timing */
 
     /* Memory and I/O registers */
-    uint8_t * ram;             /* Work RAM  */
-    uint8_t * vram;
+    uint8_t ram [WRAM_SIZE];   /* Work RAM  */
+    uint8_t vram[VRAM_SIZE];
     uint8_t oam [OAM_SIZE];
     uint8_t hram[HRAM_SIZE];   /* High RAM  */
     uint8_t io  [IO_SIZE];
@@ -135,9 +135,7 @@ static inline void gb_step (struct GB * gb)
     gb_handle_interrupts (gb);
 
     if (gb->halted)
-    {
         gb->rt = 4;
-    }
     else
     {    /* Load next op and execute */
         gb_cpu_exec (gb);
