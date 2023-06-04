@@ -6,19 +6,15 @@
 
 #define CPU_INSTRS
 
-uint8_t ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
+inline uint8_t ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
     if (!write) {
-        if (addr >= 0xFE00)
-            return (!gb->oamBlocked)  ? gb->oam[addr & 0x9F] : 0xFF;
-        else
-            return (!gb->vramBlocked) ? gb->vram[addr & 0x1FFF] : 0xFF;
+        if (addr >= 0xFE00) return (!gb->oamBlocked)  ? gb->oam[addr & 0x9F]    : 0xFF;
+        else                return (!gb->vramBlocked) ? gb->vram[addr & 0x1FFF] : 0xFF;
     }
     else {
-        if (addr >= 0xFE00 && !gb->oamBlocked)
-            gb->oam[addr & 0x9F] = val;
-        else if (!gb->vramBlocked)
-            gb->vram[addr & 0x1FFF] = val;
+        if (addr >= 0xFE00 && !gb->oamBlocked) gb->oam[addr & 0x9F]    = val;
+        else if             (!gb->vramBlocked) gb->vram[addr & 0x1FFF] = val;
     }
     return 0;
 }
@@ -464,7 +460,7 @@ inline void gb_hblank (struct GB * gb) { }
 
 inline void gb_vblank (uint8_t * io) { }
 
-/* Evaluate LY=LYC */
+/* Evaluate LY==LYC */
 
 static inline void gb_eval_LYC (struct GB * const gb)
 {
@@ -513,9 +509,8 @@ void gb_render (struct GB * const gb)
             if (IO_STAT_MODE != Stat_OAM_Search)
             {
                 gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_OAM_Search;
-
-                if (gb->io[LCDStatus] & 0x20) /* Mode 2 interrupt */
-					gb->io[IntrFlags] |= IF_LCD_STAT;
+                /* Mode 2 interrupt */
+                if LCDC_(5) gb->io[IntrFlags] |= IF_LCD_STAT;
 
                 /* Fetch OAM data for sprites to be drawn on this line */
                 //ppu_OAM_fetch (ppu, io_regs);
@@ -533,15 +528,14 @@ void gb_render (struct GB * const gb)
         {
             /* Mode 0 - H-blank */
             if (IO_STAT_MODE != Stat_HBlank)
-            {   
+            {  
                 /* Fetch line of pixels for the screen and draw them */
                 uint8_t * pixels = gb_pixel_fetch (gb);
                 gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
 
                 gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;
-
-                if (gb->io[LCDStatus] & 0x08) /* Mode 0 interrupt */
-					gb->io[IntrFlags] |= IF_LCD_STAT;
+                /* Mode 0 interrupt */
+                if LCDC_(3) gb->io[IntrFlags] |= IF_LCD_STAT;
             }
         }
         else
@@ -549,32 +543,16 @@ void gb_render (struct GB * const gb)
             /* Starting new line */
             gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
             gb->lineClock -= (TICKS_OAM_READ + TICKS_TRANSFER + TICKS_HBLANK);
-
-            if (gb->io[LYC] == gb->io[LY])
-            {
-                /* Set bit 02 flag for comparing lYC and LY */
-                gb->io[LCDStatus] |= (1 << 2);
-
-                /* If STAT interrupt is enabled, an interrupt is requested */
-                if (gb->io[LCDStatus] & 0x40) /* LYC = LY stat interrupt */
-					gb->io[IntrFlags] |= IF_LCD_STAT;
-            }
-            else
-                /* Unset the flag */
-                gb->io[LCDStatus] &= ~(1 << 2);
+            gb_eval_LYC (gb);
 
             /* Check if all visible lines are done */
             if (gb->io[LY] == DISPLAY_HEIGHT)
             {
                 /* Enter Vblank and indicate that a frame is completed */
                 gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
-
                 gb->io[IntrFlags] |= IF_VBlank;
-
-                if (gb->io[LCDStatus] & 0x10) /* Mode 1 interrupt */
-					gb->io[IntrFlags] |= IF_LCD_STAT;
-
-                //frame = 1;
+                /* Mode 1 interrupt */
+                if LCDC_(4) gb->io[IntrFlags] |= IF_LCD_STAT;
             }
         }
     }
@@ -583,35 +561,12 @@ void gb_render (struct GB * const gb)
         /* Mode 1 - V-blank */
         if(gb->lineClock >= TICKS_VBLANK)
         {
-            //printf("Read %d lines. Took %d cycles. (%d leftover)\n", gb->io[IO_LineY], ppu->frameTicks, ppu->ticks);
-
             /* Advance though lines below the screen */
             gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
             gb->lineClock -= TICKS_VBLANK;
-
-            if (gb->io[LYC] == gb->io[LY])
-            {
-                /* Set bit 02 flag for comparing lYC and LY */
-                gb->io[LCDStatus] |= (1 << 2);
-
-                /* If STAT interrupt is enabled, an interrupt is requested */
-                if (gb->io[LCDStatus] & 0x40) /* LYC = LY stat interrupt */
-					gb->io[IntrFlags] |= IF_LCD_STAT;
-            }
-            else
-                /* Unset the flag */
-                gb->io[LCDStatus] &= ~(1 << 2);
-
-            if (gb->io[LY] == 0)
-            {
-                /* Return to top line and OAM read */
-                //ppu->frameTicks -= 70224;
-            }
+            gb_eval_LYC (gb);
         }
     }
 
     /* ...and DMA transfer to OMA, if needed */
-    //DMA_to_OAM_transfer (ppu);
-
-    //return frame;
 }
