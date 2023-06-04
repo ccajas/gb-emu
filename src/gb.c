@@ -38,22 +38,20 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
     #define DIRECT_RW(b)  if (write) { *b = val; } return *b;
     struct Cartridge * cart = &gb->cart;
 
-    switch (addr)
-    {
-        case 0x0000 ... 0x7FFF: return cart->rw (cart, addr, val, write);   /* ROM from MBC     */
-        case 0x8000 ... 0x9FFF: return ppu_rw (gb, addr, val, write);       /* Video RAM        */
-        case 0xA000 ... 0xBFFF: return cart->rw (cart, addr, val, write);   /* External RAM     */
-        case 0xC000 ... 0xDFFF: b = &gb->ram[addr % 0x2000];                /* Work RAM         */
-                                DIRECT_RW(b);
-        case 0xE000 ... 0xFDFF: return 0xFF;                                /* Echo RAM         */
-        case 0xFE00 ... 0xFE9F: return ppu_rw (gb, addr, val, write);       /* OAM              */
-        case 0xFEA0 ... 0xFEFF: return 0xFF;                                /* Not usable       */
-        case 0xFF00:            return gb_joypad (gb, val, write);          /* Joypad           */
-        case 0xFF01 ... 0xFF7F: b = &gb->io[addr % 0x80]; DIRECT_RW(b);     /* I/O registers    */                      
-        case 0xFF80 ... 0xFFFE: b = &gb->hram[addr % 0x80];                 /* High RAM         */  
-                                DIRECT_RW(b);
-        case 0xFFFF:            b = &gb->io[addr & 0x7F]; DIRECT_RW(b);     /* Interrupt enable */
-    }
+    if (addr < 0x8000)  return cart->rw (cart, addr, val, write);       /* ROM from MBC     */
+    if (addr < 0xA000)  return ppu_rw   (gb, addr, val, write);         /* Video RAM        */
+    if (addr < 0xC000)  return cart->rw (cart, addr, val, write);       /* External RAM     */
+    if (addr < 0xE000)  { b = &gb->ram[addr % 0x2000]; DIRECT_RW(b); }  /* Work RAM         */
+    if (addr < 0xFE00)  return 0xFF;                                    /* Echo RAM         */
+    if (addr < 0xFEA0)  return ppu_rw (gb, addr, val, write);           /* OAM              */
+    if (addr < 0xFF00)  return 0xFF;                                    /* Not usable       */
+    if (addr == 0xFF00) return gb_joypad (gb, val, write);              /* Joypad           */
+    if (addr < 0xFF80)  { b = &gb->io[addr % 0x80];   DIRECT_RW(b); }   /* I/O registers    */                      
+    if (addr < 0xFFFF)  { b = &gb->hram[addr % 0x80]; DIRECT_RW(b); }   /* High RAM         */  
+    if (addr == 0xFFFF) { b = &gb->io[addr % 0x80];   DIRECT_RW(b); }   /* Interrupt enable */
+
+    #undef DIRECT_RW
+    return 0;
 }
 
 void gb_init (struct GB * gb)
@@ -78,10 +76,11 @@ void gb_init (struct GB * gb)
     /* Select MBC for read/write */
     switch (cartType)
     {
-        case 0:            gb->cart.rw = none_rw; break;
-        case 0x1 ... 0x3:  gb->cart.rw = mbc1_rw; break;
-        case 0x5 ... 0x6:  gb->cart.rw = mbc2_rw; break;
-        case 0xF ... 0x13: gb->cart.rw = mbc3_rw; break;
+        case 0:             gb->cart.rw = none_rw; break;
+        case 0x1  ... 0x3:  gb->cart.rw = mbc1_rw; break;
+        case 0x5  ... 0x6:  gb->cart.rw = mbc2_rw; break;
+        case 0xF  ... 0x13: gb->cart.rw = mbc3_rw; break;
+        case 0x19 ... 0x1E: gb->cart.rw = mbc5_rw; break;
         default: 
             LOG_("GB: MBC not supported.\n"); return;
     }
