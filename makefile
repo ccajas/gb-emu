@@ -4,11 +4,11 @@ LDFLAGS = $(pkg-config --static --libs glfw3)
 
 #`pkg-config --cflags glfw3 freetype2`
 src = $(wildcard src/*.c)
-src_min = src/main.c src/app.c src/gb.c
+src_min = src/main.c src/app.c src/gb.c src/cart.c
 srcGL = $(wildcard src/api/glfw/*.c)
 srcTIGR = $(wildcard src/api/tigr/*.c)
 
-CC = gcc
+CC = i686-w64-mingw32-gcc
 #"i686-w64-mingw32-gcc"
 
 lib = $(csrc:.c=.a)
@@ -24,10 +24,10 @@ LDFLAGS = `pkg-config --libs glfw3 freetype2`
 
 # main build	
 glfw: $(obj)
-	$(CC) $(CFLAGS) -DUSE_GLFW $(src_min) $(srcGL) -o $(target) -I../_include -lm -lglfw3
+	$(CC) $(CFLAGS) -DUSE_GLFW $(src_min) $(srcGL) -o $(target) -I../_include -lm -lglfw3 -lgdi32
 
 glfw-l: $(obj)
-	$(CC) $(CFLAGS_LIN) -DUSE_GLFW $(src_min) $(srcGL) -o $(target) -lm -ldl -lpthread $(LDFLAGS)
+	gcc $(CFLAGS_LIN) -DUSE_GLFW $(src_min) $(srcGL) -o $(target) -lm -ldl -lpthread $(LDFLAGS)
 
 # no GLFW build
 tigr: $(obj)
@@ -37,7 +37,7 @@ min: $(obj)
 	$(CC) $(CFLAGS) $(src_min) -o $(target) -I../_include -lm -lgdi32
 
 min-l: $(obj)
-	$(CC) $(CFLAGS) $(src_min) -o $(target) -lm
+	gcc $(CFLAGS) $(src_min) -o $(target) -lm
 
 clean:
 	rm -f $(obj) $(target)

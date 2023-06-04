@@ -84,13 +84,14 @@ struct GB
     void (*draw_line)(void *, const uint8_t * pixels, const uint8_t line);
 };
 
-uint8_t mbc_rw        (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
 uint8_t ppu_rw        (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
 uint8_t gb_mem_access (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
 
 void    gb_init     (struct GB *);
 uint8_t gb_cpu_exec (struct GB *);
 void    gb_exec_cb  (struct GB * gb, const uint8_t op);
+
+/* Other update-specific functions */
 
 void gb_handle_interrupts (struct GB * gb);
 void gb_handle_timings    (struct GB * gb);

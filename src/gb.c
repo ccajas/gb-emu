@@ -6,59 +6,6 @@
 
 #define CPU_INSTRS
 
-uint8_t mbc_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
-{
-    struct Cartridge * cart = &gb->cart;
-
-    if (!write) /* Read from cartridge */
-        switch (addr)
-        {
-            case 0x0000 ... 0x3FFF:
-                return cart->romData[addr];
-            case 0x4000 ... 0x7FFF:
-                if (cart->mbc == 1) {
-                    if (!cart->bankMode && cart->romSizeKB >= 1024)
-                        cart->romOffset = ((cart->bankHi << 5) + cart->bankLo) * 0x4000;
-                    else
-                        cart->romOffset = cart->bankLo * 0x4000;
-                    return cart->romData[(addr % 0x4000) + cart->romOffset]; 
-                } /* Fall-through for no MBC */
-                return cart->romData[addr];
-            case 0xA000 ... 0xBFFF:
-                if (cart->mbc == 1 && cart->ram) {
-                    /* Select RAM bank and fetch data (if enabled) */ 
-                    if (!cart->ramEnabled) return 0xFF;
-                    const uint16_t ramAddr = ((cart->bankMode) ? cart->ramOffset : 0);
-                    return cart->ramData[(addr % 0x2000) + ramAddr];
-                }
-            default: return 0xFF;
-        }
-    else /* Write to cartridge/registers */
-        switch (addr)
-        {
-            case 0x0000 ... 0x1FFF:
-                if (cart->mbc == 1) {
-                    cart->ramEnabled = ((val & 0xF) == 0xA) ? 1 : 0; }
-            break;
-            case 0x2000 ... 0x3FFF:
-                if (cart->mbc == 1) {
-                    cart->bankLo = (val & 0x1F) | (cart->bankLo & 0x60);
-                    if (cart->bankLo == 0) cart->bankLo++;
-                }
-                cart->romOffset = cart->bankLo * 0x4000;
-            break;
-            case 0x4000 ... 0x5FFF: 
-                /* MBC1: Write upper 2 bank bits*/
-                if (cart->mbc == 1) cart->bankHi = val;   
-            break;
-            case 0x6000 ... 0x7FFF:
-                if (cart->mbc == 1) cart->bankMode = (val & 1); 
-            break;
-        }
-
-    return 0;
-}
-
 uint8_t ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
     if (!write) {
@@ -89,21 +36,23 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
     /* Byte to be accessed from memory */
     uint8_t * b;
     #define DIRECT_RW(b)  if (write) { *b = val; } return *b;
+    struct Cartridge * cart = &gb->cart;
+
     switch (addr)
     {
-        case 0x0000 ... 0x7FFF: return mbc_rw (gb, addr, val, write);   /* ROM from MBC     */
-        case 0x8000 ... 0x9FFF: return ppu_rw (gb, addr, val, write);   /* Video RAM        */
-        case 0xA000 ... 0xBFFF: return mbc_rw (gb, addr, val, write);   /* External RAM     */
-        case 0xC000 ... 0xDFFF: b = &gb->ram[addr % 0x2000];            /* Work RAM         */
+        case 0x0000 ... 0x7FFF: return cart->rw (cart, addr, val, write);   /* ROM from MBC     */
+        case 0x8000 ... 0x9FFF: return ppu_rw (gb, addr, val, write);       /* Video RAM        */
+        case 0xA000 ... 0xBFFF: return cart->rw (cart, addr, val, write);   /* External RAM     */
+        case 0xC000 ... 0xDFFF: b = &gb->ram[addr % 0x2000];                /* Work RAM         */
                                 DIRECT_RW(b);
-        case 0xE000 ... 0xFDFF: return 0xFF;                            /* Echo RAM         */
-        case 0xFE00 ... 0xFE9F: return ppu_rw (gb, addr, val, write);   /* OAM              */
-        case 0xFEA0 ... 0xFEFF: return 0xFF;                            /* Not usable       */
-        case 0xFF00:            return gb_joypad (gb, val, write);      /* Joypad           */
-        case 0xFF01 ... 0xFF7F: b = &gb->io[addr % 0x80]; DIRECT_RW(b); /* I/O registers    */                      
-        case 0xFF80 ... 0xFFFE: b = &gb->hram[addr % 0x80];             /* High RAM         */  
+        case 0xE000 ... 0xFDFF: return 0xFF;                                /* Echo RAM         */
+        case 0xFE00 ... 0xFE9F: return ppu_rw (gb, addr, val, write);       /* OAM              */
+        case 0xFEA0 ... 0xFEFF: return 0xFF;                                /* Not usable       */
+        case 0xFF00:            return gb_joypad (gb, val, write);          /* Joypad           */
+        case 0xFF01 ... 0xFF7F: b = &gb->io[addr % 0x80]; DIRECT_RW(b);     /* I/O registers    */                      
+        case 0xFF80 ... 0xFFFE: b = &gb->hram[addr % 0x80];                 /* High RAM         */  
                                 DIRECT_RW(b);
-        case 0xFFFF:            b = &gb->io[addr & 0x7F]; DIRECT_RW(b); /* Interrupt enable */
+        case 0xFFFF:            b = &gb->io[addr & 0x7F]; DIRECT_RW(b);     /* Interrupt enable */
     }
 }
 
@@ -125,14 +74,14 @@ void gb_init (struct GB * gb)
     uint8_t * header = gb->cart.header;
 
     const uint8_t cartType = header[0x47];
-    uint8_t mbc = 0;
 
+    /* Select MBC for read/write */
     switch (cartType)
     {
-        case 0:            mbc = 0; break;
-        case 0x1 ... 0x3:  mbc = 1; break;
-        case 0x5 ... 0x6:  mbc = 2; break;
-        case 0xF ... 0x13: mbc = 3; break;
+        case 0:            gb->cart.rw = none_rw; break;
+        case 0x1 ... 0x3:  gb->cart.rw = mbc1_rw; break;
+        case 0x5 ... 0x6:  gb->cart.rw = mbc2_rw; break;
+        case 0xF ... 0x13: gb->cart.rw = mbc3_rw; break;
         default: 
             LOG_("GB: MBC not supported.\n"); return;
     }
@@ -148,7 +97,7 @@ void gb_init (struct GB * gb)
     gb->cart.bankHi = 0;
     gb->cart.romOffset = 0x4000;
     gb->cart.ramOffset = 0;
-    gb->cart.mbc = mbc;
+
     gb->bootrom = 0;
 
     /* Setup CPU registers as if bootrom was loaded */
