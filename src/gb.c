@@ -123,6 +123,7 @@ void gb_init (struct GB * gb)
     gb->io[LCDControl] = 0x91;
     gb->io[LCDStatus]  = 0x81;
     gb->io[LY]         = 0x90;
+    gb->io[BGPalette]  = 0xFC;
     gb->io[DMA]        = 0xFF;
 
     /* Initialize RAM and settings */
@@ -431,9 +432,8 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             uint16_t tileID = gb->vram[tileAddr & 0x1FFF];
 
             /* Tilemap location depends on LCDC 4 set, which are different rules for BG and Window tiles */
-
             /* Fetcher gets low byte and high byte for tile */
-            const uint16_t bit12 = !((gb->io[LCDControl] & 0x10) || (tileID & 0x80)) << 12;
+            const uint16_t bit12 = !(LCDC_(4) || (tileID & 0x80)) << 12;
             const uint16_t tileRow = 0x8000 + bit12 + (tileID << 4) + ((posY & 7) << 1);
 
             /* Finally get the pixel bytes from these addresses */
@@ -446,7 +446,8 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             {
                 const uint8_t bitLo = (byteLo >> (7 - x)) & 1;
                 const uint8_t bitHi = (byteHi >> (7 - x)) & 1;
-                pixels[lineX + x] = (bitHi << 1) + bitLo;
+                const uint8_t index = (bitHi << 1) + bitLo;
+                pixels[lineX + x] = (gb->io[BGPalette] >> (index * 2)) & 3;
             }
         }
     }
