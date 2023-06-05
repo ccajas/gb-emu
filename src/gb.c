@@ -344,6 +344,7 @@ uint8_t gb_cpu_exec (struct GB * gb)
     /* Handle effects of STOP instruction */
     if (op == 0x10 && gb->stop)
     {
+        gb->stop = 0;
         /* Todo: Read joypad button selection/press */
         gb->io[Divider] = 0;
     }
@@ -481,11 +482,33 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
     return pixels;
 }
 
-inline void gb_oam_read (struct GB * gb) { }
+static inline void gb_oam_read (struct GB * gb) 
+{
+    /* Mode 2 - OAM read */
+    if (IO_STAT_MODE != Stat_OAM_Search)
+    {
+        gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_OAM_Search;
+        if LCDC_(5) gb->io[IntrFlags] |= IF_LCD_STAT;      /* Mode 2 interrupt */
 
-inline void gb_hblank (struct GB * gb) { }
+        /* Fetch OAM data for sprites to be drawn on this line */
+        //ppu_OAM_fetch (ppu, io_regs);
+    }
+}
 
-inline void gb_vblank (uint8_t * io) { }
+static inline void gb_hblank (struct GB * gb)
+{ 
+    /* Mode 0 - H-blank */
+    if (IO_STAT_MODE != Stat_HBlank)
+    {  
+        /* Fetch line of pixels for the screen and draw them */
+        uint8_t * pixels = gb_pixel_fetch (gb);
+        gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
+
+        gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;
+        /* Mode 0 interrupt */
+        if LCDC_(3) gb->io[IntrFlags] |= IF_LCD_STAT;
+    }
+}
 
 /* Evaluate LY==LYC */
 
@@ -500,6 +523,24 @@ static inline void gb_eval_LYC (struct GB * const gb)
     }
     else /* Unset the flag */
         gb->io[LCDStatus] &= ~(1 << LYC_LY);
+}
+
+static inline void gb_vblank (struct GB * const gb) 
+{ 
+    /* Starting new line */
+    gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
+    gb->lineClock -= (TICKS_OAM_READ + TICKS_TRANSFER + TICKS_HBLANK);
+    gb_eval_LYC (gb);
+
+    /* Check if all visible lines are done */
+    if (gb->io[LY] == DISPLAY_HEIGHT)
+    {
+        /* Enter Vblank and indicate that a frame is completed */
+        gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
+        gb->io[IntrFlags] |= IF_VBlank;
+        /* Mode 1 interrupt */
+        if LCDC_(4) gb->io[IntrFlags] |= IF_LCD_STAT;
+    }
 }
 
 void gb_ppu_step (struct GB * const gb)
@@ -517,7 +558,7 @@ void gb_ppu_step (struct GB * const gb)
             gb_eval_LYC (gb);
         break;
         default:
-            gb_vblank (gb->io);
+            gb_vblank (gb);
     }
 }
 
@@ -533,44 +574,23 @@ void gb_render (struct GB * const gb)
         /* Visible line, within screen bounds */
         if (gb->lineClock < TICKS_OAM_READ)
         {
-            /* Mode 2 - OAM read */
-            if (IO_STAT_MODE != Stat_OAM_Search)
-            {
-                gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_OAM_Search;
-                /* Mode 2 interrupt */
-                if LCDC_(5) gb->io[IntrFlags] |= IF_LCD_STAT;
-
-                /* Fetch OAM data for sprites to be drawn on this line */
-                //ppu_OAM_fetch (ppu, io_regs);
-            }
+            gb_oam_read (gb);
         }
         else if (gb->lineClock < TICKS_OAM_READ + TICKS_TRANSFER)
         {
             /* Mode 3 - Transfer to LCD */
             if (IO_STAT_MODE != Stat_Transfer)
-            {
                 gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
-            }
         }
         else if (gb->lineClock < TICKS_OAM_READ + TICKS_TRANSFER + TICKS_HBLANK)
         {
-            /* Mode 0 - H-blank */
-            if (IO_STAT_MODE != Stat_HBlank)
-            {  
-                /* Fetch line of pixels for the screen and draw them */
-                uint8_t * pixels = gb_pixel_fetch (gb);
-                gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
-
-                gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;
-                /* Mode 0 interrupt */
-                if LCDC_(3) gb->io[IntrFlags] |= IF_LCD_STAT;
-            }
+            gb_hblank (gb);
         }
         else
         {
             /* Starting new line */
-            gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
             gb->lineClock -= (TICKS_OAM_READ + TICKS_TRANSFER + TICKS_HBLANK);
+            gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
             gb_eval_LYC (gb);
 
             /* Check if all visible lines are done */
