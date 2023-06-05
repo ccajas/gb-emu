@@ -2,6 +2,9 @@
 #include <time.h>
 #include "app.h"
 #include "palettes.h"
+#ifdef USE_TIGR
+    #include "app_tigr.h"
+#endif
 
 /* GLFW callback functions */
 
@@ -46,15 +49,6 @@ void drop_callback(GLFWwindow * window, int count, const char** paths)
 }
 
 #endif
-#ifdef USE_TIGR
-
-static void key_input (Tigr * screen)
-{
-    if (tigrKeyHeld(screen, TK_LEFT) || tigrKeyHeld(screen, 'A')) { }
-        //playerxs -= 10;
-}
-
-#endif
 
 void app_config (struct App * app, uint8_t const argc, char * const argv[])
 {
@@ -83,7 +77,6 @@ void app_init (struct App * app)
     {
         .rom = NULL,// mbc_load_rom (app->defaultFile),
         .bootRom = NULL,
-#ifdef USE_GLFW
         .tileMap = {
             .width = 128,
             .height = 192,
@@ -94,11 +87,6 @@ void app_init (struct App * app)
             .height = DISPLAY_HEIGHT,
             .data = calloc (DISPLAY_WIDTH * DISPLAY_HEIGHT * 3, sizeof(uint8_t))
         }
-#endif
-#ifdef USE_TIGR
-        .tileMap = tigrBitmap (128, 128),
-        .frameBuffer = tigrBitmap (DISPLAY_WIDTH, DISPLAY_HEIGHT)
-#endif
     };
     /* Handle file loading */
     if (strcmp(app->defaultFile, " ") != 0)
@@ -109,12 +97,7 @@ void app_init (struct App * app)
         LOG_("No file selected.\n");
     }
 
-#ifdef USE_TIGR
-    app->screen = tigrWindow(DISPLAY_WIDTH * app->scale, DISPLAY_HEIGHT * app->scale, "GB Emu", TIGR_FIXED);
-#endif
-#ifdef USE_GLFW
     /* Objects for drawing */
-    GLFWwindow * window;
     Scene newDisplay = { .bgColor = { 173, 175, 186 }};
     app->display = newDisplay;
 
@@ -138,6 +121,9 @@ void app_init (struct App * app)
         }
         else app->defaultFile[0] = '\0';
     }
+
+#ifdef USE_GLFW
+    GLFWwindow * window;
 
     if (app->draw)
     {
@@ -200,7 +186,6 @@ uint8_t * app_load (const char * fileName)
 }
 
 #ifdef USE_GLFW
-
 void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 {
     struct gb_data * const data = dataPtr;
@@ -236,30 +221,11 @@ void app_draw (struct App * app)
         draw_quad (app->window, &app->display, app->image, w - 128, 0, 1);
 }
 #endif
-#ifdef USE_TIGR
-
-void app_draw (struct App * app)
-{
-    /* Test background fill */
-    tigrClear (app->gbData.frameBuffer, tigrRGB(80, 180, 255));
-    tigrFill (app->gbData.frameBuffer, 0, 100, 20, 40, tigrRGB(60, 120, 60));
-    tigrFill (app->gbData.frameBuffer, 0, 500, 40, 3, tigrRGB(0, 0, 0));
-    tigrLine (app->gbData.frameBuffer, 0, 101, 320, 201, tigrRGB(255, 255, 255));
-
-    tigrBlit (app->screen, app->gbData.frameBuffer, 0, 0, 0, 0, 
-        app->gbData.frameBuffer->w, app->gbData.frameBuffer->h);
-
-    tigrPrint (app->screen, tfont, 120, 110, tigrRGB(0xff, 0xff, 0xff), "Hello, world!");
-
-    tigrUpdate (app->screen);
-}
-
-#endif
 
 void app_run (struct App * app)
 {
     /* Start clock */
-    clock_t time = clock();
+    //clock_t time = clock();
     double totalTime = 0;
     uint32_t frames = 0;
 
@@ -268,14 +234,6 @@ void app_run (struct App * app)
 
     if (app->draw)
     {
-#ifdef USE_TIGR
-        while (!tigrClosed(app->screen))
-        {
-            tigrClear (app->screen, tigrRGB(0x80, 0x90, 0xa0));
-            app_draw (app);
-        }
-        tigrFree (app->screen);
-#endif
 #ifdef USE_GLFW
         while (!glfwWindowShouldClose (app->window))
         {
