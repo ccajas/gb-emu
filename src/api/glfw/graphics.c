@@ -23,19 +23,19 @@ const char * ppu_fs_source =
 "vec3 dotMatrix(vec3 color, vec3 tint)\n"
 "{\n"
 "    vec2 position = (TexCoords.xy);\n"
-"    color = vec3(0.25) + (color * vec3(0.75));\n"
-"    if (fract(position.x * screenSize.x) > 0.95) color = mix(color, vec3(1.0), 0.35);"
-"    if (fract(position.y * screenSize.y) > 0.95) color = mix(color, vec3(1.0), 0.35);"
-"    color *= tint;\n"
+"    //color = vec3(0.05) + (color * vec3(0.95)) - 0.05;\n"
+"    if (fract(position.x * screenSize.x) > 0.75) color = mix(color, vec3(1.0), 0.15);"
+"    if (fract(position.y * screenSize.y) > 0.75) color = mix(color, vec3(1.0), 0.15);"
+"    //color *= tint;\n"
 "    return color;\n"
 "}\n"
 
 "void main()\n"
 "{\n"
 "    vec3 tint = vec3(0.37, 0.84, 0.87);\n"
-"    vec3 tint2 = vec3(0.51, 0.54, 0.03);\n"
+"    vec3 tint2 = vec3(0.61, 0.74, 0.03);\n"
 "    vec3 sampled = texture2D(indexed, TexCoords).rgb;\n"
-"    gl_FragColor = vec4(dotMatrix(sampled, tint), 1.0);\n"
+"    gl_FragColor = vec4(dotMatrix(sampled, tint2), 1.0);\n"
 "}\n";
 
 const char * ppu_vs_source =

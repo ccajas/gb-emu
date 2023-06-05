@@ -1,6 +1,7 @@
 #include <string.h>
 #include <time.h>
 #include "app.h"
+#include "palettes.h"
 
 /* GLFW callback functions */
 
@@ -189,6 +190,7 @@ uint8_t * app_load (const char * fileName)
     return rom;
 }
 
+#define USE_GLFW
 #ifdef USE_GLFW
 
 void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
@@ -200,12 +202,12 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 
 	for (x = 0; x < DISPLAY_WIDTH; x++)
 	{
-		uint8_t pixel = 3 - (*pixels);
-        pixel = (pixel == 3) ? 0xF5 : pixel * 0x55;
+		uint8_t idx = 3 - (*pixels);
+        const uint8_t * pixel = palettes[3].colors[idx];//(pixel == 3) ? 0xF5 : pixel * 0x55;
 
-        data->frameBuffer.data[yOffset + (x * 3)] = pixel;
-        data->frameBuffer.data[yOffset + (x * 3) + 1] = pixel;
-        data->frameBuffer.data[yOffset + (x * 3) + 2] = pixel;
+        data->frameBuffer.data[yOffset + (x * 3)]     = pixel[0];
+        data->frameBuffer.data[yOffset + (x * 3) + 1] = pixel[1];
+        data->frameBuffer.data[yOffset + (x * 3) + 2] = pixel[2];
 
         pixels++;
 	}
