@@ -6,7 +6,7 @@
 
 #define CPU_INSTRS
 
-inline uint8_t ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
+inline uint8_t gb_ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
     if (!write) {
         if (addr >= 0xFE00) return (!gb->oamBlocked)  ? gb->oam[addr & 0x9F]    : 0xFF;
@@ -15,6 +15,18 @@ inline uint8_t ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val, c
     else {
         if (addr >= 0xFE00 && !gb->oamBlocked) gb->oam[addr & 0x9F]    = val;
         else if             (!gb->vramBlocked) gb->vram[addr & 0x1FFF] = val;
+    }
+    return 0;
+}
+
+inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
+{
+    if (!write) 
+        return gb->io[addr % 0x80];
+    else
+    {
+        if (addr == 0xFF04) { gb->io[Divider] = 0; return 0; }
+        gb->io[addr % 0x80] = val;
     }
     return 0;
 }
@@ -35,14 +47,14 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
     struct Cartridge * cart = &gb->cart;
 
     if (addr < 0x8000)  return cart->rw (cart, addr, val, write);       /* ROM from MBC     */
-    if (addr < 0xA000)  return ppu_rw   (gb, addr, val, write);         /* Video RAM        */
+    if (addr < 0xA000)  return gb_ppu_rw (gb, addr, val, write);        /* Video RAM        */
     if (addr < 0xC000)  return cart->rw (cart, addr, val, write);       /* External RAM     */
     if (addr < 0xE000)  { b = &gb->ram[addr % 0x2000]; DIRECT_RW(b); }  /* Work RAM         */
     if (addr < 0xFE00)  return 0xFF;                                    /* Echo RAM         */
-    if (addr < 0xFEA0)  return ppu_rw (gb, addr, val, write);           /* OAM              */
+    if (addr < 0xFEA0)  return gb_ppu_rw (gb, addr, val, write);        /* OAM              */
     if (addr < 0xFF00)  return 0xFF;                                    /* Not usable       */
     if (addr == 0xFF00) return gb_joypad (gb, val, write);              /* Joypad           */
-    if (addr < 0xFF80)  { b = &gb->io[addr % 0x80];   DIRECT_RW(b); }   /* I/O registers    */                      
+    if (addr < 0xFF80)  return gb_io_rw (gb, addr, val, write);         /* I/O registers    */                      
     if (addr < 0xFFFF)  { b = &gb->hram[addr % 0x80]; DIRECT_RW(b); }   /* High RAM         */  
     if (addr == 0xFFFF) { b = &gb->io[addr % 0x80];   DIRECT_RW(b); }   /* Interrupt enable */
 
@@ -114,10 +126,11 @@ void gb_init (struct GB * gb)
         gb->halted = 0;
     }
 
-    /* Initalize I/O registers */
+    /* Initalize I/O registers (DMG) */
     memset(gb->io, 0, sizeof (gb->io));  
     gb->io[Joypad]     = 0xCF;
     gb->io[SerialCtrl] = 0x7E;
+    gb->io[Divider]    = 0x18;
     gb->io[TimerCtrl]  = 0xF8;
     gb->io[IntrFlags]  = 0xE1;
     gb->io[LCDControl] = 0x91;
@@ -328,6 +341,13 @@ uint8_t gb_cpu_exec (struct GB * gb)
     gb->rt += opTicks[op];
     gb->clock_t += gb->rt;
 
+    /* Handle effects of STOP instruction */
+    if (op == 0x10 && gb->stop)
+    {
+        /* Todo: Read joypad button selection/press */
+        gb->io[Divider] = 0;
+    }
+
     return gb->rt;
 }
 
@@ -371,7 +391,13 @@ void gb_handle_interrupts (struct GB * gb)
 
 void gb_handle_timings (struct GB * gb)
 {
-
+    gb->divClock += gb->rt;
+    while (gb->divClock > DIV_CYCLES)
+    {
+        /* Being uint8_t, Divider automatically resets to zero after 255 */
+        gb->divClock -= DIV_CYCLES;
+        gb->io[Divider]++;
+    }
 }
 
 /* Used for comparing and setting PPU mode timings */
@@ -497,7 +523,8 @@ void gb_ppu_step (struct GB * const gb)
 
 void gb_render (struct GB * const gb)
 {
-    //uint8_t frame = 0;
+    gb->lineClock  += gb->rt;
+    gb->frameClock += gb->rt;
 
     /* Todo: continuously fetch pixels clock by clock for LCD data transfer.
        Similarly do clock-based processing for the other actions. */

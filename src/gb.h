@@ -7,6 +7,7 @@
 #include "ops.h"
 
 #define FRAME_CYCLES      70224
+#define DIV_CYCLES        16384
 #define DISPLAY_WIDTH     160
 #define DISPLAY_HEIGHT    144
 #define SCAN_LINES        154
@@ -49,6 +50,7 @@ struct GB
     uint64_t clock_t;
     uint16_t lineClock;
     uint32_t frameClock;
+    uint32_t divClock;
     uint8_t  rt; /* Tracks individual step clocks */
 
     uint8_t stop, halted;
@@ -84,7 +86,8 @@ struct GB
     void (*draw_line)(void *, const uint8_t * pixels, const uint8_t line);
 };
 
-uint8_t ppu_rw        (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
+uint8_t gb_ppu_rw     (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
+uint8_t gb_io_rw      (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
 uint8_t gb_mem_access (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
 
 void    gb_init     (struct GB *);
@@ -142,12 +145,9 @@ static inline void gb_step (struct GB * gb)
         gb_cpu_exec (gb);
     }
 
-    gb->clock_t    += gb->rt;
-    gb->lineClock  += gb->rt;
-    gb->frameClock += gb->rt;
+    gb->clock_t += gb->rt;
 
     gb_handle_timings (gb);
-    //gb_ppu_step (gb);
     gb_render (gb);
 }
 

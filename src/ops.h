@@ -268,7 +268,7 @@
 #define CCF     OP(CCF);  gb->f_c = !gb->f_c; gb->f_n = gb->f_h = 0;
 #define SCF     OP(SCF);  gb->f_c = 1; gb->f_n = gb->f_h = 0;
 #define HALT    OP(HALT); gb->halted = 1; 
-#define STOP    OP(STOP); gb->stop = 1; 
+#define STOP    OP(STOP); gb->stop = 1; /* STOP is handled after switch/case */
 #define NOP     OP(NOP);
 #define DI      OP(DI);   gb->ime = 0; 
 #define EI      OP(EI);   gb->ime = 1; 
