@@ -95,6 +95,13 @@ void gb_init (struct GB * gb)
 
     printf ("GB: ROM file size (KiB): %d\n", 32 * (1 << header[0x48]));
     printf ("GB: Cart type: %02X\n", header[0x47]);
+    
+    gb_boot_reset (gb);
+}
+
+void gb_boot_reset (struct GB * gb)
+{
+    const uint8_t * header = gb->cart.header;
     const uint8_t ramBanks[] = { 0, 0, 1, 4, 16, 8 };
 
     /* Add other metadata */
@@ -106,6 +113,8 @@ void gb_init (struct GB * gb)
     gb->cart.ramOffset = 0;
 
     gb->bootrom = 0;
+
+    printf ("GB: Set bootrom to zero\n");
 
     /* Setup CPU registers as if bootrom was loaded */
     if (!gb->bootrom)
@@ -126,6 +135,8 @@ void gb_init (struct GB * gb)
         gb->halted = 0;
     }
 
+    printf ("GB: Set I/O\n");
+
     /* Initalize I/O registers (DMG) */
     memset(gb->io, 0, sizeof (gb->io));  
     gb->io[Joypad]     = 0xCF;
@@ -145,7 +156,12 @@ void gb_init (struct GB * gb)
     memset (gb->hram, 0, HRAM_SIZE);
     gb->vramBlocked = gb->oamBlocked = 0;
 
-    gb_cpu_state (gb);
+    printf ("Memset done\n");
+
+    //gb_cpu_state (gb);
+    gb->lineClock = gb->frameClock = gb->divClock = 0;
+    gb->clock_t = 0;
+    printf ("CPU state done\n");
 }
 
 const int8_t opTicks[256] = {
@@ -219,7 +235,7 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
     }
 }
 
-uint8_t gb_cpu_exec (struct GB * gb)
+void gb_cpu_exec (struct GB * gb)
 {
     gb->rt = 0;
 
@@ -348,8 +364,6 @@ uint8_t gb_cpu_exec (struct GB * gb)
         /* Todo: Read joypad button selection/press */
         gb->io[Divider] = 0;
     }
-
-    return gb->rt;
 }
 
 void gb_handle_interrupts (struct GB * gb)
