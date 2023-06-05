@@ -7,8 +7,6 @@
 #endif
 
 /* GLFW callback functions */
-
-#define USE_GLFW
 #ifdef USE_GLFW
 
 void error_callback(int error, const char* description)
@@ -26,6 +24,14 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
     /* Pause emulation */
     if (key == GLFW_KEY_P && action == GLFW_PRESS)
         app->paused = !app->paused;
+
+    /* Switch palette */
+    if (key == GLFW_KEY_O && action == GLFW_PRESS)
+    {
+        app->gbData.palette++;
+        if (app->gbData.palette >= sizeof(palettes) / sizeof(palettes[0]))
+            app->gbData.palette = 0;
+    }
 
     /* Reset game */
     if (key == GLFW_KEY_R && action == GLFW_PRESS)
@@ -77,15 +83,16 @@ void app_init (struct App * app)
     {
         .rom = NULL,// mbc_load_rom (app->defaultFile),
         .bootRom = NULL,
+        .palette = 0,
         .tileMap = {
             .width = 128,
             .height = 192,
-            .data = calloc (128 * 192 * 3, sizeof(uint8_t))
+            .imgData = calloc (128 * 192 * 3, sizeof(uint8_t))
         },
         .frameBuffer = {
             .width = DISPLAY_WIDTH,
             .height = DISPLAY_HEIGHT,
-            .data = calloc (DISPLAY_WIDTH * DISPLAY_HEIGHT * 3, sizeof(uint8_t))
+            .imgData = calloc (DISPLAY_WIDTH * DISPLAY_HEIGHT * 3, sizeof(uint8_t))
         }
     };
     /* Handle file loading */
@@ -191,19 +198,19 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
     struct gb_data * const data = dataPtr;
 
     const uint32_t yOffset = line * DISPLAY_WIDTH * 3;
-    uint8_t x;
+    uint8_t  coloredPixels[DISPLAY_WIDTH * 3];
 
+    uint8_t x;
 	for (x = 0; x < DISPLAY_WIDTH; x++)
 	{
-		uint8_t idx = 3 - (*pixels);
-        const uint8_t * pixel = palettes[3].colors[idx];//(pixel == 3) ? 0xF5 : pixel * 0x55;
+		uint8_t idx = 3 - (*pixels++);
+        const uint8_t * pixel = palettes[data->palette].colors[idx];//(pixel == 3) ? 0xF5 : pixel * 0x55;
 
-        data->frameBuffer.data[yOffset + (x * 3)]     = pixel[0];
-        data->frameBuffer.data[yOffset + (x * 3) + 1] = pixel[1];
-        data->frameBuffer.data[yOffset + (x * 3) + 2] = pixel[2];
-
-        pixels++;
+        coloredPixels[x * 3]     = pixel[0];
+        coloredPixels[x * 3 + 1] = pixel[1];
+        coloredPixels[x * 3 + 2] = pixel[2];
 	}
+    memcpy (data->frameBuffer.imgData + yOffset, coloredPixels, DISPLAY_WIDTH * 3);
 }
 
 void app_draw (struct App * app)
@@ -225,7 +232,7 @@ void app_draw (struct App * app)
 void app_run (struct App * app)
 {
     /* Start clock */
-    //clock_t time = clock();
+    clock_t time;
     double totalTime = 0;
     uint32_t frames = 0;
 
@@ -242,10 +249,12 @@ void app_run (struct App * app)
 
             if (frames < -1 && app->paused == 0)
             {
+                time = clock();
                 gb_frame (&app->gb);
+                totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
+
                 frames++;
-                debug_dump_tiles (&app->gb, app->gbData.tileMap.data);
-                //printf("\033[A\33[2KT\rFrames: %d\n", frames);
+                debug_dump_tiles (&app->gb, app->gbData.tileMap.imgData);
             }
             app_draw (app);
             glfwSwapBuffers (app->window);

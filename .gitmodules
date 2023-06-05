@@ -1,0 +1,6 @@
+[submodule "api/minifb"]
+	path = api/minifb
+	url = https://github.com/emoon/minifb.git
+[submodule "src/api/minifb"]
+	path = src/api/minifb
+	url = https://github.com/emoon/minifb.git

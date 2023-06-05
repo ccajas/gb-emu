@@ -11,7 +11,7 @@ struct Texture
     uint16_t height;
 
     /* Pixel data */
-    uint8_t * data;
+    uint8_t * imgData;
 };
 
 typedef struct Scene_struct
@@ -90,7 +90,7 @@ static inline void draw_quad (GLFWwindow * window, Scene * const scene,
 
     /* Draw quad */
     glBindTexture (GL_TEXTURE_2D, scene->debugTexture);
-    glTexImage2D  (GL_TEXTURE_2D, 0, GL_RGBA, pixels->width, pixels->height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels->data);
+    glTexImage2D  (GL_TEXTURE_2D, 0, GL_RGBA, pixels->width, pixels->height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels->imgData);
 	draw_lazy_quad(1.0f, 1.0f, 0);
 
     glBindTexture(GL_TEXTURE_2D, 0);
