@@ -114,6 +114,21 @@ void app_init (struct App * app)
     /* Select image to display */
     app->image = &app->gbData.tileMap;
 
+    /* Handle file loading */
+    if (strcmp(app->defaultFile, "\0") != 0 &&
+        !(gb_rom_loaded(&app->gb)))
+    {
+        /* Copy ROM to cart */
+        LOG_("%s\n", app->defaultFile);
+        app->gb.cart.romData = app_load(app->defaultFile);
+        if (app->gb.cart.romData)
+        {
+            app->gb.extData.ptr = &app->gbData;
+            gb_init (&app->gb);
+        }
+        else app->defaultFile[0] = '\0';
+    }
+
     if (app->draw)
     {
         glfwSetErrorCallback(error_callback);
@@ -254,21 +269,6 @@ void app_run (struct App * app)
 #ifdef USE_GLFW
         while (!glfwWindowShouldClose (app->window))
         {
-            /* Handle file loading */
-            if (strcmp(app->defaultFile, "\0") != 0 &&
-                !(gb_rom_loaded(&app->gb)))
-            {
-                /* Copy ROM to cart */
-                LOG_("%s\n", app->defaultFile);
-                app->gb.cart.romData = app_load(app->defaultFile);
-                if (gb_rom_loaded(&app->gb))
-                {
-                    app->gb.extData.ptr = &app->gbData;
-                    gb_init (&app->gb);
-                }
-                else app->defaultFile[0] = '\0';
-            }
-
             glfwMakeContextCurrent (app->window);
             draw_begin (app->window, &app->display);
 
