@@ -161,6 +161,7 @@ void gb_boot_reset (struct GB * gb)
     //gb_cpu_state (gb);
     gb->lineClock = gb->frameClock = gb->divClock = 0;
     gb->clock_t = 0;
+    gb->frame = 0;
     printf ("CPU state done\n");
 }
 
@@ -453,6 +454,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
         /* X position counter */
         uint8_t lineX = 0;
         const uint8_t lineY = gb->io[LY];
+        const uint8_t posY = lineY + gb->io[ScrollY];
 
         assert (gb->io[LY] < DISPLAY_HEIGHT);
 
@@ -464,13 +466,12 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             https://github.com/ISSOtm/pandocs/blob/rendering-internals/src/Rendering_Internals.md */
 
             const uint8_t posX = lineX + gb->io[ScrollX];
-            const uint8_t posY = lineY + gb->io[ScrollY];
 
             uint16_t tileAddr = BGTileMap + 
                 ((posY / 8) << 5) +  /* Bits 5-9, Y location */
                 (posX / 8);          /* Bits 0-4, X location */
 
-            uint16_t tileID = gb->vram[tileAddr & 0x1FFF];
+            const uint16_t tileID = gb->vram[tileAddr & 0x1FFF];
 
             /* Tilemap location depends on LCDC 4 set, which are different rules for BG and Window tiles */
             /* Fetcher gets low byte and high byte for tile */
@@ -515,8 +516,11 @@ static inline void gb_hblank (struct GB * gb)
     if (IO_STAT_MODE != Stat_HBlank)
     {  
         /* Fetch line of pixels for the screen and draw them */
-        uint8_t * pixels = gb_pixel_fetch (gb);
-        gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
+        if (gb->frame)
+        {
+            uint8_t * pixels = gb_pixel_fetch (gb);
+            gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
+        }
 
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;
         /* Mode 0 interrupt */

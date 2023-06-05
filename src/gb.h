@@ -51,6 +51,7 @@ struct GB
     uint16_t lineClock;
     uint32_t frameClock;
     uint32_t divClock;
+    uint8_t  frame;
     uint8_t  rt; /* Tracks individual step clocks */
 
     uint8_t stop, halted;
@@ -166,6 +167,8 @@ static inline void gb_frame (struct GB * gb)
 
         if (lastClock > gb->frameClock) frameDone = 1;
     }
+    /* Indicates odd or even frame */
+    gb->frame = 1 - gb->frame;
 }
 
 #endif
