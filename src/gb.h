@@ -113,12 +113,16 @@ static inline uint8_t gb_rom_loaded (struct GB * gb)
 static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_t write)
 {
     if (!write)
-        return gb->io[Joypad];
-    else {
+    {
+        printf("Reading joypad %02X...\n", gb->extData.joypad);   
         if ((gb->io[Joypad] & 0x10) == 0)   /* Direction buttons */
-            gb->io[Joypad] = val | (gb->extData.joypad & 0xF);
-        else                                /* Action buttons */
-            gb->io[Joypad] = val | (gb->extData.joypad >> 4);                                                   
+            gb->io[Joypad] |= (gb->extData.joypad & 0xF);
+        if ((gb->io[Joypad] & 0x20) == 0)   /* Action buttons    */
+            gb->io[Joypad] |= (gb->extData.joypad >> 4);
+        return gb->io[Joypad];
+    }
+    else { /* Set only bits 5 and 6 for selecting action/direction */
+        gb->io[Joypad] = (val & 0x30);
     }
     
     return 0;

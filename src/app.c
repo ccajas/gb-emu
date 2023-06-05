@@ -21,6 +21,25 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose (window, GLFW_TRUE);
 
+    /* Game controls */
+    if (key == GLFW_KEY_J && action == GLFW_PRESS) app->gb.extData.joypad &= 0xEF; /* A button      */
+    if (key == GLFW_KEY_K && action == GLFW_PRESS) app->gb.extData.joypad &= 0xDF; /* B button      */
+    if (key == GLFW_KEY_L && action == GLFW_PRESS) app->gb.extData.joypad &= 0xBF; /* Select button */
+    if (key == GLFW_KEY_M && action == GLFW_PRESS) app->gb.extData.joypad &= 0x7F; /* Start button  */
+    if (key == GLFW_KEY_D && action == GLFW_PRESS) app->gb.extData.joypad &= 0xFE; /* D-pad Right   */
+    if (key == GLFW_KEY_A && action == GLFW_PRESS) app->gb.extData.joypad &= 0xFD; /* D-pad Left    */
+    if (key == GLFW_KEY_W && action == GLFW_PRESS) app->gb.extData.joypad &= 0xFB; /* D-pad Up      */
+    if (key == GLFW_KEY_S && action == GLFW_PRESS) app->gb.extData.joypad &= 0xF7; /* D-pad Down    */
+
+    if (key == GLFW_KEY_J && action == GLFW_RELEASE) app->gb.extData.joypad |= 0x10; /* A button      */
+    if (key == GLFW_KEY_K && action == GLFW_RELEASE) app->gb.extData.joypad |= 0x20; /* B button      */
+    if (key == GLFW_KEY_L && action == GLFW_RELEASE) app->gb.extData.joypad |= 0x40; /* Select button */
+    if (key == GLFW_KEY_M && action == GLFW_RELEASE) app->gb.extData.joypad |= 0x80; /* Start button  */
+    if (key == GLFW_KEY_D && action == GLFW_RELEASE) app->gb.extData.joypad |= 0x1;  /* D-pad Right   */
+    if (key == GLFW_KEY_A && action == GLFW_RELEASE) app->gb.extData.joypad |= 0x2;  /* D-pad Left    */
+    if (key == GLFW_KEY_W && action == GLFW_RELEASE) app->gb.extData.joypad |= 0x4;  /* D-pad Up      */
+    if (key == GLFW_KEY_S && action == GLFW_RELEASE) app->gb.extData.joypad |= 0x8;  /* D-pad Down    */
+
     /* Pause emulation */
     if (key == GLFW_KEY_P && action == GLFW_PRESS)
         app->paused = !app->paused;
