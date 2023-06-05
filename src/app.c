@@ -5,6 +5,7 @@
 
 /* GLFW callback functions */
 
+#define USE_GLFW
 #ifdef USE_GLFW
 
 void error_callback(int error, const char* description)
@@ -14,10 +15,18 @@ void error_callback(int error, const char* description)
  
 void key_callback (GLFWwindow * window, int key, int scancode, int action, int mods)
 {
-    //struct App * app = glfwGetWindowUserPointer (window);
+    struct App * app = glfwGetWindowUserPointer (window);
 
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose (window, GLFW_TRUE);
+
+    /* Pause emulation */
+    if (key == GLFW_KEY_P && action == GLFW_PRESS)
+        app->paused = !app->paused;
+
+    /* Reset game */
+    if (key == GLFW_KEY_R && action == GLFW_PRESS)
+        gb_boot_reset(&app->gb);
 }
 
 void framebuffer_size_callback (GLFWwindow * window, int width, int height)
@@ -152,7 +161,7 @@ void app_init (struct App * app)
             exit (EXIT_FAILURE);
         }
 
-        glfwSetWindowUserPointer (window, &app);
+        glfwSetWindowUserPointer (window, app);
         glfwSetWindowAttrib(window, GLFW_RESIZABLE, GLFW_FALSE);
 
         glfwSetKeyCallback(window, key_callback);
@@ -190,7 +199,6 @@ uint8_t * app_load (const char * fileName)
     return rom;
 }
 
-#define USE_GLFW
 #ifdef USE_GLFW
 
 void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
@@ -274,23 +282,14 @@ void app_run (struct App * app)
             glfwMakeContextCurrent (app->window);
             draw_begin (app->window, &app->display);
 
-            if (frames < -1 && !app->paused)
+            if (frames < -1 && app->paused == 0)
             {
-                if (gb_rom_loaded (&app->gb))
-                {
-                    /* Start and stop clock between emulation frame */
-                    time = clock();
-                    gb_frame (&app->gb);
-
-                    time = (clock() - time);
-                    double timeTaken = ((double) time) / CLOCKS_PER_SEC;
-                    totalTime += timeTaken;
-                    debug_dump_tiles (&app->gb, app->gbData.tileMap.data);
-                    //printf("\033[A\33[2KT\rFrames: %d\n", frames);
-                    frames++;
-                    app_draw (app);
-                }
+                gb_frame (&app->gb);
+                frames++;
+                debug_dump_tiles (&app->gb, app->gbData.tileMap.data);
+                //printf("\033[A\33[2KT\rFrames: %d\n", frames);
             }
+            app_draw (app);
             glfwSwapBuffers (app->window);
             glfwPollEvents();
         }
