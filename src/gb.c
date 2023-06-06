@@ -471,6 +471,7 @@ modeTicks;
 static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
 {
     uint8_t * pixels = calloc(DISPLAY_WIDTH, sizeof(uint8_t));
+    assert (gb->io[LY] < DISPLAY_HEIGHT);
 
 	/* Check if background is enabled */
 	if (LCDC_(0))
@@ -485,25 +486,10 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
         const uint8_t lineY = gb->io[LY];
         const uint8_t posY = lineY + gb->io[ScrollY];
 
-        assert (gb->io[LY] < DISPLAY_HEIGHT);
-
-        /* Get first tile info */
-        uint8_t posX = lineX + gb->io[ScrollX];
-        uint8_t relX = posX % 8;
-
-        uint16_t tileAddr = BGTileMap + 
-            ((posY >> 3) << 5) +  /* Bits 5-9, Y location */
-            (posX >> 3);          /* Bits 0-4, X location */
-        uint16_t tileID = gb->vram[tileAddr & 0x1FFF];
-
-        /* Tilemap location depends on LCDC 4 set, which are different rules for BG and Window tiles */
-        /* Fetcher gets low byte and high byte for tile */
-        uint16_t bit12 = !(LCDC_(4) || (tileID & 0x80)) << 12;
-        uint16_t tileRow = 0x8000 + bit12 + (tileID << 4) + ((posY & 7) << 1);
-
-        /* Finally get the pixel bytes from these addresses */
-        uint8_t byteLo = gb->vram[tileRow & 0x1FFF];
-        uint8_t byteHi = gb->vram[(tileRow + 1) & 0x1FFF];
+        uint16_t tileAddr, tileID, bit12, tileRow;
+        /* For storing pixel bytes */
+        uint8_t byteLo = 0;
+        uint8_t byteHi = 0;
 
         /* Run at least 20 times (for the 160 pixel length) */
         for (lineX = 0; lineX < DISPLAY_WIDTH; lineX++)
@@ -512,8 +498,8 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             All related calculations following are found here:
             https://github.com/ISSOtm/pandocs/blob/rendering-internals/src/Rendering_Internals.md */
 
-            posX = lineX + gb->io[ScrollX];
-            relX = posX % 8;
+            const uint8_t posX = lineX + gb->io[ScrollX];
+            const uint8_t relX = posX % 8;
 
             /* Get next tile being scrolled in */
             if (lineX == 0 || relX == 0)
@@ -538,6 +524,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             const uint8_t bitLo = (byteLo >> (7 - relX)) & 1;
             const uint8_t bitHi = (byteHi >> (7 - relX)) & 1;
             const uint8_t index = (bitHi << 1) + bitLo;
+            
             pixels[lineX] = (gb->io[BGPalette] >> (index * 2)) & 3;
         }
     }
