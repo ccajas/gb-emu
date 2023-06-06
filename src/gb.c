@@ -47,6 +47,8 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
     #define DIRECT_RW(b)  if (write) { *b = val; } return *b;
     struct Cartridge * cart = &gb->cart;
 
+    if (addr < 0x0100 && !gb->io[BootROM])                        /* Run boot ROM if needed */
+        { if (!write) { return gb->bootRom[addr]; } else { return 0; }}
     if (addr < 0x8000)  return cart->rw (cart, addr, val, write);       /* ROM from MBC     */
     if (addr < 0xA000)  return gb_ppu_rw (gb, addr, val, write);        /* Video RAM        */
     if (addr < 0xC000)  return cart->rw (cart, addr, val, write);       /* External RAM     */
@@ -63,7 +65,7 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
     return 0;
 }
 
-void gb_init (struct GB * gb)
+void gb_init (struct GB * gb, uint8_t * bootRom)
 {
     /* Read checksum and see if it matches data */
     uint8_t checksum = 0;
@@ -97,7 +99,38 @@ void gb_init (struct GB * gb)
     printf ("GB: ROM file size (KiB): %d\n", 32 * (1 << header[0x48]));
     printf ("GB: Cart type: %02X\n", header[0x47]);
     
+    if (bootRom != NULL)
+    {
+        gb_reset (gb, bootRom);
+        return;
+    }
     gb_boot_reset (gb);
+}
+
+void gb_reset (struct GB * gb, uint8_t * bootROM)
+{
+    const uint8_t * header = gb->cart.header;
+    const uint8_t ramBanks[] = { 0, 0, 1, 4, 16, 8 };
+
+    /* Add other metadata */
+    gb->cart.romSizeKB = 32 * (1 << header[0x48]);
+    gb->cart.ramSizeKB = 8 * ramBanks[header[0x49]];
+    gb->cart.bankLo = 1;
+    gb->cart.bankHi = 0;
+    gb->cart.romOffset = 0x4000;
+    gb->cart.ramOffset = 0;
+
+    gb->bootRom = bootROM;
+    gb->extData.joypad = 0xFF;
+    gb->io[Joypad]     = 0xCF;
+    gb->io[BootROM]    = 0;
+
+    printf ("GB: Load Bootrom\n");
+
+    gb->pc = 0;
+    gb->ime = 0;
+    gb->invalid = 0;
+    gb->halted = 0;
 }
 
 void gb_boot_reset (struct GB * gb)
@@ -113,13 +146,13 @@ void gb_boot_reset (struct GB * gb)
     gb->cart.romOffset = 0x4000;
     gb->cart.ramOffset = 0;
 
-    gb->bootrom = 0;
+    gb->bootRom = NULL;
     gb->extData.joypad = 0xFF;
 
     printf ("GB: Set bootrom to zero\n");
 
     /* Setup CPU registers as if bootrom was loaded */
-    if (!gb->bootrom)
+    if (!gb->bootRom)
     {
         gb->r[A]  = 0x01;
         gb->flags = 0xB0;
@@ -151,6 +184,7 @@ void gb_boot_reset (struct GB * gb)
     gb->io[LY]         = 0x90;
     gb->io[BGPalette]  = 0xFC;
     gb->io[DMA]        = 0xFF;
+    gb->io[BootROM]    = 0x01;
 
     /* Initialize RAM and settings */
     memset (gb->ram,  0, WRAM_SIZE);

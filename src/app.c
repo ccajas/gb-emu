@@ -44,6 +44,10 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
     if (key == GLFW_KEY_P && action == GLFW_PRESS)
         app->paused = !app->paused;
 
+    /* Toggle debug */
+    if (key == GLFW_KEY_B && action == GLFW_PRESS)
+        app->debug = !app->debug;
+
     /* Switch palette */
     if (key == GLFW_KEY_O && action == GLFW_PRESS)
     {
@@ -70,7 +74,7 @@ void drop_callback(GLFWwindow * window, int count, const char** paths)
 
     LOG_("%s\n", paths[0]);
     strcpy(app->defaultFile, paths[0]);
-    LOG_("%s\n", app->defaultFile);
+    gb_boot_reset(&app->gb);
 }
 
 #endif
@@ -90,6 +94,7 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
 #endif
     app->scale = 3;
     app->paused = 1;
+    app->debug = 0;
 }
 
 void app_init (struct App * app)
@@ -100,7 +105,7 @@ void app_init (struct App * app)
 
     app->gbData = (struct gb_data) 
     {
-        .rom = NULL,// mbc_load_rom (app->defaultFile),
+        .rom = NULL,
         .bootRom = NULL,
         .palette = 0,
         .tileMap = {
@@ -130,19 +135,13 @@ void app_init (struct App * app)
         LOG_("No file selected.\n");
     else
     {
-        if (!(gb_rom_loaded(&app->gb)))
+        /* Copy ROM to cart */
+        if (app_load(app->defaultFile, &app->gb))
         {
-            /* Copy ROM to cart */
-            LOG_("%s\n", app->defaultFile);
-            app->gb.cart.romData = app_load(app->defaultFile);
-            if (app->gb.cart.romData)
-            {
-                app->gb.extData.ptr = &app->gbData;
-                gb_init (&app->gb);
-                app->paused = 0;
-            }
-            else app->defaultFile[0] = '\0';
+            app->gb.extData.ptr = &app->gbData;
+            app->paused = 0;
         }
+        else app->defaultFile[0] = '\0';
     }
 
 #ifdef USE_GLFW
@@ -184,9 +183,7 @@ void app_init (struct App * app)
 #endif
 }
 
-
-
-uint8_t * app_load (const char * fileName)
+uint8_t * app_load (const char * fileName, struct GB * gb)
 { 
     /* Load file from command line */
     FILE * f = fopen (fileName, "rb");
@@ -207,6 +204,13 @@ uint8_t * app_load (const char * fileName)
         return NULL;
         
     fclose (f);
+
+    /* Copy ROM to cart */
+    LOG_("%s\n", fileName);
+    gb->cart.romData = rom;
+    if (gb->cart.romData)
+        gb_init (gb, NULL);
+
     return rom;
 }
 
@@ -241,9 +245,13 @@ void app_draw (struct App * app)
     set_shader (&app->display, &app->display.fbufferShader);
     draw_quad (app->window, &app->display, &app->gbData.frameBuffer, 0, 0, app->scale);
 
-    set_shader (&app->display, &app->display.debugShader);
-    if (gb_rom_loaded(&app->gb))
-        draw_quad (app->window, &app->display, app->image, w - 128, 0, 1);
+    if (app->debug)
+    {
+        debug_dump_tiles (&app->gb, app->gbData.tileMap.imgData);
+        set_shader (&app->display, &app->display.debugShader);
+        if (gb_rom_loaded(&app->gb))
+            draw_quad (app->window, &app->display, app->image, w - 128, 0, 1);
+    }
 }
 #endif
 
@@ -272,7 +280,6 @@ void app_run (struct App * app)
                 totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
 
                 frames++;
-                debug_dump_tiles (&app->gb, app->gbData.tileMap.imgData);
             }
             app_draw (app);
             glfwSwapBuffers (app->window);

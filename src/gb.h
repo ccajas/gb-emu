@@ -72,7 +72,7 @@ struct GB
 
     /* Catridge which holds ROM and RAM */
     struct Cartridge cart;
-    uint8_t bootrom;
+    uint8_t * bootRom;
 
     /* Directly accessible external data */
     struct gb_data_s
@@ -91,9 +91,10 @@ uint8_t gb_ppu_rw     (struct GB *, const uint16_t addr, const uint8_t val, cons
 uint8_t gb_io_rw      (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
 uint8_t gb_mem_access (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
 
-void    gb_init       (struct GB *);
+void    gb_init       (struct GB *, uint8_t *);
 void    gb_cpu_exec   (struct GB *);
 void    gb_exec_cb    (struct GB *, const uint8_t op);
+void    gb_reset      (struct GB *, uint8_t *);
 void    gb_boot_reset (struct GB *);
 
 /* Other update-specific functions */

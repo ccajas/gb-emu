@@ -28,6 +28,7 @@ struct App
 {
     uint8_t draw;
     uint8_t paused;
+    uint8_t debug;
 
     /* Cosmetic options */
     uint8_t scale;
@@ -67,7 +68,7 @@ struct App
 #endif
 };
 
-uint8_t * app_load (const char *);
+uint8_t * app_load (const char *, struct GB *);
 
 void app_config (struct App *, uint8_t const argc, char * const argv[]);
 void app_init   (struct App *);
