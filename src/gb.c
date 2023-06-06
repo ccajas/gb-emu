@@ -80,7 +80,7 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
 
     /* Get cartridge type and MBC from header */
     memcpy (gb->cart.header, gb->cart.romData + 0x100, 80 * sizeof(uint8_t));
-    uint8_t * header = gb->cart.header;
+    const uint8_t * header = gb->cart.header;
 
     const uint8_t cartType = header[0x47];
 
@@ -99,17 +99,6 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
     printf ("GB: ROM file size (KiB): %d\n", 32 * (1 << header[0x48]));
     printf ("GB: Cart type: %02X\n", header[0x47]);
     
-    if (bootRom != NULL)
-    {
-        gb_reset (gb, bootRom);
-        return;
-    }
-    gb_boot_reset (gb);
-}
-
-void gb_reset (struct GB * gb, uint8_t * bootROM)
-{
-    const uint8_t * header = gb->cart.header;
     const uint8_t ramBanks[] = { 0, 0, 1, 4, 16, 8 };
 
     /* Add other metadata */
@@ -120,6 +109,16 @@ void gb_reset (struct GB * gb, uint8_t * bootROM)
     gb->cart.romOffset = 0x4000;
     gb->cart.ramOffset = 0;
 
+    if (bootRom != NULL)
+    {
+        gb_reset (gb, bootRom);
+        return;
+    }
+    gb_boot_reset (gb);
+}
+
+void gb_reset (struct GB * gb, uint8_t * bootROM)
+{
     gb->bootRom = bootROM;
     gb->extData.joypad = 0xFF;
     gb->io[Joypad]     = 0xCF;
@@ -131,21 +130,15 @@ void gb_reset (struct GB * gb, uint8_t * bootROM)
     gb->ime = 0;
     gb->invalid = 0;
     gb->halted = 0;
+
+    printf ("GB: Set I/O\n");
+
+    /* Initalize I/O registers (DMG) */
+    memset(gb->io, 0, sizeof (gb->io));
 }
 
 void gb_boot_reset (struct GB * gb)
 {
-    const uint8_t * header = gb->cart.header;
-    const uint8_t ramBanks[] = { 0, 0, 1, 4, 16, 8 };
-
-    /* Add other metadata */
-    gb->cart.romSizeKB = 32 * (1 << header[0x48]);
-    gb->cart.ramSizeKB = 8 * ramBanks[header[0x49]];
-    gb->cart.bankLo = 1;
-    gb->cart.bankHi = 0;
-    gb->cart.romOffset = 0x4000;
-    gb->cart.ramOffset = 0;
-
     gb->bootRom = NULL;
     gb->extData.joypad = 0xFF;
 
@@ -484,7 +477,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
 	{
         /* Get minimum starting address depends on LCDC bits 3 and 6 are set.
         Starts at 0x1800 as this is the VRAM index minus 0x8000 */
-        const uint16_t BGTileMap  = (gb->io[LCDControl] & 0x08) ? 0x9C00 : 0x9800;
+        uint16_t BGTileMap  = (LCDC_(3)) ? 0x9C00 : 0x9800;
         //const uint16_t winTileMap = (gb->io[IO_LCDControl] & 0x40) ? 0x9C00 : 0x9800;
 
         /* X position counter */
@@ -494,39 +487,58 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
 
         assert (gb->io[LY] < DISPLAY_HEIGHT);
 
+        /* Get first tile info */
+        uint8_t posX = lineX + gb->io[ScrollX];
+        uint8_t relX = posX % 8;
+
+        uint16_t tileAddr = BGTileMap + 
+            ((posY >> 3) << 5) +  /* Bits 5-9, Y location */
+            (posX >> 3);          /* Bits 0-4, X location */
+        uint16_t tileID = gb->vram[tileAddr & 0x1FFF];
+
+        /* Tilemap location depends on LCDC 4 set, which are different rules for BG and Window tiles */
+        /* Fetcher gets low byte and high byte for tile */
+        uint16_t bit12 = !(LCDC_(4) || (tileID & 0x80)) << 12;
+        uint16_t tileRow = 0x8000 + bit12 + (tileID << 4) + ((posY & 7) << 1);
+
+        /* Finally get the pixel bytes from these addresses */
+        uint8_t byteLo = gb->vram[tileRow & 0x1FFF];
+        uint8_t byteHi = gb->vram[(tileRow + 1) & 0x1FFF];
+
         /* Run at least 20 times (for the 160 pixel length) */
-        for (lineX = 0; lineX < DISPLAY_WIDTH; lineX += 8)
+        for (lineX = 0; lineX < DISPLAY_WIDTH; lineX++)
         {
             /* BG tile fetcher gets tile ID. Bits 0-4 define X loction, bits 5-9 define Y location
             All related calculations following are found here:
             https://github.com/ISSOtm/pandocs/blob/rendering-internals/src/Rendering_Internals.md */
 
-            const uint8_t posX = lineX + gb->io[ScrollX];
+            posX = lineX + gb->io[ScrollX];
+            relX = posX % 8;
 
-            uint16_t tileAddr = BGTileMap + 
-                ((posY / 8) << 5) +  /* Bits 5-9, Y location */
-                (posX / 8);          /* Bits 0-4, X location */
+            /* Get next tile being scrolled in */
+            if (lineX == 0 || relX == 0)
+            {
+                BGTileMap  = (LCDC_(3)) ? 0x9C00 : 0x9800;
+                tileAddr = BGTileMap + 
+                    ((posY >> 3) << 5) +  /* Bits 5-9, Y location */
+                    (posX >> 3);          /* Bits 0-4, X location */
+                tileID = gb->vram[tileAddr & 0x1FFF];
 
-            const uint16_t tileID = gb->vram[tileAddr & 0x1FFF];
+                /* Tilemap location depends on LCDC 4 set, which are different rules for BG and Window tiles */
+                /* Fetcher gets low byte and high byte for tile */
+                bit12 = !(LCDC_(4) || (tileID & 0x80)) << 12;
+                tileRow = 0x8000 + bit12 + (tileID << 4) + ((posY & 7) << 1);
 
-            /* Tilemap location depends on LCDC 4 set, which are different rules for BG and Window tiles */
-            /* Fetcher gets low byte and high byte for tile */
-            const uint16_t bit12 = !(LCDC_(4) || (tileID & 0x80)) << 12;
-            const uint16_t tileRow = 0x8000 + bit12 + (tileID << 4) + ((posY & 7) << 1);
-
-            /* Finally get the pixel bytes from these addresses */
-            const uint8_t byteLo = gb->vram[tileRow & 0x1FFF];
-            const uint8_t byteHi = gb->vram[(tileRow + 1) & 0x1FFF];
+                /* Finally get the pixel bytes from these addresses */
+                byteLo = gb->vram[tileRow & 0x1FFF];
+                byteHi = gb->vram[(tileRow + 1) & 0x1FFF];
+            }
 
             /* Produce pixel data from the combined bytes*/
-            int x;
-            for (x = 0; x < 8; x++)
-            {
-                const uint8_t bitLo = (byteLo >> (7 - x)) & 1;
-                const uint8_t bitHi = (byteHi >> (7 - x)) & 1;
-                const uint8_t index = (bitHi << 1) + bitLo;
-                pixels[lineX + x] = (gb->io[BGPalette] >> (index * 2)) & 3;
-            }
+            const uint8_t bitLo = (byteLo >> (7 - relX)) & 1;
+            const uint8_t bitHi = (byteHi >> (7 - relX)) & 1;
+            const uint8_t index = (bitHi << 1) + bitLo;
+            pixels[lineX] = (gb->io[BGPalette] >> (index * 2)) & 3;
         }
     }
 
