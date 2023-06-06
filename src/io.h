@@ -5,13 +5,13 @@
 
 static const enum
 {
-    Joypad       = 0x0,
-    SerialData   = 0x01,
-    SerialCtrl   = 0x02,
-    Divider      = 0x04,
-    TimA         = 0x05,
-    TMA          = 0x06,
-    TimerCtrl    = 0x07,
+    Joypad      = 0x0,
+    SerialData  = 0x01,
+    SerialCtrl  = 0x02,
+    Divider     = 0x04,
+    TimA        = 0x05,
+    TMA         = 0x06,
+    TimerCtrl   = 0x07,
 
     LCDControl	= 0x40,
     LCDStatus	= 0x41,
@@ -26,9 +26,9 @@ static const enum
     WindowY	    = 0x4A,
     WindowX	    = 0x4B,
 
-    BootROM      = 0x50,
-    IntrFlags    = 0x0F,
-    IntrEnabled  = 0xFF
+    BootROM     = 0x50,
+    IntrFlags   = 0x0F,
+    IntrEnabled = 0xFF
 }
 registers;
 
@@ -55,6 +55,6 @@ static const enum
     IR_OAM    = 5,
     IR_LYC    = 6,
 }
-LCD_STATFlags;
+LCD_STAT_Flags;
 
 #endif

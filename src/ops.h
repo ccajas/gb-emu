@@ -122,25 +122,39 @@
 
 #define ADD      OP(ADD); {\
     uint8_t tmp = gb->r[A] + gb->r[r2];\
-	gb->f_z = ((tmp & 0xFF) == 0x00);\
+	SET_FLAG_Z ((tmp & 0xFF));\
 	gb->f_n = 0;\
-	gb->f_h = ((gb->r[A] ^ gb->r[r2] ^ tmp) & 0x10) > 0;\
+	SET_FLAG_H_S (gb->r[A] ^ gb->r[r2] ^ tmp);\
 	gb->f_c = (gb->r[A] > tmp);\
-	gb->r[A] = (tmp & 0xFF);\
+	gb->r[A] = tmp;\
 }
-#define ADHL     OP(ADHL);    ADD_A_X(hl);
+#define ADHL     OP(ADHL); {\
+    uint8_t tmp = gb->r[A] + hl;\
+    SET_FLAG_Z ((tmp & 0xFF));\
+    gb->f_n = 0;\
+    SET_FLAG_H_S (gb->r[A] ^ hl ^ tmp);\
+    gb->f_c = (gb->r[A] > tmp);\
+    gb->r[A] = tmp;\
+}
 
-// 0x0 + 0xFF + 1
 #define ADC      OP(ADC); {\
     uint16_t tmp = gb->r[A] + gb->r[r2] + gb->f_c;\
-	gb->f_z = ((tmp & 0xFF) == 0x00);\
+	SET_FLAG_Z ((tmp & 0xFF));\
 	gb->f_n = 0;\
-	gb->f_h = ((gb->r[A] ^ gb->r[r2] ^ tmp) & 0x10) > 0;\
+	SET_FLAG_H_S (gb->r[A] ^ gb->r[r2] ^ tmp);\
 	gb->f_c = (tmp >= 0x100);\
 	gb->r[A] = tmp & 0xFF;\
 }
 
-#define ACHL     OP(ACHL);    ADD_AC_X(hl);
+#define ACHL     OP(ACHL); {\
+    uint16_t tmp = gb->r[A] + hl + gb->f_c;\
+	SET_FLAG_Z ((tmp & 0xFF));\
+	gb->f_n = 0;\
+	SET_FLAG_H_S (gb->r[A] ^ hl ^ tmp);\
+	gb->f_c = (tmp >= 0x100);\
+	gb->r[A] = tmp & 0xFF;\
+}
+//ADD_AC_X(hl);
 
 #define SUB      OP(SUB); {\
     uint8_t tmp = gb->r[A] - gb->r[r2];\
