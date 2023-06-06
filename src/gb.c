@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <omp.h>
 #include "gb.h"
 #include "ops.h"
 
@@ -113,6 +114,7 @@ void gb_boot_reset (struct GB * gb)
     gb->cart.ramOffset = 0;
 
     gb->bootrom = 0;
+    gb->extData.joypad = 0xFF;
 
     printf ("GB: Set bootrom to zero\n");
 
@@ -370,8 +372,8 @@ void gb_cpu_exec (struct GB * gb)
 void gb_handle_interrupts (struct GB * gb)
 {
     /* Get interrupt flags */
-    const uint8_t io_IE = CPU_RB (0xFF00 + IntrEnabled);
-    const uint8_t io_IF = CPU_RB (0xFF00 + IntrFlags);
+    const uint8_t io_IE = gb->io[IntrEnabled % 0x80];
+    const uint8_t io_IF = gb->io[IntrFlags];
 
     /* Run if CPU ran HALT instruction or IME enabled w/flags */
     if (gb->halted || (gb->ime && (io_IE & io_IF & IF_Any)))
@@ -427,8 +429,8 @@ modes;
 
 enum {
     TICKS_OAM_READ    = 80,
-    TICKS_TRANSFER    = 172,
-    TICKS_HBLANK      = 204,
+    TICKS_TRANSFER    = 252,
+    TICKS_HBLANK      = 456,
     TICKS_VBLANK      = 456
 }
 modeTicks;
@@ -516,8 +518,7 @@ static inline void gb_hblank (struct GB * gb)
     if (IO_STAT_MODE != Stat_HBlank)
     {  
         /* Fetch line of pixels for the screen and draw them */
-        if (gb->frame)
-        {
+        if (gb->frame == 0) {
             uint8_t * pixels = gb_pixel_fetch (gb);
             gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
         }
@@ -594,20 +595,20 @@ void gb_render (struct GB * const gb)
         {
             gb_oam_read (gb);
         }
-        else if (gb->lineClock < TICKS_OAM_READ + TICKS_TRANSFER)
+        else if (gb->lineClock < TICKS_TRANSFER)
         {
             /* Mode 3 - Transfer to LCD */
             if (IO_STAT_MODE != Stat_Transfer)
                 gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
         }
-        else if (gb->lineClock < TICKS_OAM_READ + TICKS_TRANSFER + TICKS_HBLANK)
+        else if (gb->lineClock < TICKS_HBLANK)
         {
             gb_hblank (gb);
         }
         else
         {
             /* Starting new line */
-            gb->lineClock -= (TICKS_OAM_READ + TICKS_TRANSFER + TICKS_HBLANK);
+            gb->lineClock -= TICKS_HBLANK;
             gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
             gb_eval_LYC (gb);
 
