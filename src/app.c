@@ -74,7 +74,14 @@ void drop_callback(GLFWwindow * window, int count, const char** paths)
 
     LOG_("%s\n", paths[0]);
     strcpy(app->defaultFile, paths[0]);
-    gb_boot_reset(&app->gb);
+
+    /* Copy ROM to cart */
+    if (app_load(app->defaultFile, &app->gb))
+    {
+        app->gb.extData.ptr = &app->gbData;
+        app->paused = 0;
+    }
+    else app->defaultFile[0] = '\0';
 }
 
 #endif
@@ -208,8 +215,7 @@ uint8_t * app_load (const char * fileName, struct GB * gb)
     /* Copy ROM to cart */
     LOG_("%s\n", fileName);
     gb->cart.romData = rom;
-    if (gb->cart.romData)
-        gb_init (gb, NULL);
+    if (gb->cart.romData) gb_init (gb, NULL);
 
     return rom;
 }
