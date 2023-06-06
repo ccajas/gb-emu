@@ -114,7 +114,6 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
 {
     if (!write)
     {
-        printf("Reading joypad %02X...\n", gb->extData.joypad);   
         if (!(gb->io[Joypad] & 0x10))   /* Direction buttons */
             gb->io[Joypad] |= (gb->extData.joypad & 0xF);
         if (!(gb->io[Joypad] & 0x20))   /* Action buttons    */

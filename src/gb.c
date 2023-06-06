@@ -35,7 +35,7 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
 uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
     /* For debug logging purposes */
-    //if (addr == 0xFF44 && !write) return 0x90;
+    /*if (addr == 0xFF44 && !write) return 0x90;*/
 
     /* For Blargg's CPU instruction tests */
 #ifdef CPU_INSTRS

@@ -89,7 +89,7 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
     app->draw = 0;
 #endif
     app->scale = 3;
-    app->paused = 0;
+    app->paused = 1;
 }
 
 void app_init (struct App * app)
@@ -114,14 +114,6 @@ void app_init (struct App * app)
             .imgData = calloc (DISPLAY_WIDTH * DISPLAY_HEIGHT * 3, sizeof(uint8_t))
         }
     };
-    /* Handle file loading */
-    if (strcmp(app->defaultFile, " ") != 0)
-    {
-        /* Copy ROM to cart */
-    }
-    else {
-        LOG_("No file selected.\n");
-    }
 
     /* Objects for drawing */
     Scene newDisplay = { .bgColor = { 173, 175, 186 }};
@@ -134,18 +126,23 @@ void app_init (struct App * app)
     app->image = &app->gbData.tileMap;
 
     /* Handle file loading */
-    if (strcmp(app->defaultFile, "\0") != 0 &&
-        !(gb_rom_loaded(&app->gb)))
+    if (!strcmp(app->defaultFile, "\0"))
+        LOG_("No file selected.\n");
+    else
     {
-        /* Copy ROM to cart */
-        LOG_("%s\n", app->defaultFile);
-        app->gb.cart.romData = app_load(app->defaultFile);
-        if (app->gb.cart.romData)
+        if (!(gb_rom_loaded(&app->gb)))
         {
-            app->gb.extData.ptr = &app->gbData;
-            gb_init (&app->gb);
+            /* Copy ROM to cart */
+            LOG_("%s\n", app->defaultFile);
+            app->gb.cart.romData = app_load(app->defaultFile);
+            if (app->gb.cart.romData)
+            {
+                app->gb.extData.ptr = &app->gbData;
+                gb_init (&app->gb);
+                app->paused = 0;
+            }
+            else app->defaultFile[0] = '\0';
         }
-        else app->defaultFile[0] = '\0';
     }
 
 #ifdef USE_GLFW
@@ -186,6 +183,8 @@ void app_init (struct App * app)
     }
 #endif
 }
+
+
 
 uint8_t * app_load (const char * fileName)
 { 
@@ -266,7 +265,7 @@ void app_run (struct App * app)
             glfwMakeContextCurrent (app->window);
             draw_begin (app->window, &app->display);
 
-            if (frames < -1 && app->paused == 0)
+            if (frames < -1 && app->paused == 0 && gb_rom_loaded(&app->gb))
             {
                 time = clock();
                 gb_frame (&app->gb);
@@ -296,7 +295,7 @@ void app_run (struct App * app)
     free (app->gb.cart.romData);
     free (app->gb.cart.ramData);
 
-    LOG_("The program ran %f seconds for %d frames.\nGB performance is %f times as fast.\n",
+    LOG_("The emulation took %f seconds for %d frames.\nGB performance is %f times as fast.\n",
         totalTime, frames, totalSeconds / totalTime);
     LOG_("For each second, there is on average %.2f milliseconds free for overhead.\n",
         1000 - (1.0f / (totalSeconds / totalTime) * 1000));
