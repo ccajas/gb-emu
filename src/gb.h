@@ -50,7 +50,7 @@ struct GB
     uint64_t clock_t;
     uint16_t lineClock;
     uint32_t frameClock;
-    uint32_t divClock;
+    uint32_t divClock, tacClock;
     uint8_t  frame;
     uint8_t  rt; /* Tracks individual step clocks */
 

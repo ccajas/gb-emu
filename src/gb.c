@@ -135,6 +135,11 @@ void gb_reset (struct GB * gb, uint8_t * bootROM)
 
     /* Initalize I/O registers (DMG) */
     memset(gb->io, 0, sizeof (gb->io));
+
+    gb->lineClock = gb->frameClock = 0;
+    gb->divClock = gb->tacClock = 0;
+    gb->clock_t = 0;
+    gb->frame = 0;
 }
 
 void gb_boot_reset (struct GB * gb)
@@ -188,7 +193,8 @@ void gb_boot_reset (struct GB * gb)
     printf ("Memset done\n");
 
     //gb_cpu_state (gb);
-    gb->lineClock = gb->frameClock = gb->divClock = 0;
+    gb->lineClock = gb->frameClock = 0;
+    gb->divClock = gb->tacClock = 0;
     gb->clock_t = 0;
     gb->frame = 0;
     printf ("CPU state done\n");
@@ -411,7 +417,7 @@ void gb_handle_interrupts (struct GB * gb)
         /* Check all 5 IE and IF bits for flag confirmations 
            This loop also services interrupts by priority (0 = highest) */
         uint8_t i;
-        for (i = 0; i <= 5; i++)
+        for (i = 0; i < 5; i++)
         {
             const uint16_t requestAddress = 0x40 + (i * 8);
             const uint8_t flag = 1 << i;
@@ -442,6 +448,27 @@ void gb_handle_timings (struct GB * gb)
         /* Being uint8_t, Divider automatically resets to zero after 255 */
         gb->divClock -= DIV_CYCLES;
         gb->io[Divider]++;
+    }
+
+    if (gb->io[TimerCtrl & 0x4]) /* If TAC timer is enabled */
+    {
+        gb->tacClock += gb->rt;
+
+        uint16_t clockRates[4] = {1024, 16, 64, 256 };
+        uint16_t clockRate = clockRates[gb->io[TimerCtrl] & 0x3];
+
+        if (gb->tacClock >= clockRate)
+        {
+            gb->tacClock -= clockRate;
+            if (gb->io[TimA] == 0xFF)
+            {
+                /* Set to TMA modulo and request timer interrupt */
+                gb->io[TimA] = gb->io[TMA];
+                gb->io[IntrFlags] |= IF_Timer;
+            }
+            else
+                gb->io[TimA]++;
+        }
     }
 }
 
