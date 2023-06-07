@@ -26,7 +26,11 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
         return gb->io[addr % 0x80];
     else
     {
-        if (addr == 0xFF04) { gb->io[Divider] = 0; return 0; }
+        if (addr % 0x80 == Divider) { gb->io[Divider] = 0; return 0; }            /* DIV reset */
+        if (addr % 0x80 == DMA) {   /* OAM DMA transfer. Todo: Make it write across 160 cycles */
+            gb->io[DMA] = val; int i = 0;
+            const uint16_t src = val << 8;
+            while (i < OAM_SIZE) { gb->oam[i] = CPU_RB (src + i); i++; } return 0; }
         gb->io[addr % 0x80] = val;
     }
     return 0;
@@ -501,7 +505,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
     assert (gb->io[LY] < DISPLAY_HEIGHT);
 
 	/* Check if background is enabled */
-	if (LCDC_(0))
+	if (LCDC_(0) && LCDC_(7))
 	{
         /* Get minimum starting address depends on LCDC bits 3 and 6 are set.
         Starts at 0x1800 as this is the VRAM index minus 0x8000 */
