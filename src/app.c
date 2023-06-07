@@ -113,6 +113,7 @@ void app_init (struct App * app)
     app->gbData = (struct gb_data) 
     {
         .palette = 0,
+#ifdef USE_GLFW
         .tileMap = {
             .width = 128,
             .height = 192,
@@ -123,17 +124,8 @@ void app_init (struct App * app)
             .height = DISPLAY_HEIGHT,
             .imgData = calloc (DISPLAY_WIDTH * DISPLAY_HEIGHT * 3, sizeof(uint8_t))
         }
+#endif
     };
-
-    /* Objects for drawing */
-    Scene newDisplay = { .bgColor = { 173, 175, 186 }};
-    app->display = newDisplay;
-
-    /* Assign functions to be used by emulator */
-    app->gb.draw_line = app_draw_line;
-
-    /* Select image to display */
-    app->image = &app->gbData.tileMap;
 
     /* Handle file loading */
     if (!strcmp(app->defaultFile, "\0"))
@@ -150,6 +142,16 @@ void app_init (struct App * app)
     }
 
 #ifdef USE_GLFW
+    /* Objects for drawing */
+    Scene newDisplay = { .bgColor = { 173, 175, 186 }};
+    app->display = newDisplay;
+
+    /* Assign functions to be used by emulator */
+    app->gb.draw_line = app_draw_line;
+
+    /* Select image to display */
+    app->image = &app->gbData.tileMap;
+
     GLFWwindow * window;
 
     if (app->draw)

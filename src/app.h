@@ -8,7 +8,6 @@
 #include "gb.h"
 
 #define GB_DEBUG
-#define USE_GLFW
 
 #ifdef USE_GLFW
     #include "api/glfw/graphics.h"
@@ -42,12 +41,12 @@ struct App
 #ifdef USE_GLFW
         struct Texture tileMap;
         struct Texture frameBuffer;
-        uint8_t palette;
 #endif
 #ifdef USE_TIGR
         Tigr * tileMap;
         Tigr * frameBuffer;
-#endif
+#endif        
+        uint8_t palette;
     }
     gbData;
 
