@@ -24,11 +24,11 @@ struct Cartridge
     uint8_t rtc     : 1;
 
     /* MBC registers */
-    uint8_t bankLo;  /* for most ROMS, 4 MiB and under               */
-    uint8_t bankHi;  /* for RAM bank and/or additional ROM bank bits */
+    uint8_t bank1st;  /* for most ROMS, 4 MiB and under               */
+    uint8_t bank2nd;  /* for RAM bank and/or additional ROM bank bits */
 
     /* Pointer to MBC read/write function */
-    uint8_t (*rw)(struct Cartridge *, const uint16_t addr, const uint8_t val, const uint8_t write);
+    uint8_t (* rw)(struct Cartridge *, const uint16_t addr, const uint8_t val, const uint8_t write);
 
     uint32_t 
         romSizeKB,
@@ -38,8 +38,8 @@ struct Cartridge
     uint8_t  
         totalBanks,
         romMask,
-        bankMode,
-        ramEnabled;
+        mode,
+        usingRAM;
 };
 
 /* Concrete MBC read/write functions */
@@ -49,5 +49,7 @@ uint8_t mbc1_rw (struct Cartridge *, const uint16_t, const uint8_t, const uint8_
 uint8_t mbc2_rw (struct Cartridge *, const uint16_t, const uint8_t, const uint8_t);
 uint8_t mbc3_rw (struct Cartridge *, const uint16_t, const uint8_t, const uint8_t);
 uint8_t mbc5_rw (struct Cartridge *, const uint16_t, const uint8_t, const uint8_t);
+
+extern uint8_t (* cart_rw[])(struct Cartridge *, const uint16_t, const uint8_t, const uint8_t);
 
 #endif
