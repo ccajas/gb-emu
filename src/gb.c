@@ -91,14 +91,15 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
     /* Select MBC for read/write */
     switch (cartType)
     {
-        case 0:             gb->cart.mbc = 0; gb->cart.rw = none_rw; break;
-        case 0x1  ... 0x3:  gb->cart.mbc = 1; gb->cart.rw = mbc1_rw; break;
-        case 0x5  ... 0x6:  gb->cart.mbc = 2; gb->cart.rw = mbc2_rw; break;
-        case 0xF  ... 0x13: gb->cart.mbc = 3; gb->cart.rw = mbc3_rw; break;
-        case 0x19 ... 0x1E: gb->cart.mbc = 5; gb->cart.rw = mbc5_rw; break;
+        case 0:             gb->cart.mbc = 0; break;
+        case 0x1  ... 0x3:  gb->cart.mbc = 1; break;
+        case 0x5  ... 0x6:  gb->cart.mbc = 2; break;
+        case 0xF  ... 0x13: gb->cart.mbc = 3; break;
+        case 0x19 ... 0x1E: gb->cart.mbc = 5; break;
         default: 
             LOG_("GB: MBC not supported.\n"); return;
     }
+    gb->cart.rw = cart_rw[gb->cart.mbc];
 
     printf ("GB: ROM file size (KiB): %d\n", 32 * (1 << header[0x48]));
     printf ("GB: Cart type: %02X Mapper type: %d\n", header[0x47], gb->cart.mbc);
@@ -109,8 +110,8 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
     gb->cart.romSizeKB = 32 * (1 << header[0x48]);
     gb->cart.ramSizeKB = 8 * ramBanks[header[0x49]];
     gb->cart.romMask = (1 << (header[0x48] + 1)) - 1;
-    gb->cart.bankLo = 1;
-    gb->cart.bankHi = 0;
+    gb->cart.bank1st = 1;
+    gb->cart.bank2nd = 0;
     gb->cart.romOffset = 0x4000;
     gb->cart.ramOffset = 0;
 
@@ -144,7 +145,7 @@ void gb_reset (struct GB * gb, uint8_t * bootROM)
     memset(gb->io, 0, sizeof (gb->io));
 
     gb->lineClock = gb->frameClock = 0;
-    gb->divClock = gb->tacClock = 0;
+    gb->divCounter = gb->timCounter = 0;
     gb->clock_t = 0;
     gb->frame = 0;
 }
@@ -157,23 +158,20 @@ void gb_boot_reset (struct GB * gb)
     printf ("GB: Set bootrom to zero\n");
 
     /* Setup CPU registers as if bootrom was loaded */
-    if (!gb->bootRom)
-    {
-        gb->r[A]  = 0x01;
-        gb->flags = 0xB0;
-        gb->r[B]  = 0x0;
-        gb->r[C]  = 0x13;
-        gb->r[D]  = 0x0;
-        gb->r[E]  = 0xD8;
-        gb->r[H]  = 0x01;
-        gb->r[L]  = 0x4D;
-        gb->sp    = 0xFFFE;
-        gb->pc    = 0x0100;
+    gb->r[A]  = 0x01;
+    gb->flags = 0xB0;
+    gb->r[B]  = 0x0;
+    gb->r[C]  = 0x13;
+    gb->r[D]  = 0x0;
+    gb->r[E]  = 0xD8;
+    gb->r[H]  = 0x01;
+    gb->r[L]  = 0x4D;
+    gb->sp    = 0xFFFE;
+    gb->pc    = 0x0100;
 
-        gb->ime = 1;
-        gb->invalid = 0;
-        gb->halted = 0;
-    }
+    gb->ime = 1;
+    gb->invalid = 0;
+    gb->halted = 0;
 
     printf ("GB: Set I/O\n");
 
@@ -201,7 +199,7 @@ void gb_boot_reset (struct GB * gb)
 
     //gb_cpu_state (gb);
     gb->lineClock = gb->frameClock = 0;
-    gb->divClock = gb->tacClock = 0;
+    gb->divCounter = gb->timCounter = 0;
     gb->clock_t = 0;
     gb->frame = 0;
     printf ("CPU state done\n");
@@ -411,12 +409,14 @@ void gb_cpu_exec (struct GB * gb)
 
 void gb_handle_interrupts (struct GB * gb)
 {
+    if (!gb->halted && !gb->ime) return;
+
     /* Get interrupt flags */
     const uint8_t io_IE = gb->io[IntrEnabled % 0x80];
     const uint8_t io_IF = gb->io[IntrFlags];
 
     /* Run if CPU ran HALT instruction or IME enabled w/flags */
-    if (gb->halted || (gb->ime && (io_IE & io_IF & IF_Any)))
+    if (io_IE & io_IF & IF_Any)
     {
         gb->halted = 0;
         gb->ime = 0;
@@ -449,29 +449,35 @@ void gb_handle_interrupts (struct GB * gb)
 
 void gb_handle_timings (struct GB * gb)
 {
-    gb->divClock += gb->rt;
-    while (gb->divClock > DIV_CYCLES)
+    /* Write upper 8 bits to DIV register */
+    gb->divCounter += gb->rt;
+    gb->io[Divider] = gb->divCounter >> 8;
+
+    if (gb->timAOverflow)
     {
-        /* Being uint8_t, Divider automatically resets to zero after 255 */
-        gb->divClock -= DIV_CYCLES;
-        gb->io[Divider]++;
+        /* Set to TMA modulo and request timer interrupt */
+        gb->io[TimA] = gb->io[TMA];
+        gb->io[IntrFlags] |= IF_Timer;
+
+        gb->timAOverflow = 0;
     }
 
-    if (gb->io[TimerCtrl & 0x4]) /* If TAC timer is enabled */
+    gb->timCounter += gb->rt;
+    const uint8_t tac = gb->io[TimerCtrl];
+
+    if (gb->io[tac & 0x4]) /* If TAC timer is enabled */
     {
-        gb->tacClock += gb->rt;
+        const uint16_t clockRates[4] = { 1024, 16, 64, 256 };
+        const uint16_t rate = clockRates[tac & 0x3];
 
-        uint16_t clockRates[4] = {1024, 16, 64, 256 };
-        uint16_t clockRate = clockRates[gb->io[TimerCtrl] & 0x3];
-
-        if (gb->tacClock >= clockRate)
+        while (gb->timCounter > rate)
         {
-            gb->tacClock -= clockRate;
+            gb->timCounter -= rate;
+
             if (gb->io[TimA] == 0xFF)
             {
-                /* Set to TMA modulo and request timer interrupt */
-                gb->io[TimA] = gb->io[TMA];
-                gb->io[IntrFlags] |= IF_Timer;
+                gb->timAOverflow = 1;
+                gb->io[TimA] = 0;
             }
             else
                 gb->io[TimA]++;
@@ -621,17 +627,26 @@ static inline void gb_oam_read (struct GB * gb)
     }
 }
 
-static inline void gb_hblank (struct GB * gb)
-{ 
-    /* Mode 0 - H-blank */
-    if (IO_STAT_MODE != Stat_HBlank)
-    {  
+static inline void gb_transfer (struct GB * gb)
+{
+    /* Mode 3 - Transfer to LCD */
+    if (IO_STAT_MODE != Stat_Transfer)
+    {
+        gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
+
         /* Fetch line of pixels for the screen and draw them */
         if (gb->frame == 0) {
             uint8_t * pixels = gb_pixel_fetch (gb);
             gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
         }
+    }
+}
 
+static inline void gb_hblank (struct GB * gb)
+{ 
+    /* Mode 0 - H-blank */
+    if (IO_STAT_MODE != Stat_HBlank)
+    {  
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;
         /* Mode 0 interrupt */
         if LCDC_(3) gb->io[IntrFlags] |= IF_LCD_STAT;
@@ -706,9 +721,7 @@ void gb_render (struct GB * const gb)
         }
         else if (gb->lineClock < TICKS_TRANSFER)
         {
-            /* Mode 3 - Transfer to LCD */
-            if (IO_STAT_MODE != Stat_Transfer)
-                gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
+            gb_transfer (gb);
         }
         else if (gb->lineClock < TICKS_HBLANK)
         {
