@@ -91,17 +91,17 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
     /* Select MBC for read/write */
     switch (cartType)
     {
-        case 0:             gb->cart.rw = none_rw; break;
-        case 0x1  ... 0x3:  gb->cart.rw = mbc1_rw; break;
-        case 0x5  ... 0x6:  gb->cart.rw = mbc2_rw; break;
-        case 0xF  ... 0x13: gb->cart.rw = mbc3_rw; break;
-        case 0x19 ... 0x1E: gb->cart.rw = mbc5_rw; break;
+        case 0:             gb->cart.mbc = 0; gb->cart.rw = none_rw; break;
+        case 0x1  ... 0x3:  gb->cart.mbc = 1; gb->cart.rw = mbc1_rw; break;
+        case 0x5  ... 0x6:  gb->cart.mbc = 2; gb->cart.rw = mbc2_rw; break;
+        case 0xF  ... 0x13: gb->cart.mbc = 3; gb->cart.rw = mbc3_rw; break;
+        case 0x19 ... 0x1E: gb->cart.mbc = 5; gb->cart.rw = mbc5_rw; break;
         default: 
             LOG_("GB: MBC not supported.\n"); return;
     }
 
     printf ("GB: ROM file size (KiB): %d\n", 32 * (1 << header[0x48]));
-    printf ("GB: Cart type: %02X\n", header[0x47]);
+    printf ("GB: Cart type: %02X Mapper type: %d\n", header[0x47], gb->cart.mbc);
     
     const uint8_t ramBanks[] = { 0, 0, 1, 4, 16, 8 };
 
@@ -114,7 +114,7 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
     gb->cart.romOffset = 0x4000;
     gb->cart.ramOffset = 0;
 
-    printf ("GB: Rom mask: %d\n", gb->cart.romMask);
+    printf ("GB: ROM mask: %d\n", gb->cart.romMask);
 
     if (bootRom != NULL)
     {
@@ -536,7 +536,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             const uint8_t relX = posX % 8;
 
             /* Stop BG rendering if window is found here */
-            if (lineX + 7 >= gb->io[WindowX] && lineY >= gb->io[WindowY])
+            if (gb->io[WindowX] - 7 >= lineX && lineY >= gb->io[WindowY])
                 break;
 
             /* Get next tile being scrolled in */
@@ -566,6 +566,9 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             pixels[lineX] = (gb->io[BGPalette] >> (index * 2)) & 3;
         }
 
+        /* Leave prematurely if window is disabled */
+        //if (!LCDC_(5)) return pixels;
+
         /* Get line of window to draw */
         posY = lineY - gb->io[WindowY];
 
@@ -577,9 +580,8 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             winTileMap  = (LCDC_(6)) ? 0x9C00 : 0x9800;
             tileAddr = winTileMap + 
                 ((posY >> 3) << 5) +  /* Bits 5-9, Y location */
-                ((windowX) >> 3);         /* Bits 0-4, X location */
+                ((windowX) >> 3);     /* Bits 0-4, X location */
             tileID = gb->vram[tileAddr & 0x1FFF];
-            //printf("TileID: %d at row %d\n", tileID, windowX);
 
             /* Tilemap location depends on LCDC 4 set, which are different rules for BG and Window tiles */
             /* Fetcher gets low byte and high byte for tile */
