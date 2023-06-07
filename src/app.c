@@ -76,7 +76,7 @@ void drop_callback(GLFWwindow * window, int count, const char** paths)
     strcpy(app->defaultFile, paths[0]);
 
     /* Copy ROM to cart */
-    if (app_load(app->defaultFile, &app->gb))
+    if (app_load(&app->gb, app->defaultFile))
     {
         app->gb.extData.ptr = &app->gbData;
         app->paused = 0;
@@ -112,8 +112,6 @@ void app_init (struct App * app)
 
     app->gbData = (struct gb_data) 
     {
-        .rom = NULL,
-        .bootRom = NULL,
         .palette = 0,
         .tileMap = {
             .width = 128,
@@ -143,7 +141,7 @@ void app_init (struct App * app)
     else
     {
         /* Copy ROM to cart */
-        if (app_load(app->defaultFile, &app->gb))
+        if (app_load(&app->gb, app->defaultFile))
         {
             app->gb.extData.ptr = &app->gbData;
             app->paused = 0;
@@ -190,7 +188,7 @@ void app_init (struct App * app)
 #endif
 }
 
-uint8_t * app_load (const char * fileName, struct GB * gb)
+uint8_t * app_load (struct GB * gb, const char * fileName)
 { 
     /* Load file from command line */
     FILE * f = fopen (fileName, "rb");
@@ -209,13 +207,21 @@ uint8_t * app_load (const char * fileName, struct GB * gb)
     uint8_t * rom = calloc(size, sizeof (uint8_t));
     if (!fread (rom, size, 1, f))
         return NULL;
-        
     fclose (f);
 
+    /* Load boot file */
+    FILE * fb = fopen ("test/dmg_boot.bin", "rb");
+    
+    uint8_t * boot = calloc(BOOT_ROM_SIZE, sizeof (uint8_t));
+    if (!fread (boot, BOOT_ROM_SIZE, 1, f))
+        boot = NULL;
+
+    fclose (fb);
+
     /* Copy ROM to cart */
-    LOG_("%s\n", fileName);
+    LOG_("GB: \"%s\"\n", fileName);
     gb->cart.romData = rom;
-    if (gb->cart.romData) gb_init (gb, NULL);
+    if (gb->cart.romData) gb_init (gb, boot);
 
     return rom;
 }

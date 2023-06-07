@@ -78,9 +78,9 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
         checksum = checksum - gb->cart.romData[addr] - 1;
     }
     if (gb->cart.romData[0x14D] != checksum)
-        LOG_("Invalid checksum!\n");
+        LOG_(" %c%c Invalid checksum!\n", 192,196);
     else
-        LOG_("Valid checksum '%02X'\n", checksum);
+        LOG_(" %c%c Valid checksum '%02X'\n", 192,196, checksum);
 
     /* Get cartridge type and MBC from header */
     memcpy (gb->cart.header, gb->cart.romData + 0x100, 80 * sizeof(uint8_t));
@@ -128,7 +128,7 @@ void gb_reset (struct GB * gb, uint8_t * bootROM)
     gb->io[Joypad]     = 0xCF;
     gb->io[BootROM]    = 0;
 
-    printf ("GB: Load Bootrom\n");
+    printf ("GB: Load Boot ROM\n");
 
     gb->pc = 0;
     gb->ime = 0;

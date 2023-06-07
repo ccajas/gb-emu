@@ -12,6 +12,7 @@
 #define DISPLAY_HEIGHT    144
 #define SCAN_LINES        154
 
+#define BOOT_ROM_SIZE 0x100
 #define VRAM_SIZE     0x2000
 #define WRAM_SIZE     0x2000
 #define OAM_SIZE      0xA0

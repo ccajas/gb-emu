@@ -38,9 +38,6 @@ struct App
     /* Container for GB emulation data */
     struct gb_data
     {
-        uint8_t * bootRom;
-        uint8_t * rom;
-
         /* Used for drawing the display and tilemap */
 #ifdef USE_GLFW
         struct Texture tileMap;
@@ -68,7 +65,7 @@ struct App
 #endif
 };
 
-uint8_t * app_load (const char *, struct GB *);
+uint8_t * app_load (struct GB *, const char * romName);
 
 void app_config (struct App *, uint8_t const argc, char * const argv[]);
 void app_init   (struct App *);
