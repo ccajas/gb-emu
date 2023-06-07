@@ -513,19 +513,19 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
         /* Get minimum starting address depends on LCDC bits 3 and 6 are set.
         Starts at 0x1800 as this is the VRAM index minus 0x8000 */
         uint16_t BGTileMap  = (LCDC_(3)) ? 0x9C00 : 0x9800;
-        //const uint16_t winTileMap = (gb->io[IO_LCDControl] & 0x40) ? 0x9C00 : 0x9800;
+        uint16_t winTileMap = (LCDC_(6)) ? 0x9C00 : 0x9800;
 
         /* X position counter */
         uint8_t lineX = 0;
         const uint8_t lineY = gb->io[LY];
-        const uint8_t posY = lineY + gb->io[ScrollY];
+        uint8_t posY = lineY + gb->io[ScrollY];
 
         uint16_t tileAddr, tileID, bit12, tileRow;
         /* For storing pixel bytes */
         uint8_t byteLo = 0;
         uint8_t byteHi = 0;
 
-        /* Run at least 20 times (for the 160 pixel length) */
+        /* Run at most 20 times (for the 160 pixel length) */
         for (lineX = 0; lineX < DISPLAY_WIDTH; lineX++)
         {
             /* BG tile fetcher gets tile ID. Bits 0-4 define X loction, bits 5-9 define Y location
@@ -534,6 +534,10 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
 
             const uint8_t posX = lineX + gb->io[ScrollX];
             const uint8_t relX = posX % 8;
+
+            /* Stop BG rendering if window is found here */
+            if (lineX + 7 >= gb->io[WindowX] && lineY >= gb->io[WindowY])
+                break;
 
             /* Get next tile being scrolled in */
             if (lineX == 0 || relX == 0)
@@ -560,6 +564,42 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             const uint8_t index = (bitHi << 1) + bitLo;
             
             pixels[lineX] = (gb->io[BGPalette] >> (index * 2)) & 3;
+        }
+
+        /* Get line of window to draw */
+        posY = lineY - gb->io[WindowY];
+
+        /* Draw window if visible */
+        uint8_t windowX;
+        for (windowX = 0; windowX < DISPLAY_WIDTH - lineX; windowX += 8)
+        {
+            /* Get next tile for window */
+            winTileMap  = (LCDC_(6)) ? 0x9C00 : 0x9800;
+            tileAddr = winTileMap + 
+                ((posY >> 3) << 5) +  /* Bits 5-9, Y location */
+                ((windowX) >> 3);         /* Bits 0-4, X location */
+            tileID = gb->vram[tileAddr & 0x1FFF];
+            //printf("TileID: %d at row %d\n", tileID, windowX);
+
+            /* Tilemap location depends on LCDC 4 set, which are different rules for BG and Window tiles */
+            /* Fetcher gets low byte and high byte for tile */
+            bit12 = !(LCDC_(4) || (tileID & 0x80)) << 12;
+            tileRow = 0x8000 + bit12 + (tileID << 4) + ((posY & 7) << 1);
+
+            /* Finally get the pixel bytes from these addresses */
+            byteLo = gb->vram[tileRow & 0x1FFF];
+            byteHi = gb->vram[(tileRow + 1) & 0x1FFF];
+
+            int x;
+            for (x = 0; x < 8; x++)
+            {
+                /* Produce pixel data from the combined bytes*/
+                const uint8_t bitLo = (byteLo >> (7 - x)) & 1;
+                const uint8_t bitHi = (byteHi >> (7 - x)) & 1;
+                const uint8_t index = (bitHi << 1) + bitLo;
+                
+                pixels[lineX + windowX + x] = (gb->io[BGPalette] >> (index * 2)) & 3;
+            }
         }
     }
 
