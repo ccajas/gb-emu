@@ -53,7 +53,8 @@ struct GB
     uint32_t frameClock;
     uint8_t  frame;
 
-    uint16_t divCounter, timCounter;
+    uint16_t divCounter;
+    uint32_t timCounter;
     uint8_t  timAOverflow;
     uint8_t  rt; /* Tracks individual step clocks */
 

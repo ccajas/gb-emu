@@ -5,7 +5,7 @@
 #include "gb.h"
 #include "ops.h"
 
-#define CPU_INSTRS_
+#define CPU_INSTRS
 
 inline uint8_t gb_ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
@@ -222,7 +222,7 @@ const int8_t opTicks[256] = {
      4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4,
      4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4,
 
-     8, 12, 12, 16, 12, 16,  8, 16,  8, 16, 12,  0, 12, 24,  8, 16,  /* Cx */
+     8, 12, 12, 16, 12, 16,  8, 16,  8, 16, 12,  4, 12, 24,  8, 16,  /* Cx */
      8, 12, 12,  4, 12, 16,  8, 16,  8, 16, 12,  4, 12,  4,  8, 16,
     12, 12,  8,  4,  4, 16,  8, 16, 16,  4, 16,  4,  4,  4,  8, 16,
     12, 12,  8,  4,  4, 16,  8, 16, 12,  8, 16,  4,  0,  4,  8, 16
@@ -259,7 +259,6 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
                 case 0x38      ... 0x3D:  case 0x3F: SRL     break;
                 case 0x36: SWAPHL  break; case 0x3E: SRLHL   break;
             }
-            if (op & 7) gb->rt += 8;
         break;
         case 8 ... 0xF:
             /* Bit test */
@@ -424,10 +423,12 @@ void gb_handle_interrupts (struct GB * gb)
         /* Check all 5 IE and IF bits for flag confirmations 
            This loop also services interrupts by priority (0 = highest) */
         uint8_t i;
-        for (i = 0; i < 5; i++)
+        uint16_t addr = 0x40;
+        for (i = IF_VBlank; i <= IF_Joypad; i *= 2)
         {
-            const uint16_t requestAddress = 0x40 + (i * 8);
-            const uint8_t flag = 1 << i;
+            const uint16_t requestAddress = addr;
+            const uint8_t flag = i;
+            addr += 8;
 
             if ((io_IE & flag) && (io_IF & flag))
             {
@@ -620,7 +621,7 @@ static inline void gb_oam_read (struct GB * gb)
     if (IO_STAT_MODE != Stat_OAM_Search)
     {
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_OAM_Search;
-        if LCDC_(5) gb->io[IntrFlags] |= IF_LCD_STAT;      /* Mode 2 interrupt */
+        if STAT_(5) gb->io[IntrFlags] |= IF_LCD_STAT;      /* Mode 2 interrupt */
 
         /* Fetch OAM data for sprites to be drawn on this line */
         //ppu_OAM_fetch (ppu, io_regs);
@@ -646,10 +647,10 @@ static inline void gb_hblank (struct GB * gb)
 { 
     /* Mode 0 - H-blank */
     if (IO_STAT_MODE != Stat_HBlank)
-    {  
+    {
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;
         /* Mode 0 interrupt */
-        if LCDC_(3) gb->io[IntrFlags] |= IF_LCD_STAT;
+        if STAT_(3) gb->io[IntrFlags] |= IF_LCD_STAT;
     }
 }
 
@@ -682,7 +683,7 @@ static inline void gb_vblank (struct GB * const gb)
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
         gb->io[IntrFlags] |= IF_VBlank;
         /* Mode 1 interrupt */
-        if LCDC_(4) gb->io[IntrFlags] |= IF_LCD_STAT;
+        if STAT_(4) gb->io[IntrFlags] |= IF_LCD_STAT;
     }
 }
 
