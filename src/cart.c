@@ -1,4 +1,9 @@
+#include <stdio.h>
 #include "cart.h"
+
+/* Mask ROM bank on every read */
+
+#define RMASK_(X)  (X & cart->romMask)
 
 /* Read/write implementations for different MBCs */
 
@@ -17,9 +22,9 @@ uint8_t mbc1_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
         if (addr <= 0x3FFF) return cart->romData[addr];
         if (addr <= 0x7FFF) {
             if (!cart->bankMode && cart->romSizeKB >= 1024)
-                return cart->romData[((cart->bankHi << 5) + cart->bankLo) * 0x4000 + addr];
+                return cart->romData[RMASK_(((cart->bankHi << 5) + cart->bankLo)) * 0x4000 + addr];
             else
-                return cart->romData[(cart->bankLo - 1) * 0x4000 + addr];
+                return cart->romData[RMASK_((cart->bankLo - 1)) * 0x4000 + addr];
         }
         if (addr >= 0xA000 && addr <= 0xBFFF) {
             if (cart->ram) {
@@ -49,15 +54,15 @@ uint8_t mbc2_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
     if (!write) /* Read from cartridge */
     {
         if (addr <= 0x3FFF) return cart->romData[addr];
-        if (addr <= 0x7FFF) return cart->romData[(cart->bankLo - 1) * 0x4000 + addr];
+        if (addr >= 0x4000 && addr <= 0x7FFF) return cart->romData[RMASK_((cart->bankLo - 1)) * 0x4000 + addr];
         if (addr >= 0xA000 && addr <= 0xBFFF)                                 /* Return only lower 4 bits  */
-            return (cart->ramEnabled) ? (cart->ramData[(addr & 0x1FF)] & 0xF) : 0xF;
+            return 0;//(cart->ramEnabled) ? (cart->ramData[(addr & 0x1FF)] & 0xF) : 0xF;
     }
     else /* Write to registers */
     {
         if (addr <= 0x3FFF) {
-            if (addr & 0x10) { cart->bankLo = (val == 0) ? 1 : (val & 0xF); } /* LSB == 1, ROM bank select */
-            if (!(addr & 0x10)) { cart->ramEnabled = (val == 0xA) ? 1 : 0;  } /* LSB == 0, RAM enable      */
+            if (addr & 0x100)    { cart->bankLo = ((val == 0) ? 1 : (val & 0xF)); } /* LSB == 1, ROM bank select */
+            if (!(addr & 0x100)) { cart->ramEnabled = (val == 0xA) ? 1 : 0; }       /* LSB == 0, RAM enable      */
         }
     }
     return 0;
@@ -68,7 +73,7 @@ uint8_t mbc3_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
     if (!write) /* Read from cartridge */
     {
         if (addr <= 0x3FFF) return cart->romData[addr];
-        if (addr <= 0x7FFF) return cart->romData[(cart->bankLo - 1) * 0x4000 + addr];
+        if (addr <= 0x7FFF) return cart->romData[RMASK_((cart->bankLo - 1)) * 0x4000 + addr];
     }
     else /* Write to registers */
     {

@@ -5,7 +5,7 @@
 #include "gb.h"
 #include "ops.h"
 
-#define CPU_INSTRS
+#define CPU_INSTRS_
 
 inline uint8_t gb_ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
@@ -108,10 +108,13 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
     /* Add other metadata */
     gb->cart.romSizeKB = 32 * (1 << header[0x48]);
     gb->cart.ramSizeKB = 8 * ramBanks[header[0x49]];
+    gb->cart.romMask = (1 << (header[0x48] + 1)) - 1;
     gb->cart.bankLo = 1;
     gb->cart.bankHi = 0;
     gb->cart.romOffset = 0x4000;
     gb->cart.ramOffset = 0;
+
+    printf ("GB: Rom mask: %d\n", gb->cart.romMask);
 
     if (bootRom != NULL)
     {

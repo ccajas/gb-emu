@@ -37,6 +37,7 @@ struct Cartridge
         ramOffset;
     uint8_t  
         totalBanks,
+        romMask,
         bankMode,
         ramEnabled;
 };
