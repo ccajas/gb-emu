@@ -53,7 +53,7 @@ struct GB
     uint32_t frameClock;
     uint8_t  frame;
 
-    uint16_t divCounter;
+    uint16_t divClock;
     uint32_t timCounter;
     uint8_t  timAOverflow;
     uint8_t  rt; /* Tracks individual step clocks */
@@ -154,10 +154,9 @@ static inline void gb_step (struct GB * gb)
     {    /* Load next op and execute */
         gb_cpu_exec (gb);
     }
+    gb_cpu_state(gb);
 
     gb->clock_t += gb->rt;
-
-    gb_handle_timings (gb);
     gb_render (gb);
 }
 

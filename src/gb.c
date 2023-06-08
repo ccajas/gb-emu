@@ -26,7 +26,7 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
         return gb->io[addr % 0x80];
     else
     {
-        if (addr % 0x80 == Divider) { gb->io[Divider] = 0; return 0; }            /* DIV reset */
+        if (addr % 0x80 == Divider) { gb->divClock = 0; return 0; }               /* DIV reset */
         if (addr % 0x80 == DMA) {   /* OAM DMA transfer. Todo: Make it write across 160 cycles */
             gb->io[DMA] = val; int i = 0;
             const uint16_t src = val << 8;
@@ -39,11 +39,11 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
 uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
     /* For debug logging purposes */
-    /*if (addr == 0xFF44 && !write) return 0x90;*/
+    if (addr == 0xFF44 && !write) return 0x90;
 
     /* For Blargg's CPU instruction tests */
 #ifdef CPU_INSTRS
-    if (gb->io[SerialCtrl] == 0x81) { LOG_("%c", gb->io[SerialData]); gb->io[SerialCtrl] = 0x0; }
+    //if (gb->io[SerialCtrl] == 0x81) { LOG_("%c", gb->io[SerialData]); gb->io[SerialCtrl] = 0x0; }
 #endif
 
     /* Byte to be accessed from memory */
@@ -145,7 +145,7 @@ void gb_reset (struct GB * gb, uint8_t * bootROM)
     memset(gb->io, 0, sizeof (gb->io));
 
     gb->lineClock = gb->frameClock = 0;
-    gb->divCounter = gb->timCounter = 0;
+    gb->divClock = gb->timCounter = 0;
     gb->clock_t = 0;
     gb->frame = 0;
 }
@@ -197,9 +197,9 @@ void gb_boot_reset (struct GB * gb)
 
     printf ("Memset done\n");
 
-    //gb_cpu_state (gb);
+    gb_cpu_state (gb);
     gb->lineClock = gb->frameClock = 0;
-    gb->divCounter = gb->timCounter = 0;
+    gb->divClock = gb->timCounter = 0;
     gb->clock_t = 0;
     gb->frame = 0;
     printf ("CPU state done\n");
@@ -402,7 +402,10 @@ void gb_cpu_exec (struct GB * gb)
     {
         gb->stop = 0;
         /* Todo: Read joypad button selection/press */
-        gb->io[Divider] = 0;
+        gb->divClock = 0;
+    }
+    else {
+        gb_handle_timings (gb);
     }
 }
 
@@ -424,7 +427,7 @@ void gb_handle_interrupts (struct GB * gb)
            This loop also services interrupts by priority (0 = highest) */
         uint8_t i;
         uint16_t addr = 0x40;
-        for (i = IF_VBlank; i <= IF_Joypad; i *= 2)
+        for (i = IF_VBlank; i <= IF_Joypad; i <<= 1)
         {
             const uint16_t requestAddress = addr;
             const uint8_t flag = i;
@@ -450,9 +453,10 @@ void gb_handle_interrupts (struct GB * gb)
 
 void gb_handle_timings (struct GB * gb)
 {
-    /* Write upper 8 bits to DIV register */
-    gb->divCounter += gb->rt;
-    gb->io[Divider] = gb->divCounter >> 8;
+    /* Increment div every 4 t-cycles and save bits 6-13 to DIV register */
+    uint16_t lastDiv = gb->divClock;
+    gb->divClock += (gb->rt >> 2);
+    gb->io[Divider] = (gb->divClock >> 6) & 0xFF;
 
     if (gb->timAOverflow)
     {
@@ -469,19 +473,13 @@ void gb_handle_timings (struct GB * gb)
     if (gb->io[tac & 0x4]) /* If TAC timer is enabled */
     {
         const uint16_t clockRates[4] = { 1024, 16, 64, 256 };
-        const uint16_t rate = clockRates[tac & 0x3];
+        const uint16_t rate = clockRates[tac & 0x3] >> 2;
 
-        while (gb->timCounter > rate)
+        if ((gb->divClock / rate) != (lastDiv / rate))
         {
-            gb->timCounter -= rate;
-
-            if (gb->io[TimA] == 0xFF)
-            {
+            gb->io[TimA]++;
+            if (gb->io[TimA] == 0)
                 gb->timAOverflow = 1;
-                gb->io[TimA] = 0;
-            }
-            else
-                gb->io[TimA]++;
         }
     }
 }
