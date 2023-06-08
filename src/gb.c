@@ -26,6 +26,9 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
         return gb->io[addr % 0x80];
     else
     {
+        if (addr % 0x80 == BootROM) {
+            LOG_("Writing value to bootROM %d\n", val);
+        }
         if (addr % 0x80 == Divider) { gb->divClock = 0; return 0; }               /* DIV reset */
         if (addr % 0x80 == DMA) {   /* OAM DMA transfer. Todo: Make it write across 160 cycles */
             gb->io[DMA] = val; int i = 0;
@@ -52,7 +55,8 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
     struct Cartridge * cart = &gb->cart;
 
     if (addr < 0x0100 && !gb->io[BootROM])                        /* Run boot ROM if needed */
-        { if (!write) { return gb->bootRom[addr]; } else { return 0; }}
+        { LOG_("Bootrom is set to %d\n", gb->io[BootROM]);
+            if (!write) { return gb->bootRom[addr]; } else { return 0; }}
     if (addr < 0x8000)  return cart->rw (cart, addr, val, write);       /* ROM from MBC     */
     if (addr < 0xA000)  return gb_ppu_rw (gb, addr, val, write);        /* Video RAM        */
     if (addr < 0xC000)  return cart->rw (cart, addr, val, write);       /* External RAM     */
@@ -155,8 +159,6 @@ void gb_boot_reset (struct GB * gb)
     gb->bootRom = NULL;
     gb->extData.joypad = 0xFF;
 
-    printf ("GB: Set bootrom to zero\n");
-
     /* Setup CPU registers as if bootrom was loaded */
     gb->r[A]  = 0x01;
     gb->flags = 0xB0;
@@ -173,6 +175,7 @@ void gb_boot_reset (struct GB * gb)
     gb->invalid = 0;
     gb->halted = 0;
 
+    printf ("GB: Launch without boot ROM\n");
     printf ("GB: Set I/O\n");
 
     /* Initalize I/O registers (DMG) */
@@ -375,7 +378,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         break;
         case 0x10 ... 0x17:
             /* 8-bit arithmetic */
-            hl = CPU_RB (ADDR_HL); 
+            hl = CPU_RB (ADDR_HL);
             /* Mask bits for ALU operations */
             switch (op & 0xF8) {
                 case 0x80: if (op == 0x86) { ADD_A_HL } else { ADD_A_r8 } break;
@@ -445,30 +448,42 @@ void gb_handle_interrupts (struct GB * gb)
 
 void gb_handle_timings (struct GB * gb)
 {
-    /* Increment div every 4 t-cycles and save bits 6-13 to DIV register */
-    uint16_t lastDiv = gb->divClock;
+    /* Increment div every m-cycle and save bits 6-13 to DIV register */
+    const uint16_t lastDiv = gb->divClock;
     gb->divClock++;
     gb->io[Divider] = (gb->divClock >> 6) & 0xFF;
 
-    /* Leave if timer is disabled */
-    const uint8_t tac = gb->io[TimerCtrl];
-    if (gb->io[tac & 0x4]) return;
-
-    /* Request timer interrupt if pending */
-    if (gb->io[TimA] == 0)
+    if (gb->timAOverflow)
     {
-        gb->io[TimA] = gb->io[TMA];
+        /* Check overflow in the next cycle */
         gb->io[IntrFlags] |= IF_Timer;
+        CPU_WB (0xFF00 + TimA, gb->io[TMA]);
+
+        gb_handle_interrupts (gb);
+        gb->timAOverflow = 0;
     }
+
+    /* Leave if timer is disabled */
+    const uint8_t tac = CPU_RB (0xFF00 + TimerCtrl);
+    if (!(tac & 0x4)) return;
 
     /* Update timer, check for overflow  */
     const uint16_t clockRates[4] = { 1024, 16, 64, 256 };
-    const uint16_t rate = clockRates[tac & 0x3];
+    const uint16_t rate = clockRates[tac & 0x3] >> 2;
+    const uint16_t incr = (gb->divClock / rate) != (lastDiv / rate);
 
-    if ((gb->divClock / rate) != (lastDiv / rate))
+    if (incr)
     {
-        /* Check overflow in the next cycle */
-        gb->io[TimA]++;
+        uint8_t timA = CPU_RB (0xFF00 + TimA);
+
+        /* Request timer interrupt if pending */
+        if ((uint16_t)(timA + incr) >= 0xFF)
+        {
+            CPU_WB (0xFF00 + TimA, 0);
+            gb->timAOverflow = 1;
+        }
+        else
+            CPU_WB (0xFF00 + TimA, timA + incr);
     }
 }
 
