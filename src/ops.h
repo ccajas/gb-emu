@@ -120,6 +120,56 @@
 
 /* Add and subtract */
 
+#define ADD_A(X) {\
+    OP(ADD_A);\
+    uint8_t tmp = gb->r[A] + X;\
+	SET_FLAG_Z (tmp);\
+	gb->f_n = 0;\
+	SET_FLAG_H_S (gb->r[A] ^ X ^ tmp);\
+	gb->f_c = (gb->r[A] > tmp);\
+	gb->r[A] = tmp;\
+}
+
+#define SUB_A(X) {\
+    OP(SUB_A);\
+    uint8_t tmp = gb->r[A] - X;\
+    SET_FLAG_Z (tmp);\
+    gb->f_n = 1;\
+    SET_FLAG_H_S (gb->r[A] ^ X ^ tmp);\
+    gb->f_c = (tmp > gb->r[A]);\
+	gb->r[A] = tmp;\
+}
+
+#define ADC_A(X) {\
+    OP(ADC_A);\
+    uint16_t tmp = gb->r[A] + X + gb->f_c;\
+	SET_FLAG_Z ((tmp & 0xFF));\
+	gb->f_n = 0;\
+	SET_FLAG_H_S (gb->r[A] ^ X ^ tmp);\
+	gb->f_c = (tmp >= 0x100);\
+	gb->r[A] = tmp & 0xFF;\
+}
+
+#define SBC_A(X) {\
+    OP(SBC_A);\
+    uint16_t tmp = gb->r[A] - gb->f_c - X;\
+    SET_FLAG_Z ((tmp & 0xFF));\
+    gb->f_n = 1;\
+    SET_FLAG_H_S (gb->r[A] ^ X ^ tmp);\
+    gb->f_c = (tmp & 0xFF00) ? 1 : 0;\
+    gb->r[A] = (tmp & 0xFF);\
+}
+
+#define ADD_A_r8  ADD_A(gb->r[r2])
+#define ADD_A_HL  ADD_A(hl)
+#define SUB_A_r8  SUB_A(gb->r[r2])
+#define SUB_A_HL  SUB_A(hl)
+
+#define ADC_A_r8  ADC_A(gb->r[r2])
+#define ADC_A_HL  ADC_A(hl)
+#define SBC_A_r8  SBC_A(gb->r[r2])
+#define SBC_A_HL  SBC_A(hl)
+
 #define ADD      OP(ADD); {\
     uint8_t tmp = gb->r[A] + gb->r[r2];\
 	SET_FLAG_Z ((tmp & 0xFF));\
