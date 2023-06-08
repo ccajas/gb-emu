@@ -232,7 +232,7 @@
 
 #define CCF     OP(CCF);  gb->f_c = !gb->f_c; gb->f_n = gb->f_h = 0;
 #define SCF     OP(SCF);  gb->f_c = 1; gb->f_n = gb->f_h = 0;
-#define HALT    OP(HALT); gb->halted = 1; 
+#define HALT    OP(HALT); if (gb->ime) gb->halted = 1; 
 #define STOP    OP(STOP); gb->stop = 1; /* STOP is handled after switch/case */
 #define NOP     OP(NOP);
 #define DI      OP(DI);   gb->ime = 0; 
@@ -246,13 +246,13 @@
 #define JRm     OP(JRm);  gb->pc += (int8_t) CPU_RB (gb->pc); gb->pc++;
 
     /* Jump and call function templates */
-    #define JP_IF(X)   if (X) { gb->pc = CPU_RW (gb->pc); gb->rt += 4; } else gb->pc += 2;
-    #define JR_IF(X)   if (X) { gb->pc += (int8_t) CPU_RB (gb->pc); gb->rt += 4; } gb->pc++;   
-    #define CALL_IF(X) if (X) { gb->sp -= 2; CPU_WW (gb->sp, (gb->pc + 2)); gb->pc = CPU_RW (gb->pc); gb->rt += 12; } else gb->pc += 2;
+    #define JP_IF(X)   if (X) { gb->pc = CPU_RW (gb->pc); gb->rm++; } else gb->pc += 2;
+    #define JR_IF(X)   if (X) { gb->pc += (int8_t) CPU_RB (gb->pc); gb->rm++; } gb->pc++;   
+    #define CALL_IF(X) if (X) { gb->sp -= 2; CPU_WW (gb->sp, (gb->pc + 2)); gb->pc = CPU_RW (gb->pc); gb->rm += 3; } else gb->pc += 2;
 
     /* Return function templates */
     #define RET__     gb->pc = CPU_RW (gb->sp); gb->sp += 2;
-    #define RET_IF(X) if (X) { RET__; gb->rt += 12; }
+    #define RET_IF(X) if (X) { RET__; gb->rm += 3; }
 
 /* Conditional jump */
 
@@ -390,5 +390,5 @@
 
 /* Misc instructions */
 
-#define PREFIX    OP(PREFIX)   { uint8_t cb = CPU_RB (gb->pc++); gb_exec_cb (gb, cb); }
+#define PREFIX    OP(PREFIX)   /*{ uint8_t cb = CPU_RB (gb->pc++); gb_exec_cb (gb, cb); }*/
 #define INVALID   OP(INVALID); gb->invalid = 1;

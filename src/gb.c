@@ -39,7 +39,7 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
 uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
     /* For debug logging purposes */
-    if (addr == 0xFF44 && !write) return 0x90;
+    //if (addr == 0xFF44 && !write) return 0x90;
 
     /* For Blargg's CPU instruction tests */
 #ifdef CPU_INSTRS
@@ -230,6 +230,8 @@ const int8_t opTicks[256] = {
 
 void gb_exec_cb (struct GB * gb, const uint8_t op)
 {
+    gb->rm = 3;
+
     const uint8_t opL  = op & 0xf;
     const uint8_t opHh = op >> 3; /* Octal divisions */
 
@@ -238,7 +240,6 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
 
     /* Fetch value at address (HL) if it's needed */
     uint8_t hl = (opL == 0x6 || opL == 0xE) ? CPU_RB (ADDR_HL) : 0;
-    gb->rm += 2;
 
     switch (opHh)
     {
@@ -275,16 +276,10 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
     /* Write back to (HL) for most (HL) operations except BIT */
     if ((op & 7) == 6 && (opHh < 8 || opHh > 0xF))
         CPU_WB (ADDR_HL, hl);
-        
-    gb->rt = gb->rm * 4;
 }
 
-void gb_cpu_exec (struct GB * gb)
+void gb_cpu_exec (struct GB * gb, const uint8_t op)
 {
-    gb->rt = 0;
-    gb->rm = 0;
-
-    const uint8_t op  = CPU_RB (gb->pc++);
     const uint8_t opL = op & 0xf;
     const uint8_t opHh = op >> 3; /* Octal divisions */
     uint16_t hl = ADDR_HL;
@@ -396,9 +391,6 @@ void gb_cpu_exec (struct GB * gb)
     }
 
     gb->rm += opTicks[op];
-    gb->rt = gb->rm * 4;
-    gb->clock_m += gb->rm;
-    gb->clock_t += gb->rm * 4;
 
     /* Handle effects of STOP instruction */
     if (op == 0x10 && gb->stop)
@@ -406,9 +398,6 @@ void gb_cpu_exec (struct GB * gb)
         gb->stop = 0;
         /* Todo: Read joypad button selection/press */
         gb->divClock = 0;
-    }
-    else {
-        gb_handle_timings (gb);
     }
 }
 
@@ -458,31 +447,28 @@ void gb_handle_timings (struct GB * gb)
 {
     /* Increment div every 4 t-cycles and save bits 6-13 to DIV register */
     uint16_t lastDiv = gb->divClock;
-    gb->divClock += (gb->rt >> 2);
+    gb->divClock++;
     gb->io[Divider] = (gb->divClock >> 6) & 0xFF;
 
-    if (gb->timAOverflow)
+    /* Leave if timer is disabled */
+    const uint8_t tac = gb->io[TimerCtrl];
+    if (gb->io[tac & 0x4]) return;
+
+    /* Request timer interrupt if pending */
+    if (gb->io[TimA] == 0)
     {
-        /* Set to TMA modulo and request timer interrupt */
         gb->io[TimA] = gb->io[TMA];
         gb->io[IntrFlags] |= IF_Timer;
-
-        gb->timAOverflow = 0;
     }
 
-    const uint8_t tac = gb->io[TimerCtrl];
+    /* Update timer, check for overflow  */
+    const uint16_t clockRates[4] = { 1024, 16, 64, 256 };
+    const uint16_t rate = clockRates[tac & 0x3];
 
-    if (gb->io[tac & 0x4]) /* If TAC timer is enabled */
+    if ((gb->divClock / rate) != (lastDiv / rate))
     {
-        const uint16_t clockRates[4] = { 1024, 16, 64, 256 };
-        const uint16_t rate = clockRates[tac & 0x3] >> 2;
-
-        if ((gb->divClock / rate) != (lastDiv / rate))
-        {
-            gb->io[TimA]++;
-            if (gb->io[TimA] == 0)
-                gb->timAOverflow = 1;
-        }
+        /* Check overflow in the next cycle */
+        gb->io[TimA]++;
     }
 }
 

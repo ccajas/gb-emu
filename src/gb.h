@@ -95,7 +95,7 @@ uint8_t gb_io_rw      (struct GB *, const uint16_t addr, const uint8_t val, cons
 uint8_t gb_mem_access (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
 
 void    gb_init       (struct GB *, uint8_t *);
-void    gb_cpu_exec   (struct GB *);
+void    gb_cpu_exec   (struct GB *, const uint8_t op);
 void    gb_exec_cb    (struct GB *, const uint8_t op);
 void    gb_reset      (struct GB *, uint8_t *);
 void    gb_boot_reset (struct GB *);
@@ -147,15 +147,28 @@ static inline void gb_step (struct GB * gb)
 {
     gb_handle_interrupts (gb);
 
+    gb->rt = 0;
+    gb->rm = 0;
+
     if (gb->halted)
-        gb->rt = 4;
+        gb->rm++;
     else
     {    /* Load next op and execute */
-        gb_cpu_exec (gb);
+        const uint8_t op  = CPU_RB (gb->pc++);
+        if (op != 0xCB)
+            gb_cpu_exec (gb, op);
+        else
+            gb_exec_cb (gb, CPU_RB (gb->pc++));
     }
-    //gb_cpu_state(gb);
 
-    gb->clock_t += gb->rt;
+    /* Update timers for every m-cycle */
+    int m = 0;
+    while (m++ < gb->rm)
+        gb_handle_timings (gb);
+
+    gb->rt = gb->rm * 4;
+    gb->clock_m += gb->rm;
+    gb->clock_t += gb->rm * 4;
     gb_render (gb);
 }
 
