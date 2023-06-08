@@ -160,21 +160,37 @@
     uint8_t tmp = gb->r[A] - gb->r[r2];\
     gb->f_z = ((tmp & 0xFF) == 0x00);\
     gb->f_n = 1;\
-    gb->f_h = ((gb->r[A] ^ gb->r[r2] ^ tmp) & 0x10) > 0;\
-    gb->f_c = (tmp > gb->r[A]) ? 1 : 0;\
+    SET_FLAG_H_S (gb->r[A] ^ gb->r[r2] ^ tmp);\
+    gb->f_c = (tmp > gb->r[A]);\
 	gb->r[A] = (tmp & 0xFF);\
 }
-#define SBHL     OP(SBHL);    SUB_A_X(hl);
+//SUB_A_X(hl);
+#define SBHL     OP(SBHL); {\
+    uint8_t tmp = gb->r[A] - hl;\
+    gb->f_z = ((tmp & 0xFF) == 0x00);\
+    gb->f_n = 1;\
+    SET_FLAG_H_S (gb->r[A] ^ hl ^ tmp);\
+    gb->f_c = (tmp > gb->r[A]);\
+	gb->r[A] = (tmp & 0xFF);\
+}
 
 #define SBC      OP(SBC); {\
     uint16_t tmp = gb->r[A] - gb->f_c - gb->r[r2];\
     gb->f_z = ((tmp & 0xFF) == 0x00);\
     gb->f_n = 1;\
-    gb->f_h = ((gb->r[A] ^ gb->r[r2] ^ tmp) & 0x10) > 0;\
+    SET_FLAG_H_S (gb->r[A] ^ gb->r[r2] ^ tmp);\
     gb->f_c = (tmp & 0xFF00) ? 1 : 0;\
     gb->r[A] = (tmp & 0xFF);\
 }
-#define SCHL     OP(SCHL);    SUB_AC_X(hl);
+//   SUB_AC_X(hl);
+#define SCHL     OP(SCHL); {\
+    uint16_t tmp = gb->r[A] - gb->f_c - hl;\
+    gb->f_z = ((tmp & 0xFF) == 0x00);\
+    gb->f_n = 1;\
+    SET_FLAG_H_S (gb->r[A] ^ hl ^ tmp);\
+    gb->f_c = (tmp & 0xFF00) ? 1 : 0;\
+    gb->r[A] = (tmp & 0xFF);\
+}
 
 /* Bitwise logic */
 
