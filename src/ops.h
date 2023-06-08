@@ -114,153 +114,57 @@
 
     /* Add function templates */
     #define ADD_A_X(X)  gb->r[A] += X; SET_ADD_FLAGS(X);
-    #define ADD_AC_X(X) gb->r[A] += X; gb->r[A] += (gb->f_c) ? 1 : 0; SET_ADD_FLAGS(X);
     #define SUB_A_X(X)  gb->r[A] -= X; SET_SUB_FLAGS(X);
-    #define SUB_AC_X(X) gb->r[A] -= X; gb->r[A] -= (gb->f_c) ? 1 : 0; SET_SUB_FLAGS(X); 
 
 /* Add and subtract */
 
-#define ADD_A(X) {\
-    OP(ADD_A);\
-    uint8_t tmp = gb->r[A] + X;\
-	SET_FLAG_Z (tmp);\
-	gb->f_n = 0;\
-	SET_FLAG_H_S (gb->r[A] ^ X ^ tmp);\
-	gb->f_c = (gb->r[A] > tmp);\
-	gb->r[A] = tmp;\
-}
-
-#define SUB_A(X) {\
-    OP(SUB_A);\
-    uint8_t tmp = gb->r[A] - X;\
-    SET_FLAG_Z (tmp);\
-    gb->f_n = 1;\
-    SET_FLAG_H_S (gb->r[A] ^ X ^ tmp);\
-    gb->f_c = (tmp > gb->r[A]);\
-	gb->r[A] = tmp;\
-}
-
-#define ADC_A(X) {\
-    OP(ADC_A);\
-    uint16_t tmp = gb->r[A] + X + gb->f_c;\
+#define ADD_FLAGS_(X) \
 	SET_FLAG_Z ((tmp & 0xFF));\
 	gb->f_n = 0;\
 	SET_FLAG_H_S (gb->r[A] ^ X ^ tmp);\
 	gb->f_c = (tmp >= 0x100);\
-	gb->r[A] = tmp & 0xFF;\
-}
 
-#define SBC_A(X) {\
-    OP(SBC_A);\
-    uint16_t tmp = gb->r[A] - gb->f_c - X;\
+#define SUB_FLAGS_(X) \
     SET_FLAG_Z ((tmp & 0xFF));\
     gb->f_n = 1;\
     SET_FLAG_H_S (gb->r[A] ^ X ^ tmp);\
     gb->f_c = (tmp & 0xFF00) ? 1 : 0;\
-    gb->r[A] = (tmp & 0xFF);\
-}
 
-#define ADD_A_r8  ADD_A(gb->r[r2])
-#define ADD_A_HL  ADD_A(hl)
-#define SUB_A_r8  SUB_A(gb->r[r2])
-#define SUB_A_HL  SUB_A(hl)
+    /* Add function templates */
+    #define ADC_A(X, C)   uint16_t tmp = gb->r[A] + X + C; ADD_FLAGS_(X); gb->r[A] = tmp & 0xFF;
+    #define SBC_A(X, C)   uint16_t tmp = gb->r[A] - X - C; SUB_FLAGS_(X); gb->r[A] = tmp & 0xFF;
 
-#define ADC_A_r8  ADC_A(gb->r[r2])
-#define ADC_A_HL  ADC_A(hl)
-#define SBC_A_r8  SBC_A(gb->r[r2])
-#define SBC_A_HL  SBC_A(hl)
+#define ADD_A_r8    OP(ADD_r8)  ADC_A(gb->r[r2], 0)
+#define ADD_A_HL    OP(ADD_HL)  ADC_A(hl, 0)
+#define SUB_A_r8    OP(SUB_r8)  SBC_A(gb->r[r2], 0)
+#define SUB_A_HL    OP(SUB_HL)  SBC_A(hl, 0)
 
-#define ADD      OP(ADD); {\
-    uint8_t tmp = gb->r[A] + gb->r[r2];\
-	SET_FLAG_Z ((tmp & 0xFF));\
-	gb->f_n = 0;\
-	SET_FLAG_H_S (gb->r[A] ^ gb->r[r2] ^ tmp);\
-	gb->f_c = (gb->r[A] > tmp);\
-	gb->r[A] = tmp;\
-}
-#define ADHL     OP(ADHL); {\
-    uint8_t tmp = gb->r[A] + hl;\
-    SET_FLAG_Z ((tmp & 0xFF));\
-    gb->f_n = 0;\
-    SET_FLAG_H_S (gb->r[A] ^ hl ^ tmp);\
-    gb->f_c = (gb->r[A] > tmp);\
-    gb->r[A] = tmp;\
-}
-
-#define ADC      OP(ADC); {\
-    uint16_t tmp = gb->r[A] + gb->r[r2] + gb->f_c;\
-	SET_FLAG_Z ((tmp & 0xFF));\
-	gb->f_n = 0;\
-	SET_FLAG_H_S (gb->r[A] ^ gb->r[r2] ^ tmp);\
-	gb->f_c = (tmp >= 0x100);\
-	gb->r[A] = tmp & 0xFF;\
-}
-
-#define ACHL     OP(ACHL); {\
-    uint16_t tmp = gb->r[A] + hl + gb->f_c;\
-	SET_FLAG_Z ((tmp & 0xFF));\
-	gb->f_n = 0;\
-	SET_FLAG_H_S (gb->r[A] ^ hl ^ tmp);\
-	gb->f_c = (tmp >= 0x100);\
-	gb->r[A] = tmp & 0xFF;\
-}
-//ADD_AC_X(hl);
-
-#define SUB      OP(SUB); {\
-    uint8_t tmp = gb->r[A] - gb->r[r2];\
-    gb->f_z = ((tmp & 0xFF) == 0x00);\
-    gb->f_n = 1;\
-    SET_FLAG_H_S (gb->r[A] ^ gb->r[r2] ^ tmp);\
-    gb->f_c = (tmp > gb->r[A]);\
-	gb->r[A] = (tmp & 0xFF);\
-}
-//SUB_A_X(hl);
-#define SBHL     OP(SBHL); {\
-    uint8_t tmp = gb->r[A] - hl;\
-    gb->f_z = ((tmp & 0xFF) == 0x00);\
-    gb->f_n = 1;\
-    SET_FLAG_H_S (gb->r[A] ^ hl ^ tmp);\
-    gb->f_c = (tmp > gb->r[A]);\
-	gb->r[A] = (tmp & 0xFF);\
-}
-
-#define SBC      OP(SBC); {\
-    uint16_t tmp = gb->r[A] - gb->f_c - gb->r[r2];\
-    gb->f_z = ((tmp & 0xFF) == 0x00);\
-    gb->f_n = 1;\
-    SET_FLAG_H_S (gb->r[A] ^ gb->r[r2] ^ tmp);\
-    gb->f_c = (tmp & 0xFF00) ? 1 : 0;\
-    gb->r[A] = (tmp & 0xFF);\
-}
-//   SUB_AC_X(hl);
-#define SCHL     OP(SCHL); {\
-    uint16_t tmp = gb->r[A] - gb->f_c - hl;\
-    gb->f_z = ((tmp & 0xFF) == 0x00);\
-    gb->f_n = 1;\
-    SET_FLAG_H_S (gb->r[A] ^ hl ^ tmp);\
-    gb->f_c = (tmp & 0xFF00) ? 1 : 0;\
-    gb->r[A] = (tmp & 0xFF);\
-}
+#define ADC_A_r8    OP(ADC_r8)  ADC_A(gb->r[r2], gb->f_c)
+#define ADC_A_HL    OP(ADC_HL)  ADC_A(hl, gb->f_c)
+#define SBC_A_r8    OP(SBC_r8)  SBC_A(gb->r[r2], gb->f_c)
+#define SBC_A_HL    OP(SBC_HL)  SBC_A(hl, gb->f_c)
 
 /* Bitwise logic */
 
-#define AND      OP(AND)      gb->r[A] &= gb->r[r2];\
+#define AND_A(X)    gb->r[A] &= X;\
     gb->flags = 0;\
     SET_FLAG_Z (gb->r[A]);\
     SET_FLAG_H (1);
 
-#define ANHL     OP(ANHL);    gb->r[A] &= hl;\
-    gb->flags = 0;\
-    SET_FLAG_Z (gb->r[A]);\
-    SET_FLAG_H (1);
-
-#define XOR      OP(XOR)      gb->r[A] ^= gb->r[r2];\
+#define XOR_A(X)    gb->r[A] ^= X;\
     gb->flags = 0;\
     SET_FLAG_Z (gb->r[A]);\
 
-#define XRHL     OP(XRHL);    gb->r[A] ^= hl;\
+#define OR_A(X)     gb->r[A] |= X;\
     gb->flags = 0;\
     SET_FLAG_Z (gb->r[A]);\
+
+#define AND_A_r8    OP(AND_r8)  AND_A(gb->r[r2])
+#define AND_A_HL    OP(AND_HL)  AND_A(hl)
+#define XOR_A_r8    OP(AND_r8)  XOR_A(gb->r[r2])
+#define XOR_A_HL    OP(AND_HL)  XOR_A(hl)
+#define OR_A_r8     OP(AND_r8)  OR_A (gb->r[r2])
+#define OR_A_HL     OP(AND_HL)  OR_A (hl)
 
 #define OR       OP(OR);      gb->r[A] |= gb->r[r2];\
     gb->flags = 0;\

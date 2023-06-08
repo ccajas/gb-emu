@@ -379,26 +379,17 @@ void gb_cpu_exec (struct GB * gb)
             /* 8-bit arithmetic */
             hl = CPU_RB (ADDR_HL); 
             /* Mask bits for ALU operations */
-            if ((op & 0xF8) == 0x80) { if (op == 0x86) ADD_A_HL else ADD_A_r8; }
-            if ((op & 0xF8) == 0x88) { if (op == 0x8E) ADC_A_HL else ADC_A_r8; }
-            if ((op & 0xF8) == 0x90) { if (op == 0x96) SUB_A_HL else SUB_A_r8; }
-            if ((op & 0xF8) == 0x98) { if (op == 0x9E) SBC_A_HL else SBC_A_r8; }
+            if ((op & 0xF8) == 0x80) { if (op == 0x86) { ADD_A_HL } else { ADD_A_r8 } }
+            if ((op & 0xF8) == 0x88) { if (op == 0x8E) { ADC_A_HL } else { ADC_A_r8 } }
+            if ((op & 0xF8) == 0x90) { if (op == 0x96) { SUB_A_HL } else { SUB_A_r8 } }
+            if ((op & 0xF8) == 0x98) { if (op == 0x9E) { SBC_A_HL } else { SBC_A_r8 } }
+            if ((op & 0xF8) == 0xA0) { if (op == 0xA6) { AND_A_HL } else { AND_A_r8 } }
+            if ((op & 0xF8) == 0xA8) { if (op == 0xAE) { XOR_A_HL } else { XOR_A_r8 } }
+            if ((op & 0xF8) == 0xB0) { if (op == 0xB6) { OR_A_HL  } else { OR_A_r8  } }
             switch (op)
             {
-                //case 0x80        ... 0x85: case 0x87: ADD_A_r8 break;
-                //case 0x88        ... 0x8D: case 0x8F: ADC      break;
-                //case 0x86: ADD_A_HL break; 
-                //case 0x8E: ACHL     break;
-                //case 0x90        ... 0x95: case 0x97: SUB_A_r8 break;
-                //case 0x98      ... 0x9D:  case 0x9F: SBC     break;
-                //case 0x96: SUB_A_HL    break; 
-                //case 0x9E: SCHL    break;
-                case 0xA0      ... 0xA5:  case 0xA7: AND     break;
-                case 0xA8      ... 0xAD:  case 0xAF: XOR     break;
-                case 0xA6: ANHL    break; case 0xAE: XRHL    break; 
-                case 0xB0      ... 0xB5:  case 0xB7: OR      break;
                 case 0xB8      ... 0xBD:  case 0xBF: CP      break;
-                case 0xB6: ORHL    break; case 0xBE: CPHL    break; 
+                case 0xBE: CPHL    break; 
             }
         break;
     }
