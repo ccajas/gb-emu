@@ -154,7 +154,7 @@ static inline void gb_step (struct GB * gb)
     {    /* Load next op and execute */
         gb_cpu_exec (gb);
     }
-    gb_cpu_state(gb);
+    //gb_cpu_state(gb);
 
     gb->clock_t += gb->rt;
     gb_render (gb);

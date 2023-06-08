@@ -259,6 +259,7 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
                 case 0x38      ... 0x3D:  case 0x3F: SRL     break;
                 case 0x36: SWAPHL  break; case 0x3E: SRLHL   break;
             }
+            /* Write back to (HL) for (HL) operations */
         break;
         case 8 ... 0xF:
             /* Bit test */

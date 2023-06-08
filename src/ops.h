@@ -367,6 +367,7 @@
     hl <<= 1; hl |= (tmp >> 7);\
     gb->flags = (!hl) * FLAG_Z;\
     gb->f_c = tmp >> 7;\
+    CPU_WB (ADDR_HL, hl);\
 }
 
 #define RL      OP(RL); {\
@@ -381,6 +382,7 @@
     hl <<= 1; hl |= gb->f_c;\
     gb->flags = (!hl) * FLAG_Z;\
     gb->f_c = tmp >> 7;\
+    CPU_WB (ADDR_HL, hl);\
 }
 
 #define RRC     OP(RRC); {\
@@ -395,6 +397,7 @@
     hl >>= 1; hl |= (tmp << 7);\
     gb->flags = (!hl) * FLAG_Z;\
     gb->f_c = tmp & 1;\
+    CPU_WB (ADDR_HL, hl);\
 }
 
 #define RR      OP(RR); {\
@@ -409,18 +412,43 @@
     hl >>= 1; hl |= gb->f_c << 7;\
     gb->flags = (!hl) * FLAG_Z;\
     gb->f_c = tmp & 1;\
+    CPU_WB (ADDR_HL, hl);\
 }
 
 #define SLA     OP(SLA);   gb->flags = (gb->r[r] >> 7) * FLAG_C; gb->r[r] <<= 1; SET_FLAG_Z(gb->r[r]);
 #define SRA     OP(SRA);   gb->flags = (gb->r[r] & 1)  * FLAG_C; gb->r[r] = (gb->r[r] >> 1) | (gb->r[r] & 0X80); SET_FLAG_Z(gb->r[r]);
-#define SLAHL   OP(SLAHL); gb->flags = (hl >> 7) * FLAG_C; hl <<= 1; SET_FLAG_Z(hl);
-#define SRAHL   OP(SRAHL); gb->flags = (hl & 1)  * FLAG_C; hl = (hl >> 1) | (hl & 0X80); SET_FLAG_Z(hl);
+#define SLAHL   OP(SLAHL); gb->flags = (hl >> 7) * FLAG_C; hl <<= 1;                     SET_FLAG_Z(hl); CPU_WB (ADDR_HL, hl);
+#define SRAHL   OP(SRAHL); gb->flags = (hl & 1)  * FLAG_C; hl = (hl >> 1) | (hl & 0X80); SET_FLAG_Z(hl); CPU_WB (ADDR_HL, hl);
 
-#define SWAP    OP(SWAP)   { uint8_t tmp = gb->r[r] << 4; gb->r[r] >>= 4; gb->r[r] |= tmp; gb->flags = 0; SET_FLAG_Z (gb->r[r]); }
-#define SWAPHL  OP(SWAPHL) { uint8_t tmp = hl << 4; hl >>= 4; hl |= tmp; gb->flags = 0; SET_FLAG_Z(hl); }
+#define SWAP    OP(SWAP) {\
+    uint8_t tmp = gb->r[r] << 4;\
+    gb->r[r] >>= 4; gb->r[r] |= tmp;\
+    gb->flags = 0;\
+    SET_FLAG_Z (gb->r[r]);\
+}
 
-#define SRL     OP(SRL);   { uint8_t fc = (gb->r[r] & 1) ? 1 : 0; gb->r[r] >>= 1; gb->flags = 0; SET_FLAG_Z (gb->r[r]); gb->f_c = fc; }
-#define SRLHL   OP(SRLHL); { uint8_t fc = (hl & 1)       ? 1 : 0; hl >>= 1;       gb->flags = 0; SET_FLAG_Z (hl);       gb->f_c = fc; }
+#define SWAPHL  OP(SWAPHL) {\
+    uint8_t tmp = hl << 4;\
+    hl >>= 4; hl |= tmp;\
+    gb->flags = 0;\
+    SET_FLAG_Z (hl);\
+    CPU_WB (ADDR_HL, hl);\
+}
+
+#define SRL     OP(SRL); {\
+    uint8_t fc = (gb->r[r] & 1) ? 1 : 0;\
+    gb->r[r] >>= 1; gb->flags = 0;\
+    SET_FLAG_Z (gb->r[r]);\
+    gb->f_c = fc;\
+}
+
+#define SRLHL   OP(SRLHL); {\
+    uint8_t fc = (hl & 1) ? 1 : 0;\
+    hl >>= 1; gb->flags = 0;\
+    SET_FLAG_Z (hl);\
+    gb->f_c = fc;\
+    CPU_WB (ADDR_HL, hl);\
+}
 
 #define BIT     OP(BIT);   KEEP_CARRY; gb->flags |= FLAG_H; gb->flags |= (gb->r[r] & (1 << r_bit)) ? 0 : FLAG_Z;
 #define BITHL   OP(BITHL); KEEP_CARRY; gb->flags |= FLAG_H; gb->flags |= (hl & (1 << r_bit)) ? 0 : FLAG_Z;
