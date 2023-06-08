@@ -48,15 +48,14 @@ struct GB
     
     /* Other CPU registers/timing data */
     uint16_t pc, sp;
-    uint64_t clock_t;
+    uint64_t clock_t, clock_m;
     uint16_t lineClock;
     uint32_t frameClock;
     uint8_t  frame;
 
     uint16_t divClock;
-    uint32_t timCounter;
     uint8_t  timAOverflow;
-    uint8_t  rt; /* Tracks individual step clocks */
+    uint8_t  rt, rm; /* Tracks individual step clocks */
 
     uint8_t stop, halted;
     uint8_t vramBlocked, oamBlocked;

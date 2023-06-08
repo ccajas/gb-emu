@@ -29,11 +29,11 @@
 
 /** 8-bit load instructions **/   
 
-#define LD        OP(LD);       if (r1 != r2) { gb->r[r1] = gb->r[r2]; }
+#define LD_r8     OP(LD_r8);    if (r1 != r2) { gb->r[r1] = gb->r[r2]; }
 #define LDrm      OP(LDrm);     gb->r[r1] = IMM;
-#define LDrHL     OP(LDrHL);    gb->r[r1] = CPU_RB (ADDR_HL);
+#define LD_rHL    OP(LD_rHL);   gb->r[r1] = CPU_RB (ADDR_HL);
 
-#define LDHLr     OP(LDHLr);    CPU_WB (ADDR_HL, gb->r[r2]);
+#define LD_HLr    OP(LDHLr);    CPU_WB (ADDR_HL, gb->r[r2]);
 #define LDHLm     OP(LDHLm);    CPU_WB (ADDR_HL, IMM);
 
 #define LDArrm    OP(LDArrm);   gb->r[A] = CPU_RB (ADDR_XY(r1 - 1, r1));
@@ -118,17 +118,17 @@
 
 /* Add and subtract */
 
-#define ADD_FLAGS_(X) \
-	SET_FLAG_Z ((tmp & 0xFF));\
-	gb->f_n = 0;\
-	SET_FLAG_H_S (gb->r[A] ^ X ^ tmp);\
-	gb->f_c = (tmp >= 0x100);\
+    #define ADD_FLAGS_(X) \
+        SET_FLAG_Z ((tmp & 0xFF));\
+        gb->f_n = 0;\
+        SET_FLAG_H_S (gb->r[A] ^ X ^ tmp);\
+        gb->f_c = (tmp >= 0x100);\
 
-#define SUB_FLAGS_(X) \
-    SET_FLAG_Z ((tmp & 0xFF));\
-    gb->f_n = 1;\
-    SET_FLAG_H_S (gb->r[A] ^ X ^ tmp);\
-    gb->f_c = (tmp & 0xFF00) ? 1 : 0;\
+    #define SUB_FLAGS_(X) \
+        SET_FLAG_Z ((tmp & 0xFF));\
+        gb->f_n = 1;\
+        SET_FLAG_H_S (gb->r[A] ^ X ^ tmp);\
+        gb->f_c = (tmp & 0xFF00) ? 1 : 0;\
 
     /* Add function templates */
     #define ADC_A(X, C)   uint16_t tmp = gb->r[A] + X + C; ADD_FLAGS_(X); gb->r[A] = tmp & 0xFF;
@@ -136,28 +136,26 @@
 
 #define ADD_A_r8    OP(ADD_r8)  ADC_A(gb->r[r2], 0)
 #define ADD_A_HL    OP(ADD_HL)  ADC_A(hl, 0)
-#define SUB_A_r8    OP(SUB_r8)  SBC_A(gb->r[r2], 0)
-#define SUB_A_HL    OP(SUB_HL)  SBC_A(hl, 0)
-
 #define ADC_A_r8    OP(ADC_r8)  ADC_A(gb->r[r2], gb->f_c)
 #define ADC_A_HL    OP(ADC_HL)  ADC_A(hl, gb->f_c)
+
+#define SUB_A_r8    OP(SUB_r8)  SBC_A(gb->r[r2], 0)
+#define SUB_A_HL    OP(SUB_HL)  SBC_A(hl, 0)
 #define SBC_A_r8    OP(SBC_r8)  SBC_A(gb->r[r2], gb->f_c)
 #define SBC_A_HL    OP(SBC_HL)  SBC_A(hl, gb->f_c)
 
 /* Bitwise logic */
 
-#define AND_A(X)    gb->r[A] &= X;\
-    gb->flags = 0;\
-    SET_FLAG_Z (gb->r[A]);\
-    SET_FLAG_H (1);
+#define AND_A(X)    gb->r[A] &= X; gb->flags = 0; SET_FLAG_Z (gb->r[A]); SET_FLAG_H (1);
+#define XOR_A(X)    gb->r[A] ^= X; gb->flags = 0; SET_FLAG_Z (gb->r[A]);
+#define OR_A(X)     gb->r[A] |= X; gb->flags = 0; SET_FLAG_Z (gb->r[A]);
 
-#define XOR_A(X)    gb->r[A] ^= X;\
-    gb->flags = 0;\
-    SET_FLAG_Z (gb->r[A]);\
-
-#define OR_A(X)     gb->r[A] |= X;\
-    gb->flags = 0;\
-    SET_FLAG_Z (gb->r[A]);\
+    /* Flag template for CP instructions */
+    #define FLAGS_CP  \
+        gb->flags = FLAG_N;\
+        SET_FLAG_C (tmp > gb->r[A]);\
+        SET_FLAG_Z (tmp);\
+        SET_FLAG_H ((tmp & 0xF) > (gb->r[A] & 0xF));
 
 #define AND_A_r8    OP(AND_r8)  AND_A(gb->r[r2])
 #define AND_A_HL    OP(AND_HL)  AND_A(hl)
@@ -165,58 +163,41 @@
 #define XOR_A_HL    OP(AND_HL)  XOR_A(hl)
 #define OR_A_r8     OP(AND_r8)  OR_A (gb->r[r2])
 #define OR_A_HL     OP(AND_HL)  OR_A (hl)
+#define CP_A_r8     OP(CP_r8)   tmp -= gb->r[r2];  FLAGS_CP;
+#define CP_A_HL     OP(CP_HL)   tmp -= hl;         FLAGS_CP;
 
-#define OR       OP(OR);      gb->r[A] |= gb->r[r2];\
-    gb->flags = 0;\
-    SET_FLAG_Z (gb->r[A]);\
-
-#define ORHL     OP(ORHL)     gb->r[A] |= hl;\
-    gb->flags = 0;\
-    SET_FLAG_Z (gb->r[A]);\
-
-#define ADDm     OP(ADDm);    { uint8_t m = IMM; uint8_t tmp  = gb->r[A]; ADD_A_X(m); }
+#define ADDm     OP(ADDm)     { uint8_t m = IMM; uint8_t tmp  = gb->r[A]; ADD_A_X(m); }
 #define ADCm     OP(ADCm)     { uint8_t m = IMM; uint16_t tmp = gb->r[A] + m + gb->f_c; SET_IMM_FLAGS; gb->f_n = 0; gb->r[A] = (tmp & 0xFF); }
 
-#define SUBm     OP(SUBm);    { uint8_t m = IMM; uint8_t tmp  = gb->r[A]; SUB_A_X(m); }
+#define SUBm     OP(SUBm)     { uint8_t m = IMM; uint8_t tmp  = gb->r[A]; SUB_A_X(m); }
 #define SBCm     OP(SBCm)     { uint8_t m = IMM; uint16_t tmp = gb->r[A] - (m + gb->f_c); SET_IMM_FLAGS; gb->f_n = 1; gb->r[A] = (tmp & 0xFF); }
 
-#define ANDm     OP(ANDm);    gb->r[A] &= IMM; gb->flags = 0; SET_FLAG_Z (gb->r[A]); gb->flags |= FLAG_H;
+#define ANDm     OP(ANDm);    gb->r[A] &= IMM; gb->flags = 0; SET_FLAG_Z (gb->r[A]); SET_FLAG_H (1);
 #define XORm     OP(XORm);    gb->r[A] ^= IMM; gb->flags = 0; SET_FLAG_Z (gb->r[A]);
 #define ORm      OP(ORm);     gb->r[A] |= IMM; gb->flags = 0; SET_FLAG_Z (gb->r[A]);
-
-    /* Flag template for CP instructions */
-    #define FLAGS_CP  gb->flags = FLAG_N; SET_FLAG_C (tmp > gb->r[A]); SET_FLAG_Z (tmp); SET_FLAG_H ((tmp & 0xF) > (gb->r[A] & 0xF));
-
-#define CP       OP(CP);      tmp -= gb->r[r2];  FLAGS_CP;
-#define CPHL     OP(CPHL);    tmp -= hl;         FLAGS_CP;
 #define CPm      OP(CPm);     uint8_t m = IMM; tmp -= m; FLAGS_CP;
-/*{\
-    uint8_t ds = gb->r[A] - CPU_RB (gb->pc++);\
-    SET_FLAG_H ((ds & 0xF) > (gb->r[A] & 0xF)); SET_FLAG_C (ds > gb->r[A]); SET_FLAG_Z (ds); gb->f_n = 1;\
-}*/
 
 #define INC      OP(INC);     gb->r[r1]++; SET_FLAG_H (!(gb->r[r1] & 0xF));       SET_FLAG_Z (gb->r[r1]); gb->f_n = 0;
 #define DEC      OP(DEC);     gb->r[r1]--; SET_FLAG_H ((gb->r[r1] & 0xF) == 0xF); SET_FLAG_Z (gb->r[r1]); gb->f_n = 1;
 #define INCHL    OP(INCHL);   { uint8_t tmp = CPU_RB (ADDR_HL) + 1; CPU_WB (ADDR_HL, tmp); SET_FLAG_Z (tmp); SET_FLAG_H ((tmp & 0xF) == 0);   gb->f_n = 0; }
 #define DECHL    OP(DECHL);   { uint8_t tmp = CPU_RB (ADDR_HL) - 1; CPU_WB (ADDR_HL, tmp); SET_FLAG_Z (tmp); SET_FLAG_H ((tmp & 0xF) == 0xF); gb->f_n = 1; }
+#define CPL      OP(CPL);     gb->r[A] ^= 0xFF; gb->flags |= 0x60; 
 
 /* The following is from SameBoy. MIT License. */
 #define DAA      OP(DAA);     {\
-		int16_t a = gb->r[A];\
-		if (gb->f_n) {\
-			if (gb->f_h) a = (a - 0x06) & 0xFF;\
-			if (gb->f_c) a -= 0x60;\
-		} else {\
-			if (gb->f_h || (a & 0x0F) > 9) a += 0x06;\
-			if (gb->f_c || a > 0x9F) a += 0x60;\
-		}\
-		gb->r[A] = a;\
-		if ((a & 0x100) == 0x100) SET_FLAG_C (1);\
-		SET_FLAG_Z (gb->r[A]);\
-		SET_FLAG_H (0);\
+    int16_t a = gb->r[A];\
+    if (gb->f_n) {\
+        if (gb->f_h) a = (a - 0x06) & 0xFF;\
+        if (gb->f_c) a -= 0x60;\
+    } else {\
+        if (gb->f_h || (a & 0x0F) > 9) a += 0x06;\
+        if (gb->f_c || a > 0x9F) a += 0x60;\
+    }\
+    gb->r[A] = a;\
+    if ((a & 0x100) == 0x100) SET_FLAG_C (1);\
+    SET_FLAG_Z (gb->r[A]);\
+    SET_FLAG_H (0);\
 }
-
-#define CPL      OP(CPL);     gb->r[A] ^= 0xFF; gb->flags |= 0x60; 
 
 /** 16-bit arithmetic instructions **/
 

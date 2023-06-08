@@ -145,8 +145,8 @@ void gb_reset (struct GB * gb, uint8_t * bootROM)
     memset(gb->io, 0, sizeof (gb->io));
 
     gb->lineClock = gb->frameClock = 0;
-    gb->divClock = gb->timCounter = 0;
-    gb->clock_t = 0;
+    gb->clock_t = gb->clock_m = 0;
+    gb->divClock = 0;
     gb->frame = 0;
 }
 
@@ -199,33 +199,33 @@ void gb_boot_reset (struct GB * gb)
 
     gb_cpu_state (gb);
     gb->lineClock = gb->frameClock = 0;
-    gb->divClock = gb->timCounter = 0;
-    gb->clock_t = 0;
+    gb->clock_t = gb->clock_m = 0;
+    gb->divClock = 0;
     gb->frame = 0;
     printf ("CPU state done\n");
 }
 
 const int8_t opTicks[256] = {
-/*   0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  A, B,  C,  D, E,  F*/
-     4, 12,  8,  8,  4,  4,  8,  4, 20,  8,  8,  8,  4,  4,  8,  4,  /* 0x */
-     4, 12,  8,  8,  4,  4,  8,  4, 12,  8,  8,  8,  4,  4,  8,  4,
-     8, 12,  8,  8,  4,  4,  8,  4,  8,  8,  8,  8,  4,  4,  8,  4,
-     8, 12,  8,  8, 12, 12, 12,  4,  8,  8,  8,  8,  4,  4,  8,  4,
+/*  0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  A,  B,  C,  D,  E,  F  */
+    1,  3,  2,  2,  1,  1,  2,  1,  5,  2,  2,  2,  1,  1,  2,  1, /* 0x */
+	0,  3,  2,  2,  1,  1,  2,  1,  3,  2,  2,  2,  1,  1,  2,  1,
+	2,  3,  2,  2,  1,  1,  2,  1,  2,  2,  2,  2,  1,  1,  2,  1,
+	2,  3,  2,  2,  3,  3,  3,  1,  2,  2,  2,  2,  1,  1,  2,  1,
 
-     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4,  /* 4x */
-     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4,
-     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4,
-     8,  8,  8,  8,  8,  8,  4,  8,  4,  4,  4,  4,  4,  4,  8,  4,
+	1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1, /* 4x */
+	1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,
+	1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,
+	2,2,2,2,2,2,0,2,1,1,1,1,1,1,2,1,
 
-     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4,  /* 8x */
-     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4,
-     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4,
-     4,  4,  4,  4,  4,  4,  8,  4,  4,  4,  4,  4,  4,  4,  8,  4,
+	1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1, /* 8x */
+	1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,
+	1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,
+	1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,
 
-     8, 12, 12, 16, 12, 16,  8, 16,  8, 16, 12,  4, 12, 24,  8, 16,  /* Cx */
-     8, 12, 12,  4, 12, 16,  8, 16,  8, 16, 12,  4, 12,  4,  8, 16,
-    12, 12,  8,  4,  4, 16,  8, 16, 16,  4, 16,  4,  4,  4,  8, 16,
-    12, 12,  8,  4,  4, 16,  8, 16, 12,  8, 16,  4,  0,  4,  8, 16
+	2,3,3,4,3,4,2,4,2,4,3,0,3,6,2,4, /* Cx */
+	2,3,3,0,3,4,2,4,2,4,3,0,3,0,2,4,
+	3,3,2,0,0,4,2,4,4,1,4,0,0,0,2,4,
+	3,3,2,1,0,4,2,4,3,2,4,1,0,0,2,4
 };
 
 void gb_exec_cb (struct GB * gb, const uint8_t op)
@@ -238,7 +238,7 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
 
     /* Fetch value at address (HL) if it's needed */
     uint8_t hl = (opL == 0x6 || opL == 0xE) ? CPU_RB (ADDR_HL) : 0;
-    gb->rt += 8;
+    gb->rm += 2;
 
     switch (opHh)
     {
@@ -261,25 +261,28 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
         break;
         case 8 ... 0xF:
             /* Bit test */
-            if (opL == 0x6 || opL == 0xE ) { BITHL; gb->rt += 4; } else { BIT }
+            if (opL == 0x6 || opL == 0xE ) { BITHL; gb->rm += 1; } else { BIT }
         break;
         case 0x10 ... 0x17:
             /* Bit reset */
-            if (opL == 0x6 || opL == 0xE ) { RESHL; gb->rt += 8; } else { RES }
+            if (opL == 0x6 || opL == 0xE ) { RESHL; gb->rm += 2; } else { RES }
         break;
         case 0x18 ... 0x1F:
             /* Bit set */
-            if (opL == 0x6 || opL == 0xE ) { SETHL; gb->rt += 8; } else { SET }
+            if (opL == 0x6 || opL == 0xE ) { SETHL; gb->rm += 2; } else { SET }
         break;
     }
     /* Write back to (HL) for most (HL) operations except BIT */
     if ((op & 7) == 6 && (opHh < 8 || opHh > 0xF))
         CPU_WB (ADDR_HL, hl);
+        
+    gb->rt = gb->rm * 4;
 }
 
 void gb_cpu_exec (struct GB * gb)
 {
     gb->rt = 0;
+    gb->rm = 0;
 
     const uint8_t op  = CPU_RB (gb->pc++);
     const uint8_t opL = op & 0xf;
@@ -369,33 +372,33 @@ void gb_cpu_exec (struct GB * gb)
         break;
         case 8 ... 0xD: case 0xF:
             /* 8-bit load, LD or LDrHL */
-            if (opL == 0x6 || opL == 0xE ) { LDrHL } else { LD }
+            if (opL == 0x6 || opL == 0xE ) { LD_rHL } else { LD_r8 }
         break;
         case 0xE:
             /* 8-bit load, LDHLr or HALT */
-            if (opL != 0x6) { LDHLr } else { HALT }
+            if (opL != 0x6) { LD_HLr } else { HALT }
         break;
         case 0x10 ... 0x17:
             /* 8-bit arithmetic */
             hl = CPU_RB (ADDR_HL); 
             /* Mask bits for ALU operations */
-            if ((op & 0xF8) == 0x80) { if (op == 0x86) { ADD_A_HL } else { ADD_A_r8 } }
-            if ((op & 0xF8) == 0x88) { if (op == 0x8E) { ADC_A_HL } else { ADC_A_r8 } }
-            if ((op & 0xF8) == 0x90) { if (op == 0x96) { SUB_A_HL } else { SUB_A_r8 } }
-            if ((op & 0xF8) == 0x98) { if (op == 0x9E) { SBC_A_HL } else { SBC_A_r8 } }
-            if ((op & 0xF8) == 0xA0) { if (op == 0xA6) { AND_A_HL } else { AND_A_r8 } }
-            if ((op & 0xF8) == 0xA8) { if (op == 0xAE) { XOR_A_HL } else { XOR_A_r8 } }
-            if ((op & 0xF8) == 0xB0) { if (op == 0xB6) { OR_A_HL  } else { OR_A_r8  } }
-            switch (op)
-            {
-                case 0xB8      ... 0xBD:  case 0xBF: CP      break;
-                case 0xBE: CPHL    break; 
+            switch (op & 0xF8) {
+                case 0x80: if (op == 0x86) { ADD_A_HL } else { ADD_A_r8 } break;
+                case 0x88: if (op == 0x8E) { ADC_A_HL } else { ADC_A_r8 } break;
+                case 0x90: if (op == 0x96) { SUB_A_HL } else { SUB_A_r8 } break;
+                case 0x98: if (op == 0x9E) { SBC_A_HL } else { SBC_A_r8 } break;
+                case 0xA0: if (op == 0xA6) { AND_A_HL } else { AND_A_r8 } break;
+                case 0xA8: if (op == 0xAE) { XOR_A_HL } else { XOR_A_r8 } break;
+                case 0xB0: if (op == 0xB6) { OR_A_HL  } else { OR_A_r8  } break;
+                case 0xB8: if (op == 0xBE) { CP_A_HL  } else { CP_A_r8  } break;
             }
         break;
     }
 
-    gb->rt += opTicks[op];
-    gb->clock_t += gb->rt;
+    gb->rm += opTicks[op];
+    gb->rt = gb->rm * 4;
+    gb->clock_m += gb->rm;
+    gb->clock_t += gb->rm * 4;
 
     /* Handle effects of STOP instruction */
     if (op == 0x10 && gb->stop)
@@ -467,7 +470,6 @@ void gb_handle_timings (struct GB * gb)
         gb->timAOverflow = 0;
     }
 
-    gb->timCounter += gb->rt;
     const uint8_t tac = gb->io[TimerCtrl];
 
     if (gb->io[tac & 0x4]) /* If TAC timer is enabled */
