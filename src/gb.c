@@ -249,7 +249,7 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
     const uint8_t r_bit  = opHh & 7;
 
     /* Fetch value at address (HL) if it's needed */
-    uint8_t hl = 0;
+    uint8_t hl = (opL == 0x6 || opL == 0xE) ? CPU_RB (ADDR_HL) : 0;
 
     switch (opHh)
     {
@@ -279,7 +279,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
 {
     const uint8_t opL = op & 0xf;
     const uint8_t opHh = op >> 3; /* Octal divisions */
-    //uint16_t hl = ADDR_HL;
+    //uint16_t hl = 0;
 
     /* Default values for operands (can be overridden for other opcodes) */
     const uint8_t r1 = r8_group[(opHh & 7)];
@@ -303,24 +303,17 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
                 
                 case 0x10: STOP    break; case 0x17: RLA     break; 
                 case 0x18: JRm     break; case 0x1F: RRA     break; 
-                case 0x27: DAA     break;
-                case 0x2A: LDAHLI  break; case 0x2F: CPL     break; 
+                case 0x27: DAA     break; case 0x2A: LDAHLI  break;
+                case 0x2F: CPL     break; 
 
-                case 0x37: SCF     break;
-                case 0x3A: LDAHLD  break;
+                case 0x37: SCF     break; case 0x3A: LDAHLD  break;
                 case 0x3F: CCF     break;
                 /* ... */
-                case 0xC1:   case 0xD1:   case 0xE1: POP     break;
-                case 0xC3: JPNN    break;
-                case 0xC5:   case 0xD5:   case 0xE5: PUSH    break;
-                case 0xC6: ADDm    break;
-                case 0xC9: RET     break;
-                case 0xCB: PREFIX  break;
-                case 0xCD: CALLm   break;
-                case 0xCE: ADCm    break;
+                case 0xC3: JPNN    break; case 0xC6: ADDm    break;
+                case 0xC9: RET     break; case 0xCB: PREFIX  break;
+                case 0xCD: CALLm   break; case 0xCE: ADCm    break;
 
-                case 0xD6: SUBm    break;
-                case 0xD9: RETI    break;
+                case 0xD6: SUBm    break; case 0xD9: RETI    break;
                 case 0xDE: SBCm    break;
 
                 case 0xE0: LDIOmA  break; case 0xE2: LDIOCA  break;
@@ -328,9 +321,8 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
                 case 0xE9: JPHL    break; case 0xEA: LDmmA   break;
                 case 0xEE: XORm    break;
 
-                case 0xF0: LDAIOm  break; case 0xF1: POPF    break;
-                case 0xF2: LDAIOC  break; case 0xF3: DI      break;
-                case 0xF5: PUSHF   break; case 0xF6: ORm     break;
+                case 0xF0: LDAIOm  break; case 0xF2: LDAIOC  break;
+                case 0xF3: DI      break; case 0xF6: ORm     break;
                 case 0xF8: LDHLSP  break; case 0xF9: LDSPHL  break;
                 case 0xFA: LDAmm   break; case 0xFB: EI      break;
                 case 0xFE: CPm     break;
@@ -356,22 +348,22 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
             /* 16-bit load, arithmetic instructions */
             switch (op & 0b11001111)
             {
-                case 0b00000001: LDrr_   break;
-                case 0b00000011: INCrr_  break;
-                case 0b00001001: ADHLrr_ break;
-                case 0b00001011: DECrr_  break;
+                case 1:    LDrr    break; case 3:    INCrr   break;
+                case 0x9:  ADHLrr  break; case 0xB:  DECrr   break;
+                case 0xC1: POPrr   break; case 0xC5: PUSHrr  break;
             }
         break;
         case 8 ... 0xD: case 0xF:
             /* 8-bit load, LD or LDrHL */
             OPR_2_(LD_r8, LD_rHL)
         break;
-        case 0xE: /* 8-bit load, LDHLr or HALT */
+        case 0xE:
+            /* 8-bit load, LDHLr or HALT */
             OPR_2_(LD_HLr, HALT)
         break;
-        case 0x10 ... 0x17:
+        case 0x10 ... 0x17: {
             /* 8-bit arithmetic */
-            //hl = CPU_RB (ADDR_HL);
+            uint16_t hl = CPU_RB (ADDR_HL);
             /* Mask bits for ALU operations */
             switch (op & 0b11111000) 
             {
@@ -384,6 +376,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
                 case 0xB0: OPR_2_(OR_A_r8,  OR_A_HL ) break;
                 case 0xB8: OPR_2_(CP_A_r8,  CP_A_HL ) break;
             }
+        }
         break;
     }
 

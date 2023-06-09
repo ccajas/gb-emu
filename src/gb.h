@@ -154,7 +154,7 @@ static inline void gb_step (struct GB * gb)
         gb->rm++;
     else
     {    /* Load next op and execute */
-        const uint8_t op  = CPU_RB (gb->pc++);
+        const uint8_t op = CPU_RB (gb->pc++);
         if (op != 0xCB)
             gb_cpu_exec (gb, op);
         else
