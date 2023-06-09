@@ -220,10 +220,10 @@ const int8_t opTicks[256] = {
 	2,  3,  2,  2,  1,  1,  2,  1,  2,  2,  2,  2,  1,  1,  2,  1,
 	2,  3,  2,  2,  3,  3,  3,  1,  2,  2,  2,  2,  1,  1,  2,  1,
 
-	1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1, /* 4x */
-	1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,
-	1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,
-	2,2,2,2,2,2,0,2,1,1,1,1,1,1,2,1,
+	1,  1,  1,  1,  1,  1,  2,  1,  1,  1,  1,  1,  1,  1,  2,  1, /* 4x */
+	1,  1,  1,  1,  1,  1,  2,  1,  1,  1,  1,  1,  1,  1,  2,  1,
+	1,  1,  1,  1,  1,  1,  2,  1,  1,  1,  1,  1,  1,  1,  2,  1,
+	2,  2,  2,  2,  2,  2,  0,  2,  1,  1,  1,  1,  1,  1,  2,  1,
 
 	1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1, /* 8x */
 	1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,
@@ -236,6 +236,8 @@ const int8_t opTicks[256] = {
 	3,3,2,1,0,4,2,4,3,2,4,1,0,0,2,4
 };
 
+static const uint8_t r8_group[] = { B, C, D, E, H, L, 0, A };
+
 void gb_exec_cb (struct GB * gb, const uint8_t op)
 {
     gb->rm = 3;
@@ -243,7 +245,7 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
     const uint8_t opL  = op & 0xf;
     const uint8_t opHh = op >> 3; /* Octal divisions */
 
-    const uint8_t r = ((opL & 7) == 7) ? A : ((opL & 7) < 6) ? B + (opL & 7) : 255;
+    const uint8_t r = r8_group[(opL & 7)];
     const uint8_t r_bit  = opHh & 7;
 
     /* Fetch value at address (HL) if it's needed */
@@ -252,34 +254,21 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
     switch (opHh)
     {
         case 0 ... 7:
-            switch (op)
+            switch (op & 0b00111000)
             {
-                case 0x00      ... 0x05:  case 0x07: RLC     break;
-                case 0x08      ... 0x0D:  case 0x0F: RRC     break;
-                case 0x06: RLCHL   break; case 0x0E: RRCHL   break;
-                case 0x10      ... 0x15:  case 0x17: RL      break;
-                case 0x18      ... 0x1D:  case 0x1F: RR      break;
-                case 0x16: RLHL   break;  case 0x1E: RRHL    break;
-                case 0x20      ... 0x25:  case 0x27: SLA     break;
-                case 0x28      ... 0x2D:  case 0x2F: SRA     break;
-                case 0x26: SLAHL   break; case 0x2E: SRAHL   break;
-                case 0x30      ... 0x35:  case 0x37: SWAP    break;
-                case 0x38      ... 0x3D:  case 0x3F: SRL     break;
-                case 0x36: SWAPHL  break; case 0x3E: SRLHL   break;
+                case 0:    OPR_2_(RLC,  RLCHL)  break;
+                case 8:    OPR_2_(RRC,  RRCHL)  break;
+                case 0x10: OPR_2_(RL,   RLHL)   break;
+                case 0x18: OPR_2_(RR,   RRHL)   break;
+                case 0x20: OPR_2_(SLA,  SLAHL)  break;
+                case 0x28: OPR_2_(SRA,  SRAHL)  break;
+                case 0x30: OPR_2_(SWAP, SWAPHL) break;
+                case 0x38: OPR_2_(SRL,  SRLHL ) break;
             }
         break;
-        case 8 ... 0xF:
-            /* Bit test */
-            if (opL == 0x6 || opL == 0xE ) { BITHL; gb->rm += 1; } else { BIT }
-        break;
-        case 0x10 ... 0x17:
-            /* Bit reset */
-            if (opL == 0x6 || opL == 0xE ) { RESHL; gb->rm += 2; } else { RES }
-        break;
-        case 0x18 ... 0x1F:
-            /* Bit set */
-            if (opL == 0x6 || opL == 0xE ) { SETHL; gb->rm += 2; } else { SET }
-        break;
+        case 8 ... 0xF:     OPR_2_(BIT, BITHL) break; /* Bit test  */
+        case 0x10 ... 0x17: OPR_2_(RES, RESHL) break; /* Bit reset */
+        case 0x18 ... 0x1F: OPR_2_(SET, SETHL) break; /* Bit set   */
     }
     /* Write back to (HL) for most (HL) operations except BIT */
     if ((op & 7) == 6 && (opHh < 8 || opHh > 0xF))
@@ -293,8 +282,8 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
     uint16_t hl = ADDR_HL;
 
     /* Default values for operands (can be overridden for other opcodes) */
-    const uint8_t  r1 = ((opHh & 7) == 7) ? A : B + (opHh & 7);
-    const uint8_t  r2 = ((opL & 7)  == 7) ? A : ((opL & 7) < 6) ? B + (opL & 7) : 255;
+    const uint8_t r1 = r8_group[(opHh & 7)];
+    const uint8_t r2 = r8_group[(opL  & 7)];
 
     uint8_t tmp = gb->r[A];
 
@@ -307,21 +296,17 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
             {
                 case 0x0:  NOP     break; 
                 case 0x02:                case 0x12: LDrrmA  break; 
-                case 0x06:   case 0x16:   case 0x26:
-                case 0x0E:   case 0x1E:   case 0x2E:
-                case 0x3E:                           LDrm    break;
+                case 0x22: LDHLIA  break; case 0x32: LDHLDA  break;
                 case 0x07: RLCA    break; case 0x08: LDmSP   break;
                 case 0x0A:                case 0x1A: LDArrm  break;
                 case 0x0F: RRCA    break; 
                 
                 case 0x10: STOP    break; case 0x17: RLA     break; 
                 case 0x18: JRm     break; case 0x1F: RRA     break; 
-                case 0x22: LDHLIA  break; 
                 case 0x27: DAA     break;
                 case 0x2A: LDAHLI  break; case 0x2F: CPL     break; 
 
-                case 0x32: LDHLDA  break;
-                case 0x36: LDHLm   break; case 0x37: SCF     break;
+                case 0x37: SCF     break;
                 case 0x3A: LDAHLD  break;
                 case 0x3F: CCF     break;
                 /* ... */
@@ -329,9 +314,6 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
                 case 0xC3: JPNN    break;
                 case 0xC5:   case 0xD5:   case 0xE5: PUSH    break;
                 case 0xC6: ADDm    break;
-                case 0xC7:   case 0xCF:   case 0xD7:
-                case 0xDF:   case 0xE7:   case 0xEF:
-                case 0xF7:   case 0xFF:              RST     break;
                 case 0xC9: RET     break;
                 case 0xCB: PREFIX  break;
                 case 0xCD: CALLm   break;
@@ -363,15 +345,15 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
                 case 0b11000010: JP_  (cond) break;
                 case 0b11000100: CALL_(cond) break;
             }
-            /* Increment, decrement, LD r8,n */
+            /* Increment, decrement, LD r8,n, RST */
             switch (op & 0b11000111)
             {
                 case 0b00000100: INC_   break;
                 case 0b00000101: DEC_   break;
+                case 0b00000110: LDrm_  break;
+                case 0b11000111: RST    break;
             }
             /* 16-bit load, arithmetic instructions */
-            gb->r16 = (uint16_t *)gb->r;
-            uint16_t * r16_group1[] = { gb->r16 + 1, gb->r16 + 2, gb->r16 + 3, &gb->sp };
             switch (op & 0b11001111)
             {
                 case 0b00000001: LDrr_   break;
@@ -391,7 +373,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
             /* 8-bit arithmetic */
             hl = CPU_RB (ADDR_HL);
             /* Mask bits for ALU operations */
-            switch (op & 0xF8) 
+            switch (op & 0b11111000) 
             {
                 case 0x80: OPR_2_(ADD_A_r8, ADD_A_HL) break;
                 case 0x88: OPR_2_(ADC_A_r8, ADC_A_HL) break;
@@ -763,6 +745,5 @@ void gb_render (struct GB * const gb)
             gb_eval_LYC (gb);
         }
     }
-
     /* ...and DMA transfer to OMA, if needed */
 }

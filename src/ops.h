@@ -27,9 +27,10 @@
 
 #endif
 
-/** Choose between operations based on lower 3 bits */
+/** Choose between operations based on position */
 
 #define OPR_2_(A, B)  if ((op & 7) != 6) { A } else { B }
+#define SP_(op)       ((op >> 4) == 3)
 
 /** 8-bit load instructions **/   
 
@@ -73,7 +74,7 @@
 #define LDSP      OP(LDSP);   gb->sp = CPU_RW (gb->pc); gb->pc += 2;
 #define LDSPHL    OP(LDSPHL); gb->sp = ADDR_HL;
 
-#define LDrr_     if (op == 0x31) { LDSP } else { LDrr }
+#define LDrr_     if (SP_(op)) { LDSP } else { LDrr }
 
 #define PUSH      OP(PUSH);   gb->sp--; CPU_WB (gb->sp, gb->r[r1]); gb->sp--; CPU_WB (gb->sp, gb->r[r1 + 1]);
 #define PUSHF     OP(PUSHF);  gb->sp--; CPU_WB (gb->sp, gb->r[A]);  gb->sp--; CPU_WB (gb->sp, gb->flags);
@@ -93,14 +94,15 @@
 #define FLAG_H   0x20
 #define FLAG_C   0x10
 
-#define SET_FLAG_Z(X)    gb->f_z = (X == 0);
+#define SET_FLAG_Z(X)    gb->f_z = ((X) == 0);
 #define SET_FLAG_H_S(X)  gb->f_h = ((X) & 0x10) > 0;
 #define SET_FLAG_H(X)    gb->f_h = (X);
 #define SET_FLAG_C(X)    gb->f_c = (X);
 
-#define KEEP_ZERO       gb->flags &= FLAG_Z;
+#define SET_FLAGS(mask, z,n,h,c)\
+    gb->flags = (gb->flags & mask) | ((!z << 7) + (n << 6) + (h << 5) + (c << 4));
+
 #define KEEP_CARRY      gb->flags &= FLAG_C;
-#define KEEP_ZERO_CARRY gb->flags &= (FLAG_Z | FLAG_C);
 
 #define SET_ADD_FLAGS(X)  \
     SET_FLAG_Z (gb->r[A]);\
@@ -125,16 +127,14 @@
 /* Add and subtract */
 
     #define ADD_FLAGS_(X) \
-        SET_FLAG_Z ((tmp & 0xFF));\
-        gb->f_n = 0;\
-        SET_FLAG_H_S (gb->r[A] ^ X ^ tmp);\
-        gb->f_c = (tmp >= 0x100);\
+        SET_FLAGS (0, (tmp & 0xFF), 0,\
+        (((gb->r[A] ^ X ^ tmp) & 0x10) > 0),\
+        (tmp >= 0x100));\
 
     #define SUB_FLAGS_(X) \
-        SET_FLAG_Z ((tmp & 0xFF));\
-        gb->f_n = 1;\
-        SET_FLAG_H_S (gb->r[A] ^ X ^ tmp);\
-        gb->f_c = (tmp & 0xFF00) ? 1 : 0;\
+        SET_FLAGS (0, (tmp & 0xFF), 1,\
+        (((gb->r[A] ^ X ^ tmp) & 0x10) > 0),\
+        ((tmp & 0xFF00) ? 1 : 0));\
 
     /* Add function templates */
     #define ADC_A(X, C)   uint16_t tmp = gb->r[A] + X + C; ADD_FLAGS_(X); gb->r[A] = tmp & 0xFF;
@@ -157,11 +157,7 @@
 #define OR_A(X)     gb->r[A] |= X; gb->flags = 0; SET_FLAG_Z (gb->r[A]);
 
     /* Flag template for CP instructions */
-    #define FLAGS_CP  \
-        gb->flags = FLAG_N;\
-        SET_FLAG_C (tmp > gb->r[A]);\
-        SET_FLAG_Z (tmp);\
-        SET_FLAG_H ((tmp & 0xF) > (gb->r[A] & 0xF));
+    #define FLAGS_CP  SET_FLAGS(0, tmp, 1, ((tmp & 0xF) > (gb->r[A] & 0xF)), (tmp > gb->r[A]));
 
 #define AND_A_r8    OP(AND_r8)  AND_A(gb->r[r2])
 #define AND_A_HL    OP(AND_HL)  AND_A(hl)
@@ -178,20 +174,21 @@
 #define SUBm     OP(SUBm)     { uint8_t m = IMM; uint8_t tmp  = gb->r[A]; SUB_A_X(m); }
 #define SBCm     OP(SBCm)     { uint8_t m = IMM; uint16_t tmp = gb->r[A] - (m + gb->f_c); SET_IMM_FLAGS; gb->f_n = 1; gb->r[A] = (tmp & 0xFF); }
 
-#define ANDm     OP(ANDm);    gb->r[A] &= IMM; gb->flags = 0; SET_FLAG_Z (gb->r[A]); SET_FLAG_H (1);
-#define XORm     OP(XORm);    gb->r[A] ^= IMM; gb->flags = 0; SET_FLAG_Z (gb->r[A]);
-#define ORm      OP(ORm);     gb->r[A] |= IMM; gb->flags = 0; SET_FLAG_Z (gb->r[A]);
+#define ANDm     OP(ANDm);    gb->r[A] &= IMM; SET_FLAGS(0, gb->r[A], 0, 1, 0);
+#define XORm     OP(XORm);    gb->r[A] ^= IMM; SET_FLAGS(0, gb->r[A], 0, 0, 0);
+#define ORm      OP(ORm);     gb->r[A] |= IMM; SET_FLAGS(0, gb->r[A], 0, 0, 0);
 #define CPm      OP(CPm);     uint8_t m = IMM; tmp -= m; FLAGS_CP;
 
-#define INC      OP(INC);     gb->r[r1]++; SET_FLAG_H (!(gb->r[r1] & 0xF));       SET_FLAG_Z (gb->r[r1]); gb->f_n = 0;
-#define DEC      OP(DEC);     gb->r[r1]--; SET_FLAG_H ((gb->r[r1] & 0xF) == 0xF); SET_FLAG_Z (gb->r[r1]); gb->f_n = 1;
-#define INCHL    OP(INCHL);   { uint8_t tmp = CPU_RB (ADDR_HL) + 1; CPU_WB (ADDR_HL, tmp); SET_FLAG_Z (tmp); SET_FLAG_H ((tmp & 0xF) == 0);   gb->f_n = 0; }
-#define DECHL    OP(DECHL);   { uint8_t tmp = CPU_RB (ADDR_HL) - 1; CPU_WB (ADDR_HL, tmp); SET_FLAG_Z (tmp); SET_FLAG_H ((tmp & 0xF) == 0xF); gb->f_n = 1; }
+#define INC(X)   OP(INC);     SET_FLAGS (16, X, 0, ((X & 0xF) == 0),   0);
+#define DEC(X)   OP(DEC);     SET_FLAGS (16, X, 1, ((X & 0xF) == 0xF), 0);
 #define CPL      OP(CPL);     gb->r[A] ^= 0xFF; gb->flags |= 0x60;
 
-#define INC_     if (op == 0x34) { INCHL } else { INC }
-#define DEC_     if (op == 0x35) { DECHL } else { DEC }
-#define LDrm_    if (op == 0x36) { LDrm  } else { LDHLm }
+#define INC_     OP(INC); if (op == 0x34) {\
+    uint8_t tmp = CPU_RB (ADDR_HL); CPU_WB (ADDR_HL, ++tmp); INC(tmp) } else { gb->r[r1]++; INC(gb->r[r1]); }
+
+#define DEC_     OP(DEC); if (op == 0x35) {\
+    uint8_t tmp = CPU_RB (ADDR_HL); CPU_WB (ADDR_HL, --tmp); DEC(tmp) } else { gb->r[r1]--; DEC(gb->r[r1]); }
+#define LDrm_    if (op == 0x36) { LDHLm } else { LDrm }
 
 /* The following is from SameBoy. MIT License. */
 #define DAA      OP(DAA);     {\
@@ -238,9 +235,9 @@
 #define DECrr    OP(DECrr);   gb->r[r1]--; if (gb->r[r1] == 0xff) gb->r[r1 - 1]--;
 #define DECSP    OP(DECSP);   gb->sp--;
 
-#define INCrr_   if (op == 0x33) { INCSP  } else { INCrr }
-#define ADHLrr_  if (op == 0x39) { ADHLSP } else { ADHLrr }
-#define DECrr_   if (op == 0x3B) { DECSP  } else { DECrr }
+#define INCrr_   if (SP_(op)) { INCSP  } else { INCrr }
+#define ADHLrr_  if (SP_(op)) { ADHLSP } else { ADHLrr }
+#define DECrr_   if (SP_(op)) { DECSP  } else { DECrr }
 
 /** CPU control instructions **/
 
@@ -293,7 +290,7 @@
 
 #define COND_(_)\
     (_ == 0) ? (!gb->f_z) :\
-    (_ == 1) ? gb->f_z :\
+    (_ == 1) ?   gb->f_z  :\
     (_ == 2) ? (!gb->f_c) : gb->f_c\
 
 #define JR_(C)    OP(JR_)     JR_IF   (COND_(C));
@@ -313,100 +310,84 @@
 #define RLC     OP(RLC); {\
     uint8_t tmp = gb->r[r];\
     gb->r[r] <<= 1; gb->r[r] |= (tmp >> 7);\
-    gb->flags = (!gb->r[r]) * FLAG_Z;\
-    gb->f_c = tmp >> 7;\
+    SET_FLAGS(0, gb->r[r], 0, 0, (tmp >> 7));\
 }
 
 #define RLCHL   OP(RLCHL); {\
     uint8_t tmp = hl;\
     hl <<= 1; hl |= (tmp >> 7);\
-    gb->flags = (!hl) * FLAG_Z;\
-    gb->f_c = tmp >> 7;\
+    SET_FLAGS(0, hl, 0, 0, (tmp >> 7));\
 }
 
 #define RL      OP(RL); {\
     uint8_t tmp = gb->r[r];\
     gb->r[r] <<= 1; gb->r[r] |= gb->f_c;\
-    gb->flags = (!gb->r[r]) * FLAG_Z;\
-    gb->f_c = tmp >> 7;\
+    SET_FLAGS(0, gb->r[r], 0, 0, (tmp >> 7));\
 }
 
 #define RLHL    OP(RLHL); {\
     uint8_t tmp = hl;\
     hl <<= 1; hl |= gb->f_c;\
-    gb->flags = (!hl) * FLAG_Z;\
-    gb->f_c = tmp >> 7;\
+    SET_FLAGS(0, hl, 0, 0, (tmp >> 7));\
 }
 
 #define RRC     OP(RRC); {\
     uint8_t tmp = gb->r[r];\
     gb->r[r] >>= 1; gb->r[r] |= (tmp << 7);\
-    gb->flags = (!gb->r[r]) * FLAG_Z;\
-    gb->f_c = tmp & 1;\
+    SET_FLAGS(0, gb->r[r], 0, 0, (tmp & 1));\
 }
 
 #define RRCHL   OP(RRCHL); {\
     uint8_t tmp = hl;\
     hl >>= 1; hl |= (tmp << 7);\
-    gb->flags = (!hl) * FLAG_Z;\
-    gb->f_c = tmp & 1;\
+    SET_FLAGS(0, hl, 0, 0, (tmp & 1));\
 }
 
 #define RR      OP(RR); {\
     uint8_t tmp = gb->r[r];\
     gb->r[r] >>= 1; gb->r[r] |= gb->f_c << 7;\
-    gb->flags = (!gb->r[r]) * FLAG_Z;\
-    gb->f_c = tmp & 1;\
+    SET_FLAGS(0, gb->r[r], 0, 0, (tmp & 1));\
 }
 
 #define RRHL    OP(RRHL); {\
     uint8_t tmp = hl;\
     hl >>= 1; hl |= gb->f_c << 7;\
-    gb->flags = (!hl) * FLAG_Z;\
-    gb->f_c = tmp & 1;\
+    SET_FLAGS(0, hl, 0, 0, (tmp & 1));\
 }
 
-#define SLA     OP(SLA);   gb->flags = (gb->r[r] >> 7) * FLAG_C; gb->r[r] <<= 1; SET_FLAG_Z(gb->r[r]);
-#define SRA     OP(SRA);   gb->flags = (gb->r[r] & 1)  * FLAG_C; gb->r[r] = (gb->r[r] >> 1) | (gb->r[r] & 0X80); SET_FLAG_Z(gb->r[r]);
-#define SLAHL   OP(SLAHL); gb->flags = (hl >> 7) * FLAG_C; hl <<= 1;                     SET_FLAG_Z(hl);
-#define SRAHL   OP(SRAHL); gb->flags = (hl & 1)  * FLAG_C; hl = (hl >> 1) | (hl & 0X80); SET_FLAG_Z(hl);
+#define SLA     OP(SLA);   gb->flags = 0; SET_FLAG_C (gb->r[r] >> 7); gb->r[r] <<= 1; SET_FLAG_Z (gb->r[r]);
+#define SRA     OP(SRA);   gb->flags = 0; SET_FLAG_C (gb->r[r] & 1); gb->r[r] = (gb->r[r] >> 1) | (gb->r[r] & 0X80); SET_FLAG_Z(gb->r[r]);
+#define SLAHL   OP(SLAHL); gb->flags = 0; SET_FLAG_C (hl >> 7); hl <<= 1; SET_FLAG_Z(hl);
+#define SRAHL   OP(SRAHL); gb->flags = 0; SET_FLAG_C (hl & 1); hl = (hl >> 1) | (hl & 0X80); SET_FLAG_Z(hl);
 
 #define SWAP    OP(SWAP) {\
     uint8_t tmp = gb->r[r] << 4;\
-    gb->r[r] >>= 4; gb->r[r] |= tmp;\
-    gb->flags = 0;\
-    SET_FLAG_Z (gb->r[r]);\
+    gb->r[r] >>= 4; gb->r[r] |= tmp; SET_FLAGS(0, gb->r[r], 0, 0, 0);\
 }
 
 #define SWAPHL  OP(SWAPHL) {\
     uint8_t tmp = hl << 4;\
-    hl >>= 4; hl |= tmp;\
-    gb->flags = 0;\
-    SET_FLAG_Z (hl);\
+    hl >>= 4; hl |= tmp; SET_FLAGS(0, hl, 0, 0, 0);\
 }
 
 #define SRL     OP(SRL); {\
     uint8_t fc = (gb->r[r] & 1) ? 1 : 0;\
-    gb->r[r] >>= 1; gb->flags = 0;\
-    SET_FLAG_Z (gb->r[r]);\
-    gb->f_c = fc;\
+    gb->r[r] >>= 1; SET_FLAGS(0, gb->r[r], 0, 0, fc);\
 }
 
 #define SRLHL   OP(SRLHL); {\
     uint8_t fc = (hl & 1) ? 1 : 0;\
-    hl >>= 1; gb->flags = 0;\
-    SET_FLAG_Z (hl);\
-    gb->f_c = fc;\
+    hl >>= 1; SET_FLAGS(0, hl, 0, 0, fc);\
 }
 
-#define BIT     OP(BIT);   KEEP_CARRY; gb->flags |= FLAG_H; gb->flags |= (gb->r[r] & (1 << r_bit)) ? 0 : FLAG_Z;
-#define BITHL   OP(BITHL); KEEP_CARRY; gb->flags |= FLAG_H; gb->flags |= (hl & (1 << r_bit)) ? 0 : FLAG_Z;
+#define BIT     OP(BIT);   SET_FLAGS(16, (gb->r[r] & (1 << r_bit)), 0, 1, 0);
+#define BITHL   OP(BITHL); SET_FLAGS(16, (hl & (1 << r_bit)), 0, 1, 0); gb->rm += 1;
 
 #define RES     OP(RES);   gb->r[r] &= (0xFE << r_bit) | (0xFF >> (8 - r_bit));
-#define RESHL   OP(RESHL); hl &= (0xFE << r_bit) | (0xFF >> (8 - r_bit));
+#define RESHL   OP(RESHL); hl &= (0xFE << r_bit) | (0xFF >> (8 - r_bit)); gb->rm += 2;
 
 #define SET     OP(SET);   gb->r[r] |= (1 << r_bit); 
-#define SETHL   OP(SET);   hl |= (1 << r_bit);
+#define SETHL   OP(SET);   hl |= (1 << r_bit); gb->rm += 2;
 
 /* Misc instructions */
 
