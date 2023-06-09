@@ -20,22 +20,25 @@ inline uint8_t gb_ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val
     return 0;
 }
 
+#define FALLING_EDGE(before, after)  ((before & 1) > (after & 1))
+
 inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
-#define FALLING_EDGE(before, after)  (before == 1 && after == 0)
-
     if (!write) 
         return gb->io[addr % 0x80];
     else
     {
-        if (addr % 0x80 == BootROM) {
-            LOG_("Writing value to bootROM %d\n", val);
+        switch (addr % 0x80)
+        {
+            case BootROM: 
+                LOG_("Writing value to bootROM %d\n", val); break;
+            case Divider:
+                gb->divClock = 0; return 0;                                           /* DIV reset */
+            case DMA:                                     /* OAM DMA transfer                      */
+                gb->io[DMA] = val; int i = 0;             /* Todo: Make it write across 160 cycles */
+                const uint16_t src = val << 8;
+                while (i < OAM_SIZE) { gb->oam[i] = CPU_RB (src + i); i++; } return 0;
         }
-        if (addr % 0x80 == Divider) { gb->divClock = 0; return 0; }               /* DIV reset */
-        if (addr % 0x80 == DMA) {   /* OAM DMA transfer. Todo: Make it write across 160 cycles */
-            gb->io[DMA] = val; int i = 0;
-            const uint16_t src = val << 8;
-            while (i < OAM_SIZE) { gb->oam[i] = CPU_RB (src + i); i++; } return 0; }
         gb->io[addr % 0x80] = val;
     }
     return 0;
@@ -450,7 +453,6 @@ void gb_handle_interrupts (struct GB * gb)
 void gb_handle_timings (struct GB * gb)
 {
     /* Increment div every m-cycle and save bits 6-13 to DIV register */
-    const uint16_t lastDiv = gb->divClock;
     gb->divClock++;
     gb->io[Divider] = (gb->divClock >> 6) & 0xFF;
 
@@ -468,24 +470,18 @@ void gb_handle_timings (struct GB * gb)
     const uint8_t tac = CPU_RB (0xFF00 + TimerCtrl);
     if (!(tac & 0x4)) return;
 
-    /* Update timer, check for overflow  */
-    const uint16_t clockRates[4] = { 1024, 16, 64, 256 };
-    const uint16_t rate = clockRates[tac & 0x3] >> 2;
-    const uint8_t incr = ((gb->divClock / rate) != (lastDiv / rate)) ? 1 : 0;
+    /* Update timer, check bit for 1024, 16, 64, or 256 cycles respectively  */
+    const uint8_t checkBits[4] = { 7, 1, 3, 5 };
+    const uint8_t checkBit = checkBits[tac & 0x3];
 
-    if (incr)
+    if (FALLING_EDGE (gb->lastDiv >> checkBit, gb->divClock >> checkBit))
     {
         uint8_t timA = CPU_RB (0xFF00 + TimA);
-
         /* Request timer interrupt if pending */
-        if (timA + incr == 0xFF)
-        {
-            CPU_WB (0xFF00 + TimA, 0);
-            gb->timAOverflow = 1;
-        }
-        else
-            CPU_WB (0xFF00 + TimA, timA + incr);
+        if (++timA == 0) gb->timAOverflow = 1;
+        CPU_WB (0xFF00 + TimA, timA);
     }
+    gb->lastDiv = gb->divClock;
 }
 
 /* Used for comparing and setting PPU mode timings */

@@ -54,7 +54,7 @@ struct GB
     uint8_t  frame;
 
     /* Timer data */
-    uint16_t divClock;
+    uint16_t divClock, lastDiv;
     uint8_t  timAOverflow;
     uint8_t  rt, rm; /* Tracks individual step clocks */
 
