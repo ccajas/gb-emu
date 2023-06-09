@@ -22,6 +22,8 @@ inline uint8_t gb_ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val
 
 inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
+#define FALLING_EDGE(before, after)  (before == 1 && after == 0)
+
     if (!write) 
         return gb->io[addr % 0x80];
     else
@@ -55,8 +57,7 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
     struct Cartridge * cart = &gb->cart;
 
     if (addr < 0x0100 && !gb->io[BootROM])                        /* Run boot ROM if needed */
-        { LOG_("Bootrom is set to %d\n", gb->io[BootROM]);
-            if (!write) { return gb->bootRom[addr]; } else { return 0; }}
+        { if (!write) { return gb->bootRom[addr]; } else { return 0; }}
     if (addr < 0x8000)  return cart->rw (cart, addr, val, write);       /* ROM from MBC     */
     if (addr < 0xA000)  return gb_ppu_rw (gb, addr, val, write);        /* Video RAM        */
     if (addr < 0xC000)  return cart->rw (cart, addr, val, write);       /* External RAM     */
@@ -470,14 +471,14 @@ void gb_handle_timings (struct GB * gb)
     /* Update timer, check for overflow  */
     const uint16_t clockRates[4] = { 1024, 16, 64, 256 };
     const uint16_t rate = clockRates[tac & 0x3] >> 2;
-    const uint16_t incr = (gb->divClock / rate) != (lastDiv / rate);
+    const uint8_t incr = ((gb->divClock / rate) != (lastDiv / rate)) ? 1 : 0;
 
     if (incr)
     {
         uint8_t timA = CPU_RB (0xFF00 + TimA);
 
         /* Request timer interrupt if pending */
-        if ((uint16_t)(timA + incr) >= 0xFF)
+        if (timA + incr == 0xFF)
         {
             CPU_WB (0xFF00 + TimA, 0);
             gb->timAOverflow = 1;

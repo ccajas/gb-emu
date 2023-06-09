@@ -46,13 +46,14 @@ struct GB
         uint8_t flags;
     };
     
-    /* Other CPU registers/timing data */
+    /* Other CPU registers / general timekeeping */
     uint16_t pc, sp;
     uint64_t clock_t, clock_m;
     uint16_t lineClock;
     uint32_t frameClock;
     uint8_t  frame;
 
+    /* Timer data */
     uint16_t divClock;
     uint8_t  timAOverflow;
     uint8_t  rt, rm; /* Tracks individual step clocks */
@@ -60,8 +61,6 @@ struct GB
     uint8_t stop, halted;
     uint8_t vramBlocked, oamBlocked;
     uint8_t invalid;
-
-    /* PPU timing */
 
     /* Memory and I/O registers */
     uint8_t ram [WRAM_SIZE];   /* Work RAM  */
