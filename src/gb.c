@@ -524,18 +524,18 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             All related calculations following are found here:
             https://github.com/ISSOtm/pandocs/blob/rendering-internals/src/Rendering_Internals.md */
 
-            const uint8_t posX = lineX + gb->io[ScrollX];
-            const uint8_t relX = posX % 8;
-
             /* Stop BG rendering if window is found here */
-            if (gb->io[WindowX] - 7 >= lineX && lineY >= gb->io[WindowY])
-                break;
+            const uint8_t isWindow = (LCDC_(5) && lineX >= gb->io[WindowX] - 7 && lineY >= gb->io[WindowY]);
 
-            /* Get next tile being scrolled in */
+            const uint8_t posX = (isWindow) ? lineX : lineX + gb->io[ScrollX];
+            const uint8_t posY = (isWindow) ? lineY - gb->io[WindowY] : lineY + gb->io[ScrollY];
+            const uint8_t relX = (isWindow) ? gb->io[WindowX] - 7 + (lineX % 8) : posX % 8;
+
+            /* Get next tile to be drawn */
             if (lineX == 0 || relX == 0)
             {
                 BGTileMap  = (LCDC_(3)) ? 0x9C00 : 0x9800;
-                tileAddr = BGTileMap + 
+                tileAddr = ((isWindow) ? winTileMap : BGTileMap) + 
                     ((posY >> 3) << 5) +  /* Bits 5-9, Y location */
                     (posX >> 3);          /* Bits 0-4, X location */
                 tileID = gb->vram[tileAddr & 0x1FFF];
@@ -560,7 +560,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
 
         /* Leave prematurely if window is disabled */
         //if (!LCDC_(5)) return pixels;
-
+#ifdef WINDOW_DRAW
         /* Get line of window to draw */
         posY = lineY - gb->io[WindowY];
 
@@ -595,6 +595,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
                 pixels[lineX + windowX + x] = (gb->io[BGPalette] >> (index * 2)) & 3;
             }
         }
+#endif
     }
 
     return pixels;
