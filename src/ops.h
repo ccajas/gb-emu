@@ -25,7 +25,11 @@
 #define OPXY(name, X, Y)
 #define OPN(name, N)
 
-#endif  
+#endif
+
+/** Choose between operations based on lower 3 bits */
+
+#define OPR_2_(A, B)  if ((op & 7) != 6) { A } else { B }
 
 /** 8-bit load instructions **/   
 
@@ -78,7 +82,7 @@
     gb->flags = 0; uint8_t fl = 7;\
     while (fl >= 4) {\
         gb->flags |= (((sp >> fl) & 1) << fl); fl--; }\
-}\
+}
 
 /* Flag setting helpers */
 
@@ -246,9 +250,22 @@
 #define JRm     OP(JRm);  gb->pc += (int8_t) CPU_RB (gb->pc); gb->pc++;
 
     /* Jump and call function templates */
-    #define JP_IF(X)   if (X) { gb->pc = CPU_RW (gb->pc); gb->rm++; } else gb->pc += 2;
-    #define JR_IF(X)   if (X) { gb->pc += (int8_t) CPU_RB (gb->pc); gb->rm++; } gb->pc++;   
-    #define CALL_IF(X) if (X) { gb->sp -= 2; CPU_WW (gb->sp, (gb->pc + 2)); gb->pc = CPU_RW (gb->pc); gb->rm += 3; } else gb->pc += 2;
+    #define JP_IF(X)   if (X) {\
+        gb->pc =  CPU_RW (gb->pc);\
+        gb->rm++;\
+    } else gb->pc += 2;
+
+    #define JR_IF(X)   if (X) {\
+        gb->pc += (int8_t) CPU_RB (gb->pc);\
+        gb->rm++;\
+    } gb->pc++;
+
+    #define CALL_IF(X) if (X) {\
+        gb->sp -= 2;\
+        CPU_WW (gb->sp, (gb->pc + 2));\
+        gb->pc = CPU_RW (gb->pc);\
+        gb->rm += 3;\
+    } else gb->pc += 2;
 
     /* Return function templates */
     #define RET__     gb->pc = CPU_RW (gb->sp); gb->sp += 2;
@@ -280,6 +297,13 @@
 #define RETNZ   OP(RETNZ); RET_IF (!(gb->f_z));
 #define RETC    OP(RETC);  RET_IF (gb->f_c);
 #define RETNC   OP(RETNC); RET_IF (!(gb->f_c));
+
+#define COND_(_) (_ == 0) ? (!gb->f_z) : (_ == 1) ? gb->f_z : (_ == 2) ? (!gb->f_c) : gb->f_c
+
+#define JR_(C)    OP(JR_)     JR_IF   (COND_(C));
+#define RET_(C)   OP(RET_)    RET_IF  (COND_(C));
+#define JP_(C)    OP(JP_)     JP_IF   (COND_(C));
+#define CALL_(C)  OP(CALL_)   CALL_IF (COND_(C));
 
 #define RST     OP(RST);   uint16_t n = (opHh - 0x18) << 3; gb->sp -= 2; CPU_WW (gb->sp, gb->pc); gb->pc = n;
 

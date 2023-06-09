@@ -20,6 +20,7 @@ inline uint8_t gb_ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val
     return 0;
 }
 
+#define RISING_EDGE(before, after)   ((before & 1) < (after & 1))
 #define FALLING_EDGE(before, after)  ((before & 1) > (after & 1))
 
 inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
@@ -326,36 +327,36 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
                 
                 case 0x10: STOP    break; case 0x17: RLA     break; 
                 case 0x18: JRm     break; case 0x1F: RRA     break; 
-                case 0x20: JRNZ    break; case 0x22: LDHLIA  break; 
-                case 0x27: DAA     break; case 0x28: JRZ     break; 
+                case 0x20: /*JRNZ*/    break; case 0x22: LDHLIA  break; 
+                case 0x27: DAA     break; case 0x28: /*JRZ*/     break; 
                 case 0x2A: LDAHLI  break; case 0x2F: CPL     break; 
 
-                case 0x30: JRNC    break; case 0x31: LDSP    break;
+                case 0x30: /*JRNC*/    break; case 0x31: LDSP    break;
                 case 0x32: LDHLDA  break; case 0x33: INCSP   break;
                 case 0x34: INCHL   break; case 0x35: DECHL   break;
                 case 0x36: LDHLm   break; case 0x37: SCF     break;
-                case 0x38: JRC     break;
+                case 0x38: /*JRC*/     break;
                 case 0x39: ADHLSP  break; case 0x3A: LDAHLD  break;
                 case 0x3B: DECSP   break; case 0x3F: CCF     break;
                 /* ... */
-                case 0xC0: RETNZ   break;
+                case 0xC0: /*RETNZ*/   break;
                 case 0xC1:   case 0xD1:   case 0xE1: POP     break;
-                case 0xC2: JPNZ    break; case 0xC3: JPNN    break;
-                case 0xC4: CALLNZ  break;
+                case 0xC2: /*JPNZ*/    break; case 0xC3: JPNN    break;
+                case 0xC4: /*CALLNZ*/  break;
                 case 0xC5:   case 0xD5:   case 0xE5: PUSH    break;
                 case 0xC6: ADDm    break;
                 case 0xC7:   case 0xCF:   case 0xD7:
                 case 0xDF:   case 0xE7:   case 0xEF:
                 case 0xF7:   case 0xFF:              RST     break;
-                case 0xC8: RETZ    break; case 0xC9: RET     break;
-                case 0xCA: JPZ     break; case 0xCB: PREFIX  break;
-                case 0xCC: CALLZ   break; case 0xCD: CALLm   break;
+                case 0xC8: /*RETZ*/    break; case 0xC9: RET     break;
+                case 0xCA: /*JPZ*/     break; case 0xCB: PREFIX  break;
+                case 0xCC: /*CALLZ*/   break; case 0xCD: CALLm   break;
                 case 0xCE: ADCm    break;
 
-                case 0xD0: RETNC   break; case 0xD2: JPNC    break;
-                case 0xD4: CALLNC  break; case 0xD6: SUBm    break;
-                case 0xD8: RETC    break; case 0xD9: RETI    break;
-                case 0xDA: JPC     break; case 0xDC: CALLC   break;
+                case 0xD0: /*RETNC*/   break; case 0xD2: /*JPNC */   break;
+                case 0xD4: /*CALLNC*/  break; case 0xD6: SUBm    break;
+                case 0xD8: /*RETC*/    break; case 0xD9: RETI    break;
+                case 0xDA: /*JPC */    break; case 0xDC: /*CALLC*/   break;
                 case 0xDE: SBCm    break;
 
                 case 0xE0: LDIOmA  break; case 0xE2: LDIOCA  break;
@@ -371,28 +372,36 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
                 case 0xFE: CPm     break;
                 default:   INVALID;
             }
+            const uint8_t cond = ((op >> 3) & 3);
+            switch (op & 0b11100111)
+            {
+                case 0b00100000: JR_(cond)   break;
+                case 0b11000000: RET_(cond)  break;
+                case 0b11000010: JP_(cond)   break;
+                case 0b11000100: CALL_(cond) break;
+            }
         break;
         case 8 ... 0xD: case 0xF:
             /* 8-bit load, LD or LDrHL */
-            if (opL == 0x6 || opL == 0xE ) { LD_rHL } else { LD_r8 }
+            OPR_2_(LD_r8, LD_rHL)
         break;
-        case 0xE:
-            /* 8-bit load, LDHLr or HALT */
-            if (opL != 0x6) { LD_HLr } else { HALT }
+        case 0xE: /* 8-bit load, LDHLr or HALT */
+            OPR_2_(LD_HLr, HALT)
         break;
         case 0x10 ... 0x17:
             /* 8-bit arithmetic */
             hl = CPU_RB (ADDR_HL);
             /* Mask bits for ALU operations */
-            switch (op & 0xF8) {
-                case 0x80: if (op == 0x86) { ADD_A_HL } else { ADD_A_r8 } break;
-                case 0x88: if (op == 0x8E) { ADC_A_HL } else { ADC_A_r8 } break;
-                case 0x90: if (op == 0x96) { SUB_A_HL } else { SUB_A_r8 } break;
-                case 0x98: if (op == 0x9E) { SBC_A_HL } else { SBC_A_r8 } break;
-                case 0xA0: if (op == 0xA6) { AND_A_HL } else { AND_A_r8 } break;
-                case 0xA8: if (op == 0xAE) { XOR_A_HL } else { XOR_A_r8 } break;
-                case 0xB0: if (op == 0xB6) { OR_A_HL  } else { OR_A_r8  } break;
-                case 0xB8: if (op == 0xBE) { CP_A_HL  } else { CP_A_r8  } break;
+            switch (op & 0xF8) 
+            {
+                case 0x80: OPR_2_(ADD_A_r8, ADD_A_HL) break;
+                case 0x88: OPR_2_(ADC_A_r8, ADC_A_HL) break;
+                case 0x90: OPR_2_(SUB_A_r8, SUB_A_HL) break;
+                case 0x98: OPR_2_(SBC_A_r8, SBC_A_HL) break;
+                case 0xA0: OPR_2_(AND_A_r8, AND_A_HL) break;
+                case 0xA8: OPR_2_(XOR_A_r8, XOR_A_HL) break;
+                case 0xB0: OPR_2_(OR_A_r8,  OR_A_HL ) break;
+                case 0xB8: OPR_2_(CP_A_r8,  CP_A_HL ) break;
             }
         break;
     }
@@ -470,11 +479,11 @@ void gb_handle_timings (struct GB * gb)
     const uint8_t tac = CPU_RB (0xFF00 + TimerCtrl);
     if (!(tac & 0x4)) return;
 
-    /* Update timer, check bit for 1024, 16, 64, or 256 cycles respectively  */
+    /* Update timer, check bits for 1024, 16, 64, or 256 cycles respectively  */
     const uint8_t checkBits[4] = { 7, 1, 3, 5 };
-    const uint8_t checkBit = checkBits[tac & 0x3];
+    const uint8_t cBit = checkBits[tac & 0x3];
 
-    if (FALLING_EDGE (gb->lastDiv >> checkBit, gb->divClock >> checkBit))
+    if (FALLING_EDGE (gb->lastDiv >> cBit, gb->divClock >> cBit))
     {
         uint8_t timA = CPU_RB (0xFF00 + TimA);
         /* Request timer interrupt if pending */
