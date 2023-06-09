@@ -306,57 +306,39 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
             switch (op)
             {
                 case 0x0:  NOP     break; 
-                case 0x01:   case 0x11:   case 0x21: LDrr    break;
                 case 0x02:                case 0x12: LDrrmA  break; 
-                case 0x03:   case 0x13:   case 0x23: INCrr   break; 
-                case 0x04:   case 0x14:   case 0x24:
-                case 0x0C:   case 0x1C:   case 0x2C:     
-                case 0x3C:                           INC     break;   
-                case 0x05:   case 0x15:   case 0x25:
-                case 0x0D:   case 0x1D:   case 0x2D:
-                case 0x3D:                           DEC     break;
                 case 0x06:   case 0x16:   case 0x26:
                 case 0x0E:   case 0x1E:   case 0x2E:
                 case 0x3E:                           LDrm    break;
                 case 0x07: RLCA    break; case 0x08: LDmSP   break;
-                case 0x09:                case 0x19:
-                case 0x29: ADHLrr  break;
                 case 0x0A:                case 0x1A: LDArrm  break;
-                case 0x0B:   case 0x1B:   case 0x2B: DECrr   break;
                 case 0x0F: RRCA    break; 
                 
                 case 0x10: STOP    break; case 0x17: RLA     break; 
                 case 0x18: JRm     break; case 0x1F: RRA     break; 
-                case 0x20: /*JRNZ*/    break; case 0x22: LDHLIA  break; 
-                case 0x27: DAA     break; case 0x28: /*JRZ*/     break; 
+                case 0x22: LDHLIA  break; 
+                case 0x27: DAA     break;
                 case 0x2A: LDAHLI  break; case 0x2F: CPL     break; 
 
-                case 0x30: /*JRNC*/    break; case 0x31: LDSP    break;
-                case 0x32: LDHLDA  break; case 0x33: INCSP   break;
-                case 0x34: INCHL   break; case 0x35: DECHL   break;
+                case 0x32: LDHLDA  break;
                 case 0x36: LDHLm   break; case 0x37: SCF     break;
-                case 0x38: /*JRC*/     break;
-                case 0x39: ADHLSP  break; case 0x3A: LDAHLD  break;
-                case 0x3B: DECSP   break; case 0x3F: CCF     break;
+                case 0x3A: LDAHLD  break;
+                case 0x3F: CCF     break;
                 /* ... */
-                case 0xC0: /*RETNZ*/   break;
                 case 0xC1:   case 0xD1:   case 0xE1: POP     break;
-                case 0xC2: /*JPNZ*/    break; case 0xC3: JPNN    break;
-                case 0xC4: /*CALLNZ*/  break;
+                case 0xC3: JPNN    break;
                 case 0xC5:   case 0xD5:   case 0xE5: PUSH    break;
                 case 0xC6: ADDm    break;
                 case 0xC7:   case 0xCF:   case 0xD7:
                 case 0xDF:   case 0xE7:   case 0xEF:
                 case 0xF7:   case 0xFF:              RST     break;
-                case 0xC8: /*RETZ*/    break; case 0xC9: RET     break;
-                case 0xCA: /*JPZ*/     break; case 0xCB: PREFIX  break;
-                case 0xCC: /*CALLZ*/   break; case 0xCD: CALLm   break;
+                case 0xC9: RET     break;
+                case 0xCB: PREFIX  break;
+                case 0xCD: CALLm   break;
                 case 0xCE: ADCm    break;
 
-                case 0xD0: /*RETNC*/   break; case 0xD2: /*JPNC */   break;
-                case 0xD4: /*CALLNC*/  break; case 0xD6: SUBm    break;
-                case 0xD8: /*RETC*/    break; case 0xD9: RETI    break;
-                case 0xDA: /*JPC */    break; case 0xDC: /*CALLC*/   break;
+                case 0xD6: SUBm    break;
+                case 0xD9: RETI    break;
                 case 0xDE: SBCm    break;
 
                 case 0xE0: LDIOmA  break; case 0xE2: LDIOCA  break;
@@ -372,13 +354,30 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
                 case 0xFE: CPm     break;
                 default:   INVALID;
             }
+            /* Jump / call instructions */
             const uint8_t cond = ((op >> 3) & 3);
             switch (op & 0b11100111)
             {
-                case 0b00100000: JR_(cond)   break;
-                case 0b11000000: RET_(cond)  break;
-                case 0b11000010: JP_(cond)   break;
+                case 0b00100000: JR_  (cond) break;
+                case 0b11000000: RET_ (cond) break;
+                case 0b11000010: JP_  (cond) break;
                 case 0b11000100: CALL_(cond) break;
+            }
+            /* Increment, decrement, LD r8,n */
+            switch (op & 0b11000111)
+            {
+                case 0b00000100: INC_   break;
+                case 0b00000101: DEC_   break;
+            }
+            /* 16-bit load, arithmetic instructions */
+            gb->r16 = (uint16_t *)gb->r;
+            uint16_t * r16_group1[] = { gb->r16 + 1, gb->r16 + 2, gb->r16 + 3, &gb->sp };
+            switch (op & 0b11001111)
+            {
+                case 0b00000001: LDrr_   break;
+                case 0b00000011: INCrr_  break;
+                case 0b00001001: ADHLrr_ break;
+                case 0b00001011: DECrr_  break;
             }
         break;
         case 8 ... 0xD: case 0xF:

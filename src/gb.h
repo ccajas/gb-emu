@@ -29,10 +29,11 @@
 
 struct GB
 {
-    enum { A = 0, B, C, D, E, H, L, F = 10 } registers;
+    enum { A = 0, F, B, C, D, E, H, L } registers;
 
-    uint8_t r[7];     /* A-E, H, L - 8-bit registers */
-    
+    uint8_t    r[8];     /* A-E, H, L - 8-bit registers */
+    uint16_t * r16;      /* Registers in 16-bit gorups  */
+
     union
     {
         struct 

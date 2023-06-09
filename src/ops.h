@@ -71,7 +71,9 @@
     gb->pc += 2;\
 
 #define LDSP      OP(LDSP);   gb->sp = CPU_RW (gb->pc); gb->pc += 2;
-#define LDSPHL    OP(LDSPHL); gb->sp = ADDR_HL;   
+#define LDSPHL    OP(LDSPHL); gb->sp = ADDR_HL;
+
+#define LDrr_     if (op == 0x31) { LDSP } else { LDrr }
 
 #define PUSH      OP(PUSH);   gb->sp--; CPU_WB (gb->sp, gb->r[r1]); gb->sp--; CPU_WB (gb->sp, gb->r[r1 + 1]);
 #define PUSHF     OP(PUSHF);  gb->sp--; CPU_WB (gb->sp, gb->r[A]);  gb->sp--; CPU_WB (gb->sp, gb->flags);
@@ -185,7 +187,11 @@
 #define DEC      OP(DEC);     gb->r[r1]--; SET_FLAG_H ((gb->r[r1] & 0xF) == 0xF); SET_FLAG_Z (gb->r[r1]); gb->f_n = 1;
 #define INCHL    OP(INCHL);   { uint8_t tmp = CPU_RB (ADDR_HL) + 1; CPU_WB (ADDR_HL, tmp); SET_FLAG_Z (tmp); SET_FLAG_H ((tmp & 0xF) == 0);   gb->f_n = 0; }
 #define DECHL    OP(DECHL);   { uint8_t tmp = CPU_RB (ADDR_HL) - 1; CPU_WB (ADDR_HL, tmp); SET_FLAG_Z (tmp); SET_FLAG_H ((tmp & 0xF) == 0xF); gb->f_n = 1; }
-#define CPL      OP(CPL);     gb->r[A] ^= 0xFF; gb->flags |= 0x60; 
+#define CPL      OP(CPL);     gb->r[A] ^= 0xFF; gb->flags |= 0x60;
+
+#define INC_     if (op == 0x34) { INCHL } else { INC }
+#define DEC_     if (op == 0x35) { DECHL } else { DEC }
+#define LDrm_    if (op == 0x36) { LDrm  } else { LDHLm }
 
 /* The following is from SameBoy. MIT License. */
 #define DAA      OP(DAA);     {\
@@ -232,6 +238,10 @@
 #define DECrr    OP(DECrr);   gb->r[r1]--; if (gb->r[r1] == 0xff) gb->r[r1 - 1]--;
 #define DECSP    OP(DECSP);   gb->sp--;
 
+#define INCrr_   if (op == 0x33) { INCSP  } else { INCrr }
+#define ADHLrr_  if (op == 0x39) { ADHLSP } else { ADHLrr }
+#define DECrr_   if (op == 0x3B) { DECSP  } else { DECrr }
+
 /** CPU control instructions **/
 
 #define CCF     OP(CCF);  gb->f_c = !gb->f_c; gb->f_n = gb->f_h = 0;
@@ -273,32 +283,18 @@
 
 /* Conditional jump */
 
-#define JPZ     OP(JPZ);  JP_IF (gb->f_z);
-#define JPNZ    OP(JPNZ); JP_IF (!gb->f_z);
-#define JPC     OP(JPC);  JP_IF (gb->f_c);
-#define JPNC    OP(JPNC); JP_IF (!gb->f_c);
-
 /* Conditional relative jump */
-#define JRZ     OP(JRZ);  JR_IF (gb->f_z);
-#define JRNZ    OP(JRNZ); JR_IF (!gb->f_z);
-#define JRC     OP(JRC);  JR_IF (gb->f_c);
-#define JRNC    OP(JRNC); JR_IF (!gb->f_c);
 
 /* Calls */
 #define CALLm   OP(CALLm);  { uint16_t tmp = CPU_RW (gb->pc); gb->pc += 2; gb->sp -= 2; CPU_WW(gb->sp, gb->pc); gb->pc = tmp; }
-#define CALLZ   OP(CALLZ);  CALL_IF (gb->f_z);
-#define CALLNZ  OP(CALLNZ); CALL_IF (!(gb->f_z));
-#define CALLC   OP(CALLC);  CALL_IF (gb->f_c);
-#define CALLNC  OP(CALLNC); CALL_IF (!(gb->f_c));
 
 #define RET     OP(RET);   RET__;
 #define RETI    OP(RETI);  RET__; gb->ime = 1;
-#define RETZ    OP(RETZ);  RET_IF (gb->f_z);
-#define RETNZ   OP(RETNZ); RET_IF (!(gb->f_z));
-#define RETC    OP(RETC);  RET_IF (gb->f_c);
-#define RETNC   OP(RETNC); RET_IF (!(gb->f_c));
 
-#define COND_(_) (_ == 0) ? (!gb->f_z) : (_ == 1) ? gb->f_z : (_ == 2) ? (!gb->f_c) : gb->f_c
+#define COND_(_)\
+    (_ == 0) ? (!gb->f_z) :\
+    (_ == 1) ? gb->f_z :\
+    (_ == 2) ? (!gb->f_c) : gb->f_c\
 
 #define JR_(C)    OP(JR_)     JR_IF   (COND_(C));
 #define RET_(C)   OP(RET_)    RET_IF  (COND_(C));
