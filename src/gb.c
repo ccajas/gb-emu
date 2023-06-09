@@ -249,7 +249,7 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
     const uint8_t r_bit  = opHh & 7;
 
     /* Fetch value at address (HL) if it's needed */
-    uint8_t hl = (opL == 0x6 || opL == 0xE) ? CPU_RB (ADDR_HL) : 0;
+    uint8_t hl = 0;
 
     switch (opHh)
     {
@@ -279,7 +279,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
 {
     const uint8_t opL = op & 0xf;
     const uint8_t opHh = op >> 3; /* Octal divisions */
-    uint16_t hl = ADDR_HL;
+    //uint16_t hl = ADDR_HL;
 
     /* Default values for operands (can be overridden for other opcodes) */
     const uint8_t r1 = r8_group[(opHh & 7)];
@@ -371,7 +371,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         break;
         case 0x10 ... 0x17:
             /* 8-bit arithmetic */
-            hl = CPU_RB (ADDR_HL);
+            //hl = CPU_RB (ADDR_HL);
             /* Mask bits for ALU operations */
             switch (op & 0b11111000) 
             {
@@ -450,14 +450,14 @@ void gb_handle_timings (struct GB * gb)
     {
         /* Check overflow in the next cycle */
         gb->io[IntrFlags] |= IF_Timer;
-        CPU_WB (0xFF00 + TimA, gb->io[TMA]);
+        gb->io[TimA] = gb->io[TMA];
 
         gb_handle_interrupts (gb);
         gb->timAOverflow = 0;
     }
 
     /* Leave if timer is disabled */
-    const uint8_t tac = CPU_RB (0xFF00 + TimerCtrl);
+    const uint8_t tac = gb->io[TimerCtrl];
     if (!(tac & 0x4)) return;
 
     /* Update timer, check bits for 1024, 16, 64, or 256 cycles respectively  */
@@ -466,10 +466,10 @@ void gb_handle_timings (struct GB * gb)
 
     if (FALLING_EDGE (gb->lastDiv >> cBit, gb->divClock >> cBit))
     {
-        uint8_t timA = CPU_RB (0xFF00 + TimA);
+        uint8_t timA = gb->io[TimA];
         /* Request timer interrupt if pending */
         if (++timA == 0) gb->timAOverflow = 1;
-        CPU_WB (0xFF00 + TimA, timA);
+        gb->io[TimA] = timA;
     }
     gb->lastDiv = gb->divClock;
 }

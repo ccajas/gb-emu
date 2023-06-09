@@ -141,14 +141,14 @@
     #define SBC_A(X, C)   uint16_t tmp = gb->r[A] - X - C; SUB_FLAGS_(X); gb->r[A] = tmp & 0xFF;
 
 #define ADD_A_r8    OP(ADD_r8)  ADC_A(gb->r[r2], 0)
-#define ADD_A_HL    OP(ADD_HL)  ADC_A(hl, 0)
+#define ADD_A_HL    OP(ADD_HL)  uint8_t hl = CPU_RB (ADDR_HL); ADC_A(hl, 0)
 #define ADC_A_r8    OP(ADC_r8)  ADC_A(gb->r[r2], gb->f_c)
-#define ADC_A_HL    OP(ADC_HL)  ADC_A(hl, gb->f_c)
+#define ADC_A_HL    OP(ADC_HL)  uint8_t hl = CPU_RB (ADDR_HL); ADC_A(hl, gb->f_c)
 
 #define SUB_A_r8    OP(SUB_r8)  SBC_A(gb->r[r2], 0)
-#define SUB_A_HL    OP(SUB_HL)  SBC_A(hl, 0)
+#define SUB_A_HL    OP(SUB_HL)  uint8_t hl = CPU_RB (ADDR_HL); SBC_A(hl, 0)
 #define SBC_A_r8    OP(SBC_r8)  SBC_A(gb->r[r2], gb->f_c)
-#define SBC_A_HL    OP(SBC_HL)  SBC_A(hl, gb->f_c)
+#define SBC_A_HL    OP(SBC_HL)  uint8_t hl = CPU_RB (ADDR_HL); SBC_A(hl, gb->f_c)
 
 /* Bitwise logic */
 
@@ -160,13 +160,13 @@
     #define FLAGS_CP  SET_FLAGS(0, tmp, 1, ((tmp & 0xF) > (gb->r[A] & 0xF)), (tmp > gb->r[A]));
 
 #define AND_A_r8    OP(AND_r8)  AND_A(gb->r[r2])
-#define AND_A_HL    OP(AND_HL)  AND_A(hl)
+#define AND_A_HL    OP(AND_HL)  uint8_t hl = CPU_RB (ADDR_HL); AND_A(hl)
 #define XOR_A_r8    OP(AND_r8)  XOR_A(gb->r[r2])
-#define XOR_A_HL    OP(AND_HL)  XOR_A(hl)
+#define XOR_A_HL    OP(AND_HL)  uint8_t hl = CPU_RB (ADDR_HL); XOR_A(hl)
 #define OR_A_r8     OP(AND_r8)  OR_A (gb->r[r2])
-#define OR_A_HL     OP(AND_HL)  OR_A (hl)
-#define CP_A_r8     OP(CP_r8)   tmp -= gb->r[r2];  FLAGS_CP;
-#define CP_A_HL     OP(CP_HL)   tmp -= hl;         FLAGS_CP;
+#define OR_A_HL     OP(AND_HL)  uint8_t hl = CPU_RB (ADDR_HL); OR_A (hl)
+#define CP_A_r8     OP(CP_r8)   tmp -= gb->r[r2]; FLAGS_CP;
+#define CP_A_HL     OP(CP_HL)   uint8_t hl = CPU_RB (ADDR_HL); tmp -= hl;  FLAGS_CP;
 
 #define ADDm     OP(ADDm)     { uint8_t m = IMM; uint8_t tmp  = gb->r[A]; ADD_A_X(m); }
 #define ADCm     OP(ADCm)     { uint8_t m = IMM; uint16_t tmp = gb->r[A] + m + gb->f_c; SET_IMM_FLAGS; gb->f_n = 0; gb->r[A] = (tmp & 0xFF); }
@@ -213,12 +213,12 @@
     #define FLAGS_SPm   gb->flags = 0; gb->f_h = ((gb->sp & 0xF) + (i & 0xF) > 0xF); gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);
 
 #define ADHLrr   OP(ADHLrr);  {\
-    uint16_t tmp = (r1 == L) ? hl << 1 : hl + ADDR_XY(r1 - 1, r1); FLAGS_ADHL;\
+    uint8_t hl = CPU_RB (ADDR_HL); uint16_t tmp = (r1 == L) ? hl << 1 : hl + ADDR_XY(r1 - 1, r1); FLAGS_ADHL;\
     gb->r[H] = (tmp >> 8); gb->r[L] = tmp & 0xFF;\
 }
 
 #define ADHLSP   OP(ADHLSP);  {\
-    uint16_t tmp = hl + gb->sp; FLAGS_ADHL;\
+    uint8_t hl = CPU_RB (ADDR_HL); uint16_t tmp = hl + gb->sp; FLAGS_ADHL;\
     gb->r[H] = (tmp >> 8); gb->r[L] = tmp & 0xFF;\
 }
 
@@ -314,7 +314,7 @@
 }
 
 #define RLCHL   OP(RLCHL); {\
-    uint8_t tmp = hl;\
+    hl = CPU_RB (ADDR_HL); uint8_t tmp = hl;\
     hl <<= 1; hl |= (tmp >> 7);\
     SET_FLAGS(0, hl, 0, 0, (tmp >> 7));\
 }
@@ -326,7 +326,7 @@
 }
 
 #define RLHL    OP(RLHL); {\
-    uint8_t tmp = hl;\
+    hl = CPU_RB (ADDR_HL); uint8_t tmp = hl;\
     hl <<= 1; hl |= gb->f_c;\
     SET_FLAGS(0, hl, 0, 0, (tmp >> 7));\
 }
@@ -338,7 +338,7 @@
 }
 
 #define RRCHL   OP(RRCHL); {\
-    uint8_t tmp = hl;\
+    hl = CPU_RB (ADDR_HL); uint8_t tmp = hl;\
     hl >>= 1; hl |= (tmp << 7);\
     SET_FLAGS(0, hl, 0, 0, (tmp & 1));\
 }
@@ -350,15 +350,15 @@
 }
 
 #define RRHL    OP(RRHL); {\
-    uint8_t tmp = hl;\
+    hl = CPU_RB (ADDR_HL); uint8_t tmp = hl;\
     hl >>= 1; hl |= gb->f_c << 7;\
     SET_FLAGS(0, hl, 0, 0, (tmp & 1));\
 }
 
 #define SLA     OP(SLA);   gb->flags = 0; SET_FLAG_C (gb->r[r] >> 7); gb->r[r] <<= 1; SET_FLAG_Z (gb->r[r]);
 #define SRA     OP(SRA);   gb->flags = 0; SET_FLAG_C (gb->r[r] & 1); gb->r[r] = (gb->r[r] >> 1) | (gb->r[r] & 0X80); SET_FLAG_Z(gb->r[r]);
-#define SLAHL   OP(SLAHL); gb->flags = 0; SET_FLAG_C (hl >> 7); hl <<= 1; SET_FLAG_Z(hl);
-#define SRAHL   OP(SRAHL); gb->flags = 0; SET_FLAG_C (hl & 1); hl = (hl >> 1) | (hl & 0X80); SET_FLAG_Z(hl);
+#define SLAHL   OP(SLAHL); hl = CPU_RB (ADDR_HL); gb->flags = 0; SET_FLAG_C (hl >> 7); hl <<= 1; SET_FLAG_Z(hl);
+#define SRAHL   OP(SRAHL); hl = CPU_RB (ADDR_HL); gb->flags = 0; SET_FLAG_C (hl & 1); hl = (hl >> 1) | (hl & 0X80); SET_FLAG_Z(hl);
 
 #define SWAP    OP(SWAP) {\
     uint8_t tmp = gb->r[r] << 4;\
@@ -366,7 +366,7 @@
 }
 
 #define SWAPHL  OP(SWAPHL) {\
-    uint8_t tmp = hl << 4;\
+    hl = CPU_RB (ADDR_HL); uint8_t tmp = hl << 4;\
     hl >>= 4; hl |= tmp; SET_FLAGS(0, hl, 0, 0, 0);\
 }
 
@@ -376,18 +376,18 @@
 }
 
 #define SRLHL   OP(SRLHL); {\
-    uint8_t fc = (hl & 1) ? 1 : 0;\
+    hl = CPU_RB (ADDR_HL); uint8_t fc = (hl & 1) ? 1 : 0;\
     hl >>= 1; SET_FLAGS(0, hl, 0, 0, fc);\
 }
 
 #define BIT     OP(BIT);   SET_FLAGS(16, (gb->r[r] & (1 << r_bit)), 0, 1, 0);
-#define BITHL   OP(BITHL); SET_FLAGS(16, (hl & (1 << r_bit)), 0, 1, 0); gb->rm += 1;
+#define BITHL   OP(BITHL); hl = CPU_RB (ADDR_HL); SET_FLAGS(16, (hl & (1 << r_bit)), 0, 1, 0); gb->rm += 1;
 
 #define RES     OP(RES);   gb->r[r] &= (0xFE << r_bit) | (0xFF >> (8 - r_bit));
-#define RESHL   OP(RESHL); hl &= (0xFE << r_bit) | (0xFF >> (8 - r_bit)); gb->rm += 2;
+#define RESHL   OP(RESHL); hl = CPU_RB (ADDR_HL); hl &= (0xFE << r_bit) | (0xFF >> (8 - r_bit)); gb->rm += 2;
 
 #define SET     OP(SET);   gb->r[r] |= (1 << r_bit); 
-#define SETHL   OP(SET);   hl |= (1 << r_bit); gb->rm += 2;
+#define SETHL   OP(SET);   hl = CPU_RB (ADDR_HL); hl |= (1 << r_bit); gb->rm += 2;
 
 /* Misc instructions */
 
