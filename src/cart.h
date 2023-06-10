@@ -33,8 +33,9 @@ struct Cartridge
     uint8_t rtc     : 1;
 
     /* MBC registers */
-    uint8_t bank1st;  /* for most ROMS, 4 MiB and under               */
-    uint8_t bank2nd;  /* for RAM bank and/or additional ROM bank bits */
+    uint8_t bank1st;  /* for most ROMS, 4 MiB and under    */
+    uint8_t bank2nd;  /* for additional ROM bank bits      */
+    uint8_t ramBank;
 
     /* Pointer to MBC read/write function */
     uint8_t (* rw)(struct Cartridge *, const uint16_t addr, const uint8_t val, const uint8_t write);

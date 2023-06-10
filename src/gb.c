@@ -31,8 +31,8 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
     {
         switch (addr % 0x80)
         {
-            case BootROM: 
-                LOG_("Writing value to bootROM %d\n", val); break;
+            case BootROM:                 /* Boot ROM register should be unwritable at some point? */
+                break;
             case Divider:
                 gb->divClock = 0; return 0;                                           /* DIV reset */
             case DMA:                                     /* OAM DMA transfer                      */
@@ -60,7 +60,7 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
     #define DIRECT_RW(b)  if (write) { *b = val; } return *b;
     struct Cartridge * cart = &gb->cart;
 
-    if (addr < 0x0100 && !gb->io[BootROM])                        /* Run boot ROM if needed */
+    if (addr < 0x0100 && gb->io[BootROM] == 0)                     /* Run boot ROM if needed */
         { if (!write) { return gb->bootRom[addr]; } else { return 0; }}
     if (addr < 0x8000)  return cart->rw (cart, addr, val, write);       /* ROM from MBC     */
     if (addr < 0xA000)  return gb_ppu_rw (gb, addr, val, write);        /* Video RAM        */
