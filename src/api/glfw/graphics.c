@@ -26,7 +26,7 @@ const char * ppu_fs_source =
 "    //color = vec3(0.05) + (color * vec3(0.95)) - 0.05;\n"
 "    if (fract(position.x * screenSize.x) > 0.75) color = mix(color, vec3(0), 0.3);"
 "    if (fract(position.y * screenSize.y) > 0.75) color = mix(color, vec3(0), 0.12);"
-"    //color *= tint;\n"
+"    //color *= 1.2;\n"
 "    return color;\n"
 "}\n"
 
@@ -40,7 +40,7 @@ const char * ppu_fs_source =
 
 const char * ppu_vs_source =
 "#version 330\n"
-"layout (location = 0) in vec4 vertex;\n" // <vec2 pos, vec2 tex>
+"layout (location = 0) in vec4 vertex;\n"
 "layout (location = 1) in vec2 texture;"
 "out vec2 TexCoords;\n"
 "uniform mat4 projection;\n"
@@ -105,7 +105,8 @@ void graphics_init (Scene * const scene)
     scene->fbufferShader = shader_init_source (ppu_vs_source, ppu_fs_source);
     scene->debugShader   = shader_init_source (ppu_vs_source, default_fs_source);
 
-    scene->activeShader = &scene->debugShader;
+    scene->activeShader  = &scene->debugShader;
+    scene->activeTexture = &scene->debugTexture;
 
     /* Create main textures */
     texture_setup (&scene->fbufferTexture, 160, 144, GL_NEAREST, NULL);

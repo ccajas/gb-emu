@@ -24,6 +24,8 @@ typedef struct Scene_struct
     Shader
         fbufferShader,
         debugShader;
+
+    GLuint * activeTexture;
     Shader * activeShader;
 }
 Scene;
@@ -53,6 +55,11 @@ static inline void texture_setup (uint32_t * const textureID, uint16_t width, ui
 static inline void set_shader (Scene * const scene, Shader * shader)
 {
     scene->activeShader = shader;
+}
+
+static inline void set_texture (Scene * const scene, GLuint * texture)
+{
+    scene->activeTexture = texture;
 }
 
 static inline void draw_begin (GLFWwindow * window, Scene * const scene)
@@ -89,7 +96,7 @@ static inline void draw_quad (GLFWwindow * window, Scene * const scene,
     glActiveTexture (GL_TEXTURE0);
 
     /* Draw quad */
-    glBindTexture (GL_TEXTURE_2D, scene->debugTexture);
+    glBindTexture (GL_TEXTURE_2D, scene->fbufferTexture);
     glTexImage2D  (GL_TEXTURE_2D, 0, GL_RGBA, pixels->width, pixels->height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels->imgData);
 	draw_lazy_quad(1.0f, 1.0f, 0);
 

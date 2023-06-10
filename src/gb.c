@@ -543,7 +543,6 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             /* Get next tile to be drawn */
             if (lineX == 0 || relX == 0)
             {
-                BGTileMap  = (LCDC_(3)) ? 0x9C00 : 0x9800;
                 tileAddr = ((isWindow) ? winTileMap : BGTileMap) + 
                     ((posY >> 3) << 5) +  /* Bits 5-9, Y location */
                     (posX >> 3);          /* Bits 0-4, X location */

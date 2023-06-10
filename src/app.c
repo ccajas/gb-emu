@@ -47,6 +47,15 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
     /* Toggle debug */
     if (key == GLFW_KEY_B && action == GLFW_PRESS)
         app->debug = !app->debug;
+    
+    /* Toggle window size (scale) */
+    if (key == GLFW_KEY_G && action == GLFW_PRESS)
+    {
+        app->scale += (app->scale == 5) ? -4 : 1;
+        glfwSetWindowSize(window, 
+            app->gbData.frameBuffer.width * app->scale,
+            app->gbData.frameBuffer.height * app->scale);
+    }
 
     /* Switch palette */
     if (key == GLFW_KEY_O && action == GLFW_PRESS)
@@ -257,12 +266,14 @@ void app_draw (struct App * app)
     //const uint16_t h = app->gbData.frameBuffer.height * app->scale;
 
     set_shader (&app->display, &app->display.fbufferShader);
+    set_texture (&app->display, &app->display.fbufferTexture);
     draw_quad (app->window, &app->display, &app->gbData.frameBuffer, 0, 0, app->scale);
 
     if (app->debug)
     {
         debug_dump_tiles (&app->gb, app->gbData.tileMap.imgData);
         set_shader (&app->display, &app->display.debugShader);
+        set_texture (&app->display, &app->display.debugTexture);
         if (gb_rom_loaded(&app->gb))
             draw_quad (app->window, &app->display, app->image, w - 128, 0, 1);
     }
@@ -276,7 +287,7 @@ void app_run (struct App * app)
     double totalTime = 0;
     uint32_t frames = 0;
 
-    const int32_t totalFrames = 600;
+    const int32_t totalFrames = 60;
     float totalSeconds = (float) totalFrames / 60.0;
 
     if (app->draw)
@@ -292,7 +303,6 @@ void app_run (struct App * app)
                 time = clock();
                 gb_frame (&app->gb);
                 totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
-
                 frames++;
             }
             app_draw (app);
@@ -307,7 +317,7 @@ void app_run (struct App * app)
         {
             gb_frame (&app->gb);
             frames++;
-            printf("\033[A\33[2KT\rFrames: %d\n", frames);
+            //printf("\033[A\33[2KT\rFrames: %d\n", frames);
         }
     }
 
