@@ -117,3 +117,52 @@ uint8_t (* cart_rw[])(struct Cartridge *, const uint16_t, const uint8_t, const u
 {
     none_rw, mbc1_rw, mbc2_rw, mbc3_rw, NULL, mbc5_rw
 };
+
+/* Read cart and load metadata and MBC info */
+
+void cart_identify (struct Cartridge * cart)
+{
+    /* Read checksum and see if it matches data */
+    uint8_t checksum = 0;
+    uint16_t addr;
+    for (addr = 0x134; addr <= 0x14C; addr++) {
+        checksum = checksum - cart->romData[addr] - 1;
+    }
+    if (cart->romData[0x14D] != checksum)
+        LOG_(" %c%c Invalid checksum!\n", 192,196);
+    else
+        LOG_(" %c%c Valid checksum '%02X'\n", 192,196, checksum);
+
+    /* Get cartridge type and MBC from header */
+    memcpy (cart->header, cart->romData + 0x100, 80 * sizeof(uint8_t));
+    const uint8_t * header = cart->header;
+
+    const uint8_t cartType = header[0x47];
+
+    /* Select MBC for read/write */
+    switch (cartType)
+    {
+        case 0:             cart->mbc = 0; break;
+        case 0x1  ... 0x3:  cart->mbc = 1; break;
+        case 0x5  ... 0x6:  cart->mbc = 2; break;
+        case 0xF  ... 0x13: cart->mbc = 3; break;
+        case 0x19 ... 0x1E: cart->mbc = 5; break;
+        default: 
+            LOG_("GB: MBC not supported.\n"); return;
+    }
+    cart->rw = cart_rw[cart->mbc];
+
+    printf ("GB: ROM file size (KiB): %d\n", 32 * (1 << header[0x48]));
+    printf ("GB: Cart type: %02X Mapper type: %d\n", header[0x47], cart->mbc);
+    
+    const uint8_t ramBanks[] = { 0, 0, 1, 4, 16, 8 };
+
+    /* Add other metadata */
+    cart->romSizeKB = 32 * (1 << header[0x48]);
+    cart->ramSizeKB = 8 * ramBanks[header[0x49]];
+    cart->romMask = (1 << (header[0x48] + 1)) - 1;
+    cart->bank1st = 1;
+    cart->bank2nd = 0;
+    cart->romOffset = 0x4000;
+    cart->ramOffset = 0;
+}

@@ -19,14 +19,6 @@
 #define HRAM_SIZE     0x80
 #define IO_SIZE       0x80
 
-#define GB_DEBUG
-
-#ifdef GB_DEBUG
-    #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
-#else
-    #define LOG_(f_, ...)
-#endif
-
 struct GB
 {
     enum { A = 0, F, B, C, D, E, H, L } registers;

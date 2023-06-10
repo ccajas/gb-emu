@@ -80,58 +80,33 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
 
 void gb_init (struct GB * gb, uint8_t * bootRom)
 {
-    /* Read checksum and see if it matches data */
-    uint8_t checksum = 0;
-    uint16_t addr;
-    for (addr = 0x134; addr <= 0x14C; addr++) {
-        checksum = checksum - gb->cart.romData[addr] - 1;
-    }
-    if (gb->cart.romData[0x14D] != checksum)
-        LOG_(" %c%c Invalid checksum!\n", 192,196);
-    else
-        LOG_(" %c%c Valid checksum '%02X'\n", 192,196, checksum);
-
-    /* Get cartridge type and MBC from header */
-    memcpy (gb->cart.header, gb->cart.romData + 0x100, 80 * sizeof(uint8_t));
-    const uint8_t * header = gb->cart.header;
-
-    const uint8_t cartType = header[0x47];
-
-    /* Select MBC for read/write */
-    switch (cartType)
-    {
-        case 0:             gb->cart.mbc = 0; break;
-        case 0x1  ... 0x3:  gb->cart.mbc = 1; break;
-        case 0x5  ... 0x6:  gb->cart.mbc = 2; break;
-        case 0xF  ... 0x13: gb->cart.mbc = 3; break;
-        case 0x19 ... 0x1E: gb->cart.mbc = 5; break;
-        default: 
-            LOG_("GB: MBC not supported.\n"); return;
-    }
-    gb->cart.rw = cart_rw[gb->cart.mbc];
-
-    printf ("GB: ROM file size (KiB): %d\n", 32 * (1 << header[0x48]));
-    printf ("GB: Cart type: %02X Mapper type: %d\n", header[0x47], gb->cart.mbc);
-    
-    const uint8_t ramBanks[] = { 0, 0, 1, 4, 16, 8 };
-
-    /* Add other metadata */
-    gb->cart.romSizeKB = 32 * (1 << header[0x48]);
-    gb->cart.ramSizeKB = 8 * ramBanks[header[0x49]];
-    gb->cart.romMask = (1 << (header[0x48] + 1)) - 1;
-    gb->cart.bank1st = 1;
-    gb->cart.bank2nd = 0;
-    gb->cart.romOffset = 0x4000;
-    gb->cart.ramOffset = 0;
-
+    cart_identify (&gb->cart);
     printf ("GB: ROM mask: %d\n", gb->cart.romMask);
 
     if (bootRom != NULL)
-    {
         gb_reset (gb, bootRom);
-        return;
-    }
-    gb_boot_reset (gb);
+    else
+        gb_boot_reset (gb);
+
+    printf ("GB: Set I/O\n");
+
+    /* Initalize I/O registers (DMG) */
+    memset(gb->io, 0, sizeof (gb->io));
+
+    /* Initialize RAM and settings */
+    memset (gb->ram,  0, WRAM_SIZE);
+    memset (gb->vram, 0, VRAM_SIZE);
+    memset (gb->hram, 0, HRAM_SIZE);
+    gb->vramBlocked = gb->oamBlocked = 0;
+
+    printf ("Memset done\n");
+
+    gb_cpu_state (gb);
+    gb->lineClock = gb->frameClock = 0;
+    gb->clock_t = gb->clock_m = 0;
+    gb->divClock = 0;
+    gb->frame = 0;
+    printf ("CPU state done\n");
 }
 
 void gb_reset (struct GB * gb, uint8_t * bootROM)
@@ -147,16 +122,6 @@ void gb_reset (struct GB * gb, uint8_t * bootROM)
     gb->ime = 0;
     gb->invalid = 0;
     gb->halted = 0;
-
-    printf ("GB: Set I/O\n");
-
-    /* Initalize I/O registers (DMG) */
-    memset(gb->io, 0, sizeof (gb->io));
-
-    gb->lineClock = gb->frameClock = 0;
-    gb->clock_t = gb->clock_m = 0;
-    gb->divClock = 0;
-    gb->frame = 0;
 }
 
 void gb_boot_reset (struct GB * gb)
@@ -196,21 +161,6 @@ void gb_boot_reset (struct GB * gb)
     gb->io[BGPalette]  = 0xFC;
     gb->io[DMA]        = 0xFF;
     gb->io[BootROM]    = 0x01;
-
-    /* Initialize RAM and settings */
-    memset (gb->ram,  0, WRAM_SIZE);
-    memset (gb->vram, 0, VRAM_SIZE);
-    memset (gb->hram, 0, HRAM_SIZE);
-    gb->vramBlocked = gb->oamBlocked = 0;
-
-    printf ("Memset done\n");
-
-    gb_cpu_state (gb);
-    gb->lineClock = gb->frameClock = 0;
-    gb->clock_t = gb->clock_m = 0;
-    gb->divClock = 0;
-    gb->frame = 0;
-    printf ("CPU state done\n");
 }
 
 const int8_t opTicks[256] = {

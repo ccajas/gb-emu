@@ -220,13 +220,12 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
         return NULL;
     fclose (f);
 
-    /* Load boot file */
+    /* Load boot file if present */
     FILE * fb = fopen ("test/dmg_boot.bin", "rb");
     
     uint8_t * boot = calloc(BOOT_ROM_SIZE, sizeof (uint8_t));
     if (!fread (boot, BOOT_ROM_SIZE, 1, f))
         boot = NULL;
-
     fclose (fb);
 
     /* Copy ROM to cart */

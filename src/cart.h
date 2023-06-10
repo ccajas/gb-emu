@@ -2,6 +2,15 @@
 #define CART_H
 
 #include <stdint.h>
+#include <string.h>
+
+#define GB_DEBUG
+
+#ifdef GB_DEBUG
+    #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
+#else
+    #define LOG_(f_, ...)
+#endif
 
 #define GB_HEADER_SIZE   0x50
 
@@ -41,6 +50,8 @@ struct Cartridge
         mode,
         usingRAM;
 };
+
+void cart_identify (struct Cartridge *);
 
 /* Concrete MBC read/write functions */
 
