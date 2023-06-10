@@ -24,9 +24,9 @@ const char * ppu_fs_source =
 "{\n"
 "    vec2 position = (TexCoords.xy);\n"
 "    //color = vec3(0.05) + (color * vec3(0.95)) - 0.05;\n"
-"    if (fract(position.x * screenSize.x) > 0.75) color = mix(color, vec3(0), 0.3);"
-"    if (fract(position.y * screenSize.y) > 0.75) color = mix(color, vec3(0), 0.12);"
-"    //color *= 1.2;\n"
+"    if (fract(position.x * screenSize.x) > 0.75) color = mix(color, vec3(0), 0.24);"
+"    if (fract(position.y * screenSize.y) > 0.75) color = mix(color, vec3(0), 0.1);"
+"    color *= 1.1;\n"
 "    return color;\n"
 "}\n"
 
