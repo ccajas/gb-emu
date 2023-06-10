@@ -299,15 +299,15 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
                 case 0x22: LDHLIA  break; case 0x32: LDHLDA  break;
                 case 0x07: RLCA    break; case 0x08: LDmSP   break;
                 case 0x0A:                case 0x1A: LDArrm  break;
+                case 0x2A: LDAHLI  break; case 0x3A: LDAHLD  break;
                 case 0x0F: RRCA    break; 
                 
                 case 0x10: STOP    break; case 0x17: RLA     break; 
                 case 0x18: JRm     break; case 0x1F: RRA     break; 
-                case 0x27: DAA     break; case 0x2A: LDAHLI  break;
+                case 0x27: DAA     break;
                 case 0x2F: CPL     break; 
 
-                case 0x37: SCF     break; case 0x3A: LDAHLD  break;
-                case 0x3F: CCF     break;
+                case 0x37: SCF     break; case 0x3F: CCF     break;
                 /* ... */
                 case 0xC3: JPNN    break; case 0xC6: ADDm    break;
                 case 0xC9: RET     break; case 0xCB: PREFIX  break;
@@ -350,7 +350,11 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
             {
                 case 1:    LDrr    break; case 3:    INCrr   break;
                 case 0x9:  ADHLrr  break; case 0xB:  DECrr   break;
-                case 0xC1: POPrr   break; case 0xC5: PUSHrr  break;
+            }
+            switch (op)
+            {
+                R16_G3_(POPrr_OP,  0xC1);
+                R16_G3_(PUSHrr_OP, 0xC5);
             }
         break;
         case 8 ... 0xD: case 0xF:

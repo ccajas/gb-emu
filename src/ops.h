@@ -41,9 +41,7 @@
 #define LD_HLr    OP(LDHLr);    CPU_WB (ADDR_HL, gb->r[r2]);
 #define LDHLm     OP(LDHLm);    CPU_WB (ADDR_HL, IMM);
 
-#define LDArrm    OP(LDArrm);   gb->r[A] = CPU_RB (ADDR_XY(r1 - 1, r1));
 #define LDAmm     OP(LDAmm);    gb->r[A] = CPU_RB (CPU_RW (gb->pc)); gb->pc += 2;
-#define LDrrmA    OP(LDrrmA);   CPU_WB (ADDR_XY (r1, r1 + 1), gb->r[A]);
 #define LDmmA     OP(LDmmA);    CPU_WB (CPU_RW (gb->pc), gb->r[A]);  gb->pc += 2;
 
 #define LDIOmA    OP(LDIOmA);   CPU_WB (0xFF00 + IMM, gb->r[A]);
@@ -55,8 +53,11 @@
     #define INCR_HL   gb->r[L]++; if (!gb->r[L]) gb->r[H]++
     #define DECR_HL   gb->r[L]--; if (gb->r[L] == 255) gb->r[H]--
 
-#define LDHLIA    OP(LDHLIA);   CPU_WB  (ADDR_HL, gb->r[A]); INCR_HL;
-#define LDHLDA    OP(LDHLDA);   CPU_WB  (ADDR_HL, gb->r[A]); DECR_HL;
+#define LDrrmA    OP(LDrrmA);   CPU_WB (ADDR_XY (r1, r1 + 1), gb->r[A]);
+#define LDHLIA    OP(LDHLIA);   CPU_WB (ADDR_HL, gb->r[A]); INCR_HL;
+#define LDHLDA    OP(LDHLDA);   CPU_WB (ADDR_HL, gb->r[A]); DECR_HL;
+
+#define LDArrm    OP(LDArrm);   gb->r[A] = CPU_RB (ADDR_XY(r1 - 1, r1));
 #define LDAHLI    OP(LDAHLI);   gb->r[A] = CPU_RB (ADDR_HL); INCR_HL;
 #define LDAHLD    OP(LDAHLD);   gb->r[A] = CPU_RB (ADDR_HL); DECR_HL;
 
@@ -77,17 +78,15 @@
         gb->r[r1]     = CPU_RB (gb->pc + 1); }\
     gb->pc += 2;\
 
-#define PUSHrr    OP(PUSHrr);\
-    if (opHh == 0x1E) {\
-        gb->sp--; CPU_WB (gb->sp, gb->r[A]);  gb->sp--; CPU_WB (gb->sp, gb->flags);\
-    } else {\
-        gb->sp--; CPU_WB (gb->sp, gb->r[r1]); gb->sp--; CPU_WB (gb->sp, gb->r[r1 + 1]); }\
+#define POPrr_OP(op_, R16_1, R16_2)   OP(POPrr); case op_:\
+    R16_2 = CPU_RB (gb->sp++) & ((op_ == 0xF1) ? 0xF0 : 0xFF); R16_1 = CPU_RB (gb->sp++); break;\
 
-#define POPrr     OP(POPrr);\
-    if (opHh == 0x1E) {\
-        gb->flags = CPU_RB (gb->sp++) & 0xF0; gb->r[A] = CPU_RB (gb->sp++);\
-    } else {\
-        gb->r[r1 + 1] = CPU_RB (gb->sp++); gb->r[r1] = CPU_RB (gb->sp++); }\
+#define PUSHrr_OP(op_, R16_1, R16_2)  OP(PUSHrr); case op_:\
+    gb->sp--; CPU_WB (gb->sp, R16_1); gb->sp--; CPU_WB (gb->sp, R16_2); break;\
+
+#define R16_G3_(OP_, START) \
+    OP_ (START, (gb->r[B]), (gb->r[C]))         OP_ (START + 0x10, (gb->r[D]), (gb->r[E]))\
+    OP_ (START + 0x20, (gb->r[H]), (gb->r[L]))  OP_ (START + 0x30, (gb->r[A]), (gb->flags))\
 
 /* Flag setting helpers */
 
