@@ -54,7 +54,6 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
 #ifdef CPU_INSTRS
     //if (gb->io[SerialCtrl] == 0x81) { LOG_("%c", gb->io[SerialData]); gb->io[SerialCtrl] = 0x0; }
 #endif
-
     /* Byte to be accessed from memory */
     uint8_t * b;
     #define DIRECT_RW(b)  if (write) { *b = val; } return *b;
@@ -83,23 +82,19 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
     cart_identify (&gb->cart);
     printf ("GB: ROM mask: %d\n", gb->cart.romMask);
 
-    if (bootRom != NULL)
-        gb_reset (gb, bootRom);
-    else
-        gb_boot_reset (gb);
-
-    printf ("GB: Set I/O\n");
-
-    /* Initalize I/O registers (DMG) */
-    memset(gb->io, 0, sizeof (gb->io));
-
     /* Initialize RAM and settings */
     memset (gb->ram,  0, WRAM_SIZE);
     memset (gb->vram, 0, VRAM_SIZE);
     memset (gb->hram, 0, HRAM_SIZE);
     gb->vramBlocked = gb->oamBlocked = 0;
 
+    memset(gb->io, 0, sizeof (gb->io));
     printf ("Memset done\n");
+
+    if (bootRom != NULL)
+        gb_reset (gb, bootRom);
+    else
+        gb_boot_reset (gb);
 
     gb_cpu_state (gb);
     gb->lineClock = gb->frameClock = 0;
@@ -111,12 +106,13 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
 
 void gb_reset (struct GB * gb, uint8_t * bootROM)
 {
+    printf ("GB: Load Boot ROM\n");
+    printf ("GB: Set I/O\n");
+
     gb->bootRom = bootROM;
     gb->extData.joypad = 0xFF;
     gb->io[Joypad]     = 0xCF;
-    gb->io[BootROM]    = 0;
-
-    printf ("GB: Load Boot ROM\n");
+    gb_boot_register (gb, 0);
 
     gb->pc = 0;
     gb->ime = 0;
@@ -160,7 +156,7 @@ void gb_boot_reset (struct GB * gb)
     gb->io[LY]         = 0x90;
     gb->io[BGPalette]  = 0xFC;
     gb->io[DMA]        = 0xFF;
-    gb->io[BootROM]    = 0x01;
+    gb_boot_register (gb, 1);
 }
 
 const int8_t opTicks[256] = {

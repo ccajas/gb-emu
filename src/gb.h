@@ -99,12 +99,15 @@ void gb_handle_timings    (struct GB * gb);
 void gb_ppu_step          (struct GB * gb);
 void gb_render            (struct GB * gb);
 
-#define cpu_read(X)     gb_mem_access (gb, X, 0, 0)
-
 static inline uint8_t gb_rom_loaded (struct GB * gb)
 {
     return gb->cart.romData != NULL;
 };
+
+static inline void gb_boot_register (struct GB * const gb, const uint8_t val)
+{
+    gb->io[BootROM] = val;
+}
 
 static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_t write)
 {
@@ -126,6 +129,7 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
 static inline void gb_cpu_state (struct GB * gb)
 {
     const uint16_t pc = gb->pc;
+    #define cpu_read(X)   gb_mem_access (gb, X, 0, 0)
 
     //printf("%08X ", (uint32_t) gb->clock_t);
     printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X "
