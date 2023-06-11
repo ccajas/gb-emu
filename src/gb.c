@@ -325,7 +325,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         break;
         case 0x10 ... 0x17: {
             /* 8-bit arithmetic */
-            switch (op & 0b11111000) 
+            switch (op & 0xF8) 
             {
                 case 0x80: OPR_2_(ADD_A_r8, ADD_A_HL) break;
                 case 0x88: OPR_2_(ADC_A_r8, ADC_A_HL) break;
@@ -349,6 +349,8 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         /* Todo: Read joypad button selection/press */
         gb->divClock = 0;
     }
+
+    assert (gb->rm >= opTicks[op]);  
 }
 
 void gb_handle_interrupts (struct GB * gb)
@@ -413,7 +415,7 @@ void gb_handle_timings (struct GB * gb)
     const uint8_t tac = gb->io[TimerCtrl];
     if (!(tac & 0x4)) return;
 
-    /* Update timer, check bits for 1024, 16, 64, or 256 cycles respectively  */
+    /* Update timer, check bits for 1024, 16, 64, or 256 cycles respectively */
     const uint8_t checkBits[4] = { 7, 1, 3, 5 };
     const uint8_t cBit = checkBits[tac & 0x3];
 
@@ -656,18 +658,9 @@ void gb_render (struct GB * const gb)
     if (gb->io[LY] < DISPLAY_HEIGHT)
     {
         /* Visible line, within screen bounds */
-        if (gb->lineClock < TICKS_OAM_READ)
-        {
-            gb_oam_read (gb);
-        }
-        else if (gb->lineClock < TICKS_TRANSFER)
-        {
-            gb_transfer (gb);
-        }
-        else if (gb->lineClock < TICKS_HBLANK)
-        {
-            gb_hblank (gb);
-        }
+        if      (gb->lineClock < TICKS_OAM_READ) gb_oam_read (gb);
+        else if (gb->lineClock < TICKS_TRANSFER) gb_transfer (gb);
+        else if (gb->lineClock < TICKS_HBLANK)   gb_hblank (gb);
         else
         {
             /* Starting new line */
