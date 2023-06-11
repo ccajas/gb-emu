@@ -72,11 +72,11 @@
     else { gb->r[r1 + 1] = CPU_RB (gb->pc); gb->r[r1] = CPU_RB (gb->pc + 1); }\
     gb->pc += 2;\
 
+#define PUSH_(X, Y)                 gb->sp--; CPU_WB (gb->sp, X); gb->sp--; CPU_WB (gb->sp, Y);
+#define PUSHrr_(op_, R16_1, R16_2)  OP(PUSHrr); case op_: PUSH_(R16_1, R16_2); break;
+
 #define POPrr_(op_, R16_1, R16_2)   OP(POPrr); case op_:\
     R16_2 = CPU_RB (gb->sp++) & ((op_ == 0xF1) ? 0xF0 : 0xFF); R16_1 = CPU_RB (gb->sp++); break;\
-
-#define PUSHrr_(op_, R16_1, R16_2)  OP(PUSHrr); case op_:\
-    gb->sp--; CPU_WB (gb->sp, R16_1); gb->sp--; CPU_WB (gb->sp, R16_2); break;\
 
 #define R16_OPS_3(OP_, START) \
     OP_ (START, (gb->r[B]), (gb->r[C]))\
@@ -240,19 +240,22 @@
 #define JRm     OP(JRm);  gb->pc += (int8_t) CPU_RB (gb->pc); gb->pc++;
 
     /* Jump and call function templates */
-    #define JP_IF(X)   if (X) {\
-        gb->pc =  CPU_RW (gb->pc); gb->rm++;\
+    #define JP_IF(X) \
+    uint16_t mm = CPU_RW (gb->pc); if (X) {\
+        gb->pc = mm; gb->rm++;\
     } else gb->pc += 2;
 
-    #define JR_IF(X)   if (X) {\
-        gb->pc += (int8_t) CPU_RB (gb->pc); gb->rm++;\
+    #define JR_IF(X) \
+    int8_t e = (int8_t) CPU_RB (gb->pc); if (X) {\
+        gb->pc += e; gb->rm++;\
     } gb->pc++;
 
-    #define CALL_IF(X) if (X) {\
-        gb->sp -= 2;\
-        CPU_WW (gb->sp, (gb->pc + 2));\
-        gb->pc = CPU_RW (gb->pc); gb->rm += 3;\
-    } else gb->pc += 2;
+    #define CALL_IF(X) \
+    uint16_t mm = CPU_RW (gb->pc); if (X) {\
+        PUSH_((gb->pc + 2) >> 8, (gb->pc + 2) & 0xFF);\
+        gb->pc = mm; gb->rm += 3;\
+    } else gb->pc += 2;          
+    // CPU_WW (gb->sp, (gb->pc + 2));\ gb->sp--; CPU_WB (gb->sp, R16_1); gb->sp--; CPU_WB (gb->sp, R16_2);
 
     /* Return function templates */
     #define RET__     gb->pc = CPU_RW (gb->sp); gb->sp += 2;
@@ -263,7 +266,8 @@
 /* Conditional relative jump */
 
 /* Calls */
-#define CALLm   OP(CALLm);  { uint16_t tmp = CPU_RW (gb->pc); gb->pc += 2; gb->sp -= 2; CPU_WW(gb->sp, gb->pc); gb->pc = tmp; }
+#define CALLm   OP(CALLm);  {\
+    uint16_t tmp = CPU_RW (gb->pc); gb->pc += 2; gb->sp -= 2; CPU_WW(gb->sp, gb->pc); gb->pc = tmp; }\
 
 #define RET     OP(RET);   RET__;
 #define RETI    OP(RETI);  RET__; gb->ime = 1;
@@ -273,10 +277,10 @@
     (_ == 1) ?   gb->f_z  :\
     (_ == 2) ? (!gb->f_c) : gb->f_c\
 
-#define JR_(C)    OP(JR_)     JR_IF   (COND_(C));
-#define RET_(C)   OP(RET_)    RET_IF  (COND_(C));
-#define JP_(C)    OP(JP_)     JP_IF   (COND_(C));
-#define CALL_(C)  OP(CALL_)   CALL_IF (COND_(C));
+#define JR_(C)    OP(JR_)     { JR_IF   (COND_(C)); }
+#define RET_(C)   OP(RET_)    { RET_IF  (COND_(C)); }
+#define JP_(C)    OP(JP_)     { JP_IF   (COND_(C)); }
+#define CALL_(C)  OP(CALL_)   { CALL_IF (COND_(C)); }
 
 #define RST     OP(RST);   uint16_t n = (opHh - 0x18) << 3; gb->sp -= 2; CPU_WW (gb->sp, gb->pc); gb->pc = n;
 
