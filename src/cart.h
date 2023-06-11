@@ -40,13 +40,10 @@ struct Cartridge
     /* Pointer to MBC read/write function */
     uint8_t (* rw)(struct Cartridge *, const uint16_t addr, const uint8_t val, const uint8_t write);
 
-    uint32_t 
+    uint16_t 
         romSizeKB,
-        ramSizeKB,
-        romOffset,
-        ramOffset;
-    uint8_t  
-        totalBanks,
+        ramSizeKB;
+    uint8_t
         romMask,
         mode,
         usingRAM;

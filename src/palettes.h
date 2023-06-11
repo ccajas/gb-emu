@@ -15,7 +15,7 @@ GB_Palette;
 static const GB_Palette palettes[] =
 {
     { "Default",       {{ 0, 0, 0 }, { 85, 85, 85 }, { 170, 170, 170 }, { 240, 240, 240 }}},
-    { "DMG Original",  { HEX24_(0x173620), HEX24_(0x385904), HEX24_(0x566F05), HEX24_(0x869E08) }},
+    { "DMG Original",  { HEX24_(0x173620), HEX24_(0x385904), HEX24_(0x566F05), HEX24_(0x96921F) }},
     { "BLK AQU4",      { HEX24_(0x002B59), HEX24_(0x005F8C), HEX24_(0x00B9BE), HEX24_(0x9FF4E5) }},
     { "BGB",           { HEX24_(0x081820), HEX24_(0x346856), HEX24_(0x88C070), HEX24_(0xE0F8D0) }},
     { "Velvet Cherry", { HEX24_(0x2D162C), HEX24_(0x412752), HEX24_(0x683A68), HEX24_(0x9775A6) }},

@@ -94,7 +94,7 @@ uint8_t mbc3_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
     else /* Write to registers */
     {
         if RAM_ENABLE_REG  cart->usingRAM = ((val & 0xF) == 0xA);                           /* Enable both RAM and RTC  */
-        if BANK_SELECT     cart->bank1st = (val == 0) ? 1 : (val & 0x7F);                   /* Write lower 7 bank bits  */
+        if BANK_SELECT     cart->bank1st = ((val == 0) ? 1 : (val & 0x7F));                 /* Write lower 7 bank bits  */
         if BANK_SELECT_2   if (val < 4) { cart->bank2nd = val & 3; }                        /* Lower 3 bits for RAM     */
     }
     return 0xFF;
@@ -105,7 +105,7 @@ uint8_t mbc5_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
     if (!write) /* Read from cartridge */
     {
         if (addr <= 0x3FFF) return cart->romData[addr];
-        if (addr <= 0x7FFF) {                                          /* Combine 9th bit with lower 8 bits */
+        if (addr <= 0x7FFF) {                                         /* Combine 9th bit with lower 8 bits */
             if (cart->romSizeKB >= 4096)
                 return cart->romData[(((cart->bank2nd & 1) << 8) + cart->bank1st - 1) * 0x4000 + addr];
             else
@@ -168,12 +168,12 @@ void cart_identify (struct Cartridge * cart)
 
     printf ("GB: ROM file size (KiB): %d\n", 32 * (1 << header[0x48]));
     
-    const uint8_t ramBanks[] = { 0, 0, 1, 4, 16, 8 };
+    const uint8_t ramBanks[] = { 0, 0, 8, 32, 128, 64 };
 
     /* Add other metadata and init values */
     cart->romSizeKB = 32 * (1 << header[0x48]);
     /* MBC2 has built-in RAM */
-    cart->ramSizeKB = (cart->mbc == 2) ? 1 : ramBanks[header[0x49]] * 8;
+    cart->ramSizeKB = (cart->mbc == 2) ? 1 : ramBanks[header[0x49]];
     cart->usingRAM = 0;
 
     printf ("GB: RAM file size (KiB): %d\n", cart->ramSizeKB);
@@ -187,6 +187,4 @@ void cart_identify (struct Cartridge * cart)
     cart->bank1st = 1;
     cart->bank2nd = 0;
     cart->mode = 0;
-    cart->romOffset = 0x4000;
-    cart->ramOffset = 0;
 }
