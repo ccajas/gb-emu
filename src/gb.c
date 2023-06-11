@@ -291,12 +291,34 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
     {
         case 0 ... 7:
         case 0x18 ... 0x1F:
+        {
+            /* For conditional jump / call instructions */
+            const uint8_t cond = ((op >> 3) & 3);
 
             switch (op)
             {
-                case 0x0:  NOP     break; 
+                case 0x0:  NOP     break;
+                /* 16-bit load, arithmetic instructions */
+                case 0x01:   case 0x11:
+                case 0x21:   case 0x31: LDrr    break;
                 case 0x02:                case 0x12: LDrrmA  break; 
                 case 0x22: LDHLIA  break; case 0x32: LDHLDA  break;
+                case 0x03:   case 0x13:
+                case 0x23:   case 0x33: INCrr   break;
+                case 0x09:   case 0x19:
+                case 0x29:   case 0x39: ADHLrr  break;
+                case 0x0B:   case 0x1B:
+                case 0x2B:   case 0x3B: DECrr   break;
+                /* Increment, decrement, LD r8,n, RST */
+                case 0x04:   case 0x0C:   case 0x14:
+                case 0x1C:   case 0x24:   case 0x2C:
+                case 0x34:   case 0x3C:              INC_    break;
+                case 0x05:   case 0x0D:   case 0x15:
+                case 0x1D:   case 0x25:   case 0x2D:
+                case 0x35:   case 0x3D:              DEC_    break;
+                case 0x06:   case 0x0E:   case 0x16:
+                case 0x1E:   case 0x26:   case 0x2E:
+                case 0x36:   case 0x3E:              LDrm_   break;
                 case 0x07: RLCA    break; case 0x08: LDmSP   break;
                 case 0x0A:                case 0x1A: LDArrm  break;
                 case 0x2A: LDAHLI  break; case 0x3A: LDAHLD  break;
@@ -326,36 +348,26 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
                 case 0xF8: LDHLSP  break; case 0xF9: LDSPHL  break;
                 case 0xFA: LDAmm   break; case 0xFB: EI      break;
                 case 0xFE: CPm     break;
+                /* Conditional jump, return/call */
+                case 0x20:   case 0x28:
+                case 0x30:   case 0x38: JR_ (cond)  break;
+                case 0xC0:   case 0xC8:
+                case 0xD0:   case 0xD8: RET_(cond)  break;
+                case 0xC2:   case 0xCA:
+                case 0xD2:   case 0xDA: JP_(cond)   break;
+                case 0xC4:   case 0xCC:
+                case 0xD4:   case 0xDC: CALL_(cond) break;
+                case 0xC7:   case 0xCF:   case 0xD7:
+                case 0xDF:   case 0xE7:   case 0xEF:
+                case 0xF7:   case 0xFF: RST         break;
                 default:   INVALID;
-            }
-            /* Jump / call instructions */
-            const uint8_t cond = ((op >> 3) & 3);
-            switch (op & 0b11100111)
-            {
-                case 0b00100000: JR_  (cond) break;
-                case 0b11000000: RET_ (cond) break;
-                case 0b11000010: JP_  (cond) break;
-                case 0b11000100: CALL_(cond) break;
-            }
-            /* Increment, decrement, LD r8,n, RST */
-            switch (op & 0b11000111)
-            {
-                case 0b00000100: INC_   break;
-                case 0b00000101: DEC_   break;
-                case 0b00000110: LDrm_  break;
-                case 0b11000111: RST    break;
-            }
-            /* 16-bit load, arithmetic instructions */
-            switch (op & 0b11001111)
-            {
-                case 1:    LDrr    break; case 3:    INCrr   break;
-                case 0x9:  ADHLrr  break; case 0xB:  DECrr   break;
             }
             switch (op)
             {
-                R16_G3_(POPrr_OP,  0xC1);
-                R16_G3_(PUSHrr_OP, 0xC5);
+                R16_OPS_3(POPrr_,  0xC1);
+                R16_OPS_3(PUSHrr_, 0xC5);
             }
+        }
         break;
         case 8 ... 0xD: case 0xF:
             /* 8-bit load, LD or LDrHL */
@@ -367,8 +379,6 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         break;
         case 0x10 ... 0x17: {
             /* 8-bit arithmetic */
-            uint16_t hl = CPU_RB (ADDR_HL);
-            /* Mask bits for ALU operations */
             switch (op & 0b11111000) 
             {
                 case 0x80: OPR_2_(ADD_A_r8, ADD_A_HL) break;
@@ -510,7 +520,6 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
         /* X position counter */
         uint8_t lineX = 0;
         const uint8_t lineY = gb->io[LY];
-        uint8_t posY = lineY + gb->io[ScrollY];
 
         uint16_t tileAddr, tileID, bit12, tileRow;
         /* For storing pixel bytes */
