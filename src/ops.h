@@ -31,13 +31,22 @@
 
 #define OPR_2_(A, B)  if ((op & 7) != 6) { A } else { B }
 
+#define OP_R8_G(op_) \
+    case op_:\
+    case op_ + 1:\
+    case op_ + 2:\
+    case op_ + 3:\
+    case op_ + 4:\
+    case op_ + 5:\
+    case op_ + 7:\
+
 /** 8-bit load instructions **/   
 
-#define LD_r8     OP(LD_r8);    if (r1 != r2) { gb->r[r1] = gb->r[r2]; }
-#define LDrm      OP(LDrm);     gb->r[r1] = CPU_RB_PC;
-#define LD_rHL    OP(LD_rHL);   gb->r[r1] = CPU_RB (ADDR_HL);
+#define LD_r8     OP(LD_r8);    if (r1 != r2) { *reg1 = *reg2; }
+#define LDrm      OP(LDrm);     *reg1 = CPU_RB_PC;
+#define LD_rHL    OP(LD_rHL);   *reg1 = CPU_RB (ADDR_HL);
 
-#define LD_HLr    OP(LDHLr);    CPU_WB (ADDR_HL, gb->r[r2]);
+#define LD_HLr    OP(LDHLr);    CPU_WB (ADDR_HL, *reg2);
 #define LDHLm     OP(LDHLm);    CPU_WB (ADDR_HL, CPU_RB_PC);
 
 #define LDAmm     OP(LDAmm);    gb->r[A] = CPU_RB (CPU_RW (gb->pc)); gb->pc += 2;
@@ -68,7 +77,7 @@
 
 #define LDrr      OP(LDrr)\
     if (opHh == 6) gb->sp = CPU_RW (gb->pc);\
-    else { gb->r[r1 + 1] = CPU_RB (gb->pc); gb->r[r1] = CPU_RB (gb->pc + 1); }\
+    else { gb->r[r1 + 1] = CPU_RB (gb->pc); *reg1 = CPU_RB (gb->pc + 1); }\
     gb->pc += 2;\
 
 #define PUSH_(X, Y)                 gb->sp--; CPU_WB (gb->sp, X); gb->sp--; CPU_WB (gb->sp, Y);
@@ -116,14 +125,14 @@
 
     /* Add and subtract */
 
-#define ADD_A_r8    OP(ADD_r8)  ADC_A_(gb->r[r2], 0)
+#define ADD_A_r8    OP(ADD_r8)  ADC_A_(*reg2, 0)
 #define ADD_A_HL    OP(ADD_HL)  uint8_t hl = CPU_RB (ADDR_HL); ADC_A_(hl, 0)
-#define ADC_A_r8    OP(ADC_r8)  ADC_A_(gb->r[r2], gb->f_c)
+#define ADC_A_r8    OP(ADC_r8)  ADC_A_(*reg2, gb->f_c)
 #define ADC_A_HL    OP(ADC_HL)  uint8_t hl = CPU_RB (ADDR_HL); ADC_A_(hl, gb->f_c)
 
-#define SUB_A_r8    OP(SUB_r8)  SBC_A_(gb->r[r2], 0)
+#define SUB_A_r8    OP(SUB_r8)  SBC_A_(*reg2, 0)
 #define SUB_A_HL    OP(SUB_HL)  uint8_t hl = CPU_RB (ADDR_HL); SBC_A_(hl, 0)
-#define SBC_A_r8    OP(SBC_r8)  SBC_A_(gb->r[r2], gb->f_c)
+#define SBC_A_r8    OP(SBC_r8)  SBC_A_(*reg2, gb->f_c)
 #define SBC_A_HL    OP(SBC_HL)  uint8_t hl = CPU_RB (ADDR_HL); SBC_A_(hl, gb->f_c)
 
 /* Bitwise logic */
@@ -133,13 +142,13 @@
     #define FLAGS_XOR_(X)    gb->flags = 0; SET_FLAG_Z (gb->r[A] ^= X);
     #define FLAGS_OR_(X)     gb->flags = 0; SET_FLAG_Z (gb->r[A] |= X);
 
-#define AND_A_r8    OP(AND_r8)    FLAGS_AND_(gb->r[r2])
+#define AND_A_r8    OP(AND_r8)    FLAGS_AND_(*reg2)
 #define AND_A_HL    OP(AND_HL)    FLAGS_AND_(CPU_RB (ADDR_HL))
-#define XOR_A_r8    OP(AND_r8)    FLAGS_XOR_(gb->r[r2])
+#define XOR_A_r8    OP(AND_r8)    FLAGS_XOR_(*reg2)
 #define XOR_A_HL    OP(AND_HL)    FLAGS_XOR_(CPU_RB (ADDR_HL))
-#define OR_A_r8     OP(AND_r8)    FLAGS_OR_(gb->r[r2])
+#define OR_A_r8     OP(AND_r8)    FLAGS_OR_(*reg2)
 #define OR_A_HL     OP(AND_HL)    FLAGS_OR_(CPU_RB (ADDR_HL))
-#define CP_A_r8     OP(CP_r8)     tmp -= gb->r[r2];  FLAGS_CP;
+#define CP_A_r8     OP(CP_r8)     tmp -= *reg2;  FLAGS_CP;
 #define CP_A_HL     OP(CP_HL)     tmp -= CPU_RB (ADDR_HL); FLAGS_CP;
 
 #define ADDm     OP(ADDm)     { uint8_t m = CPU_RB_PC; ADC_A_(m, 0); }
@@ -158,10 +167,10 @@
 #define CPL      OP(CPL)      gb->r[A] ^= 0xFF; gb->flags |= 0x60;
 
 #define INC_     OP(INC)  if (opHh == 0x6) {\
-    uint8_t tmp = CPU_RB (ADDR_HL); CPU_WB (ADDR_HL, ++tmp); INC(tmp) } else { gb->r[r1]++; INC(gb->r[r1]); }
+    uint8_t tmp = CPU_RB (ADDR_HL); CPU_WB (ADDR_HL, ++tmp); INC(tmp) } else { (*reg1)++; INC(*reg1); }
 
 #define DEC_     OP(DEC)  if (opHh == 0x6) {\
-    uint8_t tmp = CPU_RB (ADDR_HL); CPU_WB (ADDR_HL, --tmp); DEC(tmp) } else { gb->r[r1]--; DEC(gb->r[r1]); }
+    uint8_t tmp = CPU_RB (ADDR_HL); CPU_WB (ADDR_HL, --tmp); DEC(tmp) } else { (*reg1)--; DEC(*reg1); }
 
 #define LDrm_    if (op == 0x36) { LDHLm } else { LDrm }
 
@@ -201,8 +210,8 @@
     gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);\
 }
 
-#define INCrr    OP(INCrr);   if (opHh == 6) gb->sp++; else { gb->r[r1 + 1]++; if (!gb->r[r1 + 1]) gb->r[r1]++; }
-#define DECrr    OP(DECrr);   if (opHh == 7) gb->sp--; else { gb->r[r1]--; if (gb->r[r1] == 0xff) gb->r[r1 - 1]--; }
+#define INCrr    OP(INCrr);   if (opHh == 6) gb->sp++; else { gb->r[r1 + 1]++; if (!gb->r[r1 + 1]) (*reg1)++; }
+#define DECrr    OP(DECrr);   if (opHh == 7) gb->sp--; else { (*reg1)--; if (*reg1 == 0xff) gb->r[r1 - 1]--; }
 
 /** CPU control instructions **/
 

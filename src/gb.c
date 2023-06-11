@@ -225,11 +225,14 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
 {
     const uint8_t opL = op & 0xf;
     const uint8_t opHh = op >> 3; /* Octal divisions */
-    //uint16_t hl = 0;
+
+    uint8_t * r8_g[] = { 
+        gb->r + 2, gb->r + 3, gb->r + 4, gb->r + 5,  gb->r + 6,  gb->r + 7, &gb->flags,  gb->r };
 
     /* Default values for operands (can be overridden for other opcodes) */
     const uint8_t r1 = r8_group[(opHh & 7)];
-    const uint8_t r2 = r8_group[(opL  & 7)];
+    uint8_t * reg1 = r8_g[(opHh & 7)];
+    uint8_t * reg2 = r8_g[(opL & 7)];
 
     uint8_t tmp = gb->r[A];
 
@@ -317,11 +320,19 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         break;
         case 8 ... 0xD: case 0xF:
             /* 8-bit load, LD or LDrHL */
-            OPR_2_(LD_r8, LD_rHL)
+            //OPR_2_(LD_r8, LD_rHL)
+            *reg1 = ((op & 7) == 6) ? 
+                CPU_RB(ADDR_HL) : *reg2;
         break;
         case 0xE:
-            /* 8-bit load, LDHLr or HALT */
-            OPR_2_(LD_HLr, HALT)
+            /* 8-bit load, LDHLr or HALT */ 
+            switch (op) {
+                OP_R8_G (0x70)
+                    CPU_WB (ADDR_HL, *reg2); break;
+                case 0x76: 
+                    HALT  break;
+            }
+            //OPR_2_(LD_HLr, HALT)
         break;
         case 0x10 ... 0x17: {
             /* 8-bit arithmetic */
