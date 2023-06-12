@@ -488,6 +488,20 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
     uint8_t * pixels = calloc(DISPLAY_WIDTH, sizeof(uint8_t));
     assert (gb->io[LY] < DISPLAY_HEIGHT);
 
+    const uint8_t lineY = gb->io[LY];
+    uint8_t sprites[10];
+    uint8_t visibleSprites = 0;
+    memset(sprites, 0, 10);
+
+    /* Find available sprites that could be visible on this line */
+    uint8_t s;
+    for (s = 0; s < OAM_SIZE; s += 4)
+    {
+        if (lineY < gb->oam[s] - 8 && lineY >= gb->oam[s] - (LCDC_(2) ? 24 : 16))
+            sprites[visibleSprites++] = s;
+        if (visibleSprites == 10) break;
+    }
+
 	/* Check if background is enabled */
 	if (LCDC_(0) && LCDC_(7))
 	{
@@ -498,8 +512,6 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
 
         /* X position counter */
         uint8_t lineX = 0;
-        const uint8_t lineY = gb->io[LY];
-
         uint16_t tileAddr, tileID, bit12, tileRow;
         /* For storing pixel bytes */
         uint8_t byteLo = 0;
@@ -517,7 +529,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
 
             const uint8_t posX = (isWindow) ? lineX : lineX + gb->io[ScrollX];
             const uint8_t posY = (isWindow) ? lineY - gb->io[WindowY] : lineY + gb->io[ScrollY];
-            const uint8_t relX = (isWindow) ? gb->io[WindowX] - 7 + (lineX % 8) : posX % 8;
+            uint8_t relX = (isWindow) ? gb->io[WindowX] - 7 + (lineX % 8) : posX % 8;
 
             /* Get next tile to be drawn */
             if (lineX == 0 || relX == 0)
@@ -543,35 +555,36 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             const uint8_t bgIndex = (bitHi << 1) + bitLo;
             
             pixels[lineX] = (gb->io[BGPalette] >> (bgIndex << 1)) & 3;
+
             /* Draw sprites */
             if (LCDC_(1))
             {
-                uint8_t s;
-                for (s = 0; s < OAM_SIZE; s += 4) 
+                uint8_t obj;
+                for (obj = 0; obj < visibleSprites; obj++) 
                 {
-                    uint8_t spriteX = lineX - gb->oam[s + 1] + 8,
-                            spriteY = lineY - gb->oam[s] + (LCDC_(2) ? 8 : 16);
+                    const uint8_t s = sprites[obj];
+                    uint8_t spriteX = gb->oam[s + 1];
 
-                    if (spriteX < 2 && spriteY < (LCDC_(2) ? 16 : 8)) 
+                    if (lineX >= spriteX + 8 && lineX < spriteX)
                     {
-                        const uint8_t xFlip = gb->oam[s + 3] & 0x20;
-                        const uint8_t yFlip = gb->oam[s + 3] & 0x40;
+                        tileID = gb->oam[s + 2] & (LCDC_(2) ? 0xFE : 0xFF);
+                        tileRow = (tileID << 4) + (((lineY - gb->oam[s]) & 7) << 1);
 
-                        spriteX ^= xFlip ? 0 : 7;
-                        tileID = gb->oam[s + 2];
-                        tileRow = (tileID << 4) + ((spriteY ^ (yFlip ? 7 : 0)) << 1);
-
+                        /* Get the pixel bytes from these addresses */
                         byteLo = gb->vram[tileRow];
                         byteHi = gb->vram[tileRow + 1];
+                        /* Flip sprite if necessary */
+                        relX = (gb->oam[s + 3] & 0x20) ? lineX - spriteX : 7 - (lineX - spriteX);
+
+                        /* Produce pixel data from the combined bytes*/
+                        const uint8_t bitLo = (byteLo >> (relX & 7)) & 1;
+                        const uint8_t bitHi = (byteHi >> (relX & 7)) & 1;
                         const uint8_t objIndex = (bitHi << 1) + bitLo;
 
-                        if (!((gb->oam[s + 3] & 0x80) && bgIndex) && objIndex) 
-                        {   /* Select OBJ palette based on index */
-                            const uint8_t palette = 
-                                (gb->oam[s + 3] & 0x10) ? OBJPalette1 : OBJPalette0;
-                            pixels[lineX] = (gb->io[palette] >> (objIndex << 1)) & 3;
-                            break;
-                        }
+                        if ((gb->oam[s + 3] & 0x80 && bgIndex > 0) || objIndex == 0) continue;
+
+                        const uint8_t palette = OBJPalette0 + !!(gb->oam[s + 3] & 0x10);
+                        pixels[lineX] = (gb->io[palette] >> (objIndex << 1)) & 3;
                     }
                 }
             }
