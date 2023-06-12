@@ -202,30 +202,40 @@ void app_init (struct App * app)
 uint8_t * app_load (struct GB * gb, const char * fileName)
 { 
     /* Load file from command line */
+    LOG_("Attempting to open \"%s\"...\n", fileName);
     FILE * f = fopen (fileName, "rb");
+
+    uint8_t * rom = NULL;
     if (!f)
     {
-        fclose (f);
         LOG_("Failed to load file \"%s\"\n", fileName);
         return NULL;
     }
+    else
+    {
+        LOG_("Attempting to seek file \"%s\"\n", fileName);
+        fseek (f, 0, SEEK_END);
+        uint32_t size = ftell(f);
+        fseek (f, 0, SEEK_SET);
 
-    fseek (f, 0, SEEK_END);
-    uint32_t size = ftell(f);
-    fseek (f, 0, SEEK_SET);
+        rom = malloc(size + 1);
+        if (!fread (rom, size, 1, f))
+            return NULL;
+        fclose (f);
 
-    uint8_t * rom = calloc(size, sizeof (uint8_t));
-    if (!fread (rom, size, 1, f))
-        return NULL;
-    fclose (f);
+        /* End with null character */
+        rom[size] = 0;
+    }
 
     /* Load boot file if present */
-    FILE * fb = fopen ("test/dmg_boot.bin", "rb");
+    /*FILE * fb = fopen ("test/dmg_boot.bin", "rb");
     
     uint8_t * boot = calloc(BOOT_ROM_SIZE, sizeof (uint8_t));
     if (!fread (boot, BOOT_ROM_SIZE, 1, f))
         boot = NULL;
-    fclose (fb);
+    else
+        fclose (fb);*/
+    uint8_t * boot = NULL;
 
     /* Copy ROM to cart */
     LOG_("GB: \"%s\"\n", fileName);

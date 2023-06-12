@@ -16,6 +16,7 @@ obj = $(csrc:.c=.o)
 
 # Output
 target = bin/gb-emu
+target_linux = bin/linux/gb-emu
 all: glfw
 
 .PHONY: clean
@@ -27,7 +28,7 @@ glfw: $(obj)
 	$(CC) $(CFLAGS) -DUSE_GLFW $(src_min) $(srcGL) -o $(target) -I../_include -lm -lglfw3 -lgdi32
 
 glfw-l: $(obj)
-	gcc $(CFLAGS_LIN) -DUSE_GLFW $(src_min) $(srcGL) -o $(target) -lm -ldl -lpthread $(LDFLAGS)
+	gcc $(CFLAGS_LIN) -DUSE_GLFW $(src_min) $(srcGL) -o $(target_linux) -lm -ldl -lpthread $(LDFLAGS)
 
 # no GLFW build
 tigr: $(obj)
