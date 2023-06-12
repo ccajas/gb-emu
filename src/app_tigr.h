@@ -3,18 +3,9 @@
 
 static void key_input (Tigr * screen)
 {
-    if (tigrKeyHeld(screen, TK_LEFT) || tigrKeyHeld(screen, 'A')) { }
+    if (tigrKeyHeld(screen, TK_ESCAPE) || tigrKeyHeld(screen, 'A')) { }
         //playerxs -= 10;
 }
-
-#ifdef USE_TIGR
-        .tileMap = tigrBitmap (128, 128),
-        .frameBuffer = tigrBitmap (DISPLAY_WIDTH, DISPLAY_HEIGHT)
-#endif
-
-#ifdef USE_TIGR
-    app->screen = tigrWindow(DISPLAY_WIDTH * app->scale, DISPLAY_HEIGHT * app->scale, "GB Emu", TIGR_FIXED);
-#endif
 
 void app_draw (struct App * app)
 {
@@ -31,14 +22,5 @@ void app_draw (struct App * app)
 
     tigrUpdate (app->screen);
 }
-
-#ifdef USE_TIGR
-        while (!tigrClosed(app->screen))
-        {
-            tigrClear (app->screen, tigrRGB(0x80, 0x90, 0xa0));
-            app_draw (app);
-        }
-        tigrFree (app->screen);
-#endif
 
 #endif

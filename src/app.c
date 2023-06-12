@@ -134,6 +134,10 @@ void app_init (struct App * app)
             .imgData = calloc (DISPLAY_WIDTH * DISPLAY_HEIGHT * 3, sizeof(uint8_t))
         }
 #endif
+#ifdef USE_TIGR
+        .tileMap = tigrBitmap (128, 128),
+        .frameBuffer = tigrBitmap (DISPLAY_WIDTH, DISPLAY_HEIGHT)
+#endif
     };
 
     /* Handle file loading */
@@ -149,7 +153,9 @@ void app_init (struct App * app)
         }
         else app->defaultFile[0] = '\0';
     }
-
+#ifdef USE_TIGR
+    app->screen = tigrWindow(DISPLAY_WIDTH * app->scale, DISPLAY_HEIGHT * app->scale, "GB Emu", TIGR_FIXED);
+#endif
 #ifdef USE_GLFW
     /* Objects for drawing */
     Scene newDisplay = { .bgColor = { 173, 175, 186 }};
@@ -257,7 +263,7 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 	for (x = 0; x < DISPLAY_WIDTH; x++)
 	{
 		uint8_t idx = 3 - (*pixels++);
-        const uint8_t * pixel = palettes[data->palette].colors[idx];//(pixel == 3) ? 0xF5 : pixel * 0x55;
+        const uint8_t * pixel = palettes[data->palette].colors[idx];
 
         coloredPixels[x * 3]     = pixel[0];
         coloredPixels[x * 3 + 1] = pixel[1];
@@ -348,5 +354,13 @@ void app_run (struct App * app)
         glfwTerminate();
         exit (EXIT_SUCCESS);
     }
+#endif
+#ifdef USE_TIGR
+        while (!tigrClosed(app->screen))
+        {
+            tigrClear (app->screen, tigrRGB(0x80, 0x90, 0xa0));
+            app_draw (app);
+        }
+        tigrFree (app->screen);
 #endif
 }
