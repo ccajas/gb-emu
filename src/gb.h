@@ -110,6 +110,11 @@ static inline void gb_boot_register (struct GB * const gb, const uint8_t val)
     gb->io[BootROM] = val;
 }
 
+/*
+ ********  General emulator input/update  **********
+ ===================================================
+*/
+
 static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_t write)
 {
     if (!write)

@@ -7,6 +7,11 @@
 
 #define CPU_INSTRS
 
+/*
+ **********  Memory/bus read and write  ************
+ ===================================================
+*/
+
 inline uint8_t gb_ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
     if (!write) {
@@ -76,6 +81,11 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
     #undef DIRECT_RW
     return 0;
 }
+
+/*
+ **********  Console startup functions  ************
+ ===================================================
+*/
 
 void gb_init (struct GB * gb, uint8_t * bootRom)
 {
@@ -181,6 +191,11 @@ const int8_t opTicks[256] = {
 	3,3,2,0,0,4,2,4,4,1,4,0,0,0,2,4,
 	3,3,2,1,0,4,2,4,3,2,4,1,0,0,2,4
 };
+
+/*
+ *****************  CPU functions  *****************
+ ===================================================
+*/
 
 void gb_exec_cb (struct GB * gb, const uint8_t op)
 {
@@ -440,6 +455,11 @@ void gb_handle_timings (struct GB * gb)
     gb->lastDiv = gb->divClock;
 }
 
+/*
+ *****************  PPU functions  *****************
+ ===================================================
+*/
+
 /* Used for comparing and setting PPU mode timings */
 enum {
     Stat_HBlank = 0,
@@ -485,7 +505,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
         uint8_t byteLo = 0;
         uint8_t byteHi = 0;
 
-        /* Run at most 20 times (for the 160 pixel length) */
+        /* Run for the entire 160 pixel length */
         for (lineX = 0; lineX < DISPLAY_WIDTH; lineX++)
         {
             /* BG tile fetcher gets tile ID. Bits 0-4 define X loction, bits 5-9 define Y location
@@ -520,49 +540,45 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             /* Produce pixel data from the combined bytes*/
             const uint8_t bitLo = (byteLo >> (7 - relX)) & 1;
             const uint8_t bitHi = (byteHi >> (7 - relX)) & 1;
-            const uint8_t index = (bitHi << 1) + bitLo;
+            const uint8_t bgIndex = (bitHi << 1) + bitLo;
             
-            pixels[lineX] = (gb->io[BGPalette] >> (index * 2)) & 3;
+            pixels[lineX] = (gb->io[BGPalette] >> (bgIndex << 1)) & 3;
+            /* Draw sprites */
+            if (LCDC_(1))
+            {
+                uint8_t s;
+                for (s = 0; s < OAM_SIZE; s += 4) 
+                {
+                    uint8_t spriteX = lineX - gb->oam[s + 1] + 8,
+                            spriteY = lineY - gb->oam[s] + (LCDC_(2) ? 8 : 16);
+
+                    if (spriteX < 2 && spriteY < (LCDC_(2) ? 16 : 8)) 
+                    {
+                        const uint8_t xFlip = gb->oam[s + 3] & 0x20;
+                        const uint8_t yFlip = gb->oam[s + 3] & 0x40;
+
+                        spriteX ^= xFlip ? 0 : 7;
+                        tileID = gb->oam[s + 2];
+                        tileRow = (tileID << 4) + ((spriteY ^ (yFlip ? 7 : 0)) << 1);
+
+                        byteLo = gb->vram[tileRow];
+                        byteHi = gb->vram[tileRow + 1];
+                        const uint8_t objIndex = (bitHi << 1) + bitLo;
+
+                        if (!((gb->oam[s + 3] & 0x80) && bgIndex) && objIndex) 
+                        {   /* Select OBJ palette based on index */
+                            const uint8_t palette = 
+                                (gb->oam[s + 3] & 0x10) ? OBJPalette1 : OBJPalette0;
+                            pixels[lineX] = (gb->io[palette] >> (objIndex << 1)) & 3;
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         /* Leave prematurely if window is disabled */
         //if (!LCDC_(5)) return pixels;
-#ifdef WINDOW_DRAW
-        /* Get line of window to draw */
-        posY = lineY - gb->io[WindowY];
-
-        /* Draw window if visible */
-        uint8_t windowX;
-        for (windowX = 0; windowX < DISPLAY_WIDTH - lineX; windowX += 8)
-        {
-            /* Get next tile for window */
-            winTileMap  = (LCDC_(6)) ? 0x9C00 : 0x9800;
-            tileAddr = winTileMap + 
-                ((posY >> 3) << 5) +  /* Bits 5-9, Y location */
-                ((windowX) >> 3);     /* Bits 0-4, X location */
-            tileID = gb->vram[tileAddr & 0x1FFF];
-
-            /* Tilemap location depends on LCDC 4 set, which are different rules for BG and Window tiles */
-            /* Fetcher gets low byte and high byte for tile */
-            bit12 = !(LCDC_(4) || (tileID & 0x80)) << 12;
-            tileRow = 0x8000 + bit12 + (tileID << 4) + ((posY & 7) << 1);
-
-            /* Finally get the pixel bytes from these addresses */
-            byteLo = gb->vram[tileRow & 0x1FFF];
-            byteHi = gb->vram[(tileRow + 1) & 0x1FFF];
-
-            int x;
-            for (x = 0; x < 8; x++)
-            {
-                /* Produce pixel data from the combined bytes*/
-                const uint8_t bitLo = (byteLo >> (7 - x)) & 1;
-                const uint8_t bitHi = (byteHi >> (7 - x)) & 1;
-                const uint8_t index = (bitHi << 1) + bitLo;
-                
-                pixels[lineX + windowX + x] = (gb->io[BGPalette] >> (index * 2)) & 3;
-            }
-        }
-#endif
     }
 
     return pixels;
@@ -637,25 +653,6 @@ static inline void gb_vblank (struct GB * const gb)
         gb->io[IntrFlags] |= IF_VBlank;
         /* Mode 1 interrupt */
         if STAT_(4) gb->io[IntrFlags] |= IF_LCD_STAT;
-    }
-}
-
-void gb_ppu_step (struct GB * const gb)
-{
-    switch (gb->io[LY])
-    {
-        case 0 ... DISPLAY_HEIGHT - 1:
-            if (gb->lineClock < TICKS_OAM_READ) { gb_oam_read (gb);    break; }
-            if (gb->lineClock < TICKS_TRANSFER) { gb_pixel_fetch (gb); break; }
-            if (gb->lineClock < TICKS_HBLANK)   { gb_hblank (gb);      break; }
-
-            /* Fallthrough: lineClock >= TICKS_HBLANK. Starting a new line */ 
-            gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
-            gb->lineClock -= TICKS_HBLANK;
-            gb_eval_LYC (gb);
-        break;
-        default:
-            gb_vblank (gb);
     }
 }
 
