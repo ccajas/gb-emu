@@ -498,7 +498,8 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
     for (s = 0; s < OAM_SIZE; s += 4)
     {
         if (lineY < gb->oam[s] - 8 && lineY >= gb->oam[s] - (LCDC_(2) ? 24 : 16))
-            sprites[visibleSprites++] = s;
+            if (gb->oam[s] > 0 && gb->oam[s] < 160)
+                sprites[visibleSprites++] = s;
         if (visibleSprites == 10) break;
     }
 
@@ -542,11 +543,11 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
                 /* Tilemap location depends on LCDC 4 set, which are different rules for BG and Window tiles */
                 /* Fetcher gets low byte and high byte for tile */
                 bit12 = !(LCDC_(4) || (tileID & 0x80)) << 12;
-                tileRow = 0x8000 + bit12 + (tileID << 4) + ((posY & 7) << 1);
+                tileRow = bit12 + (tileID << 4) + ((posY & 7) << 1);
 
                 /* Finally get the pixel bytes from these addresses */
-                byteLo = gb->vram[tileRow & 0x1FFF];
-                byteHi = gb->vram[(tileRow + 1) & 0x1FFF];
+                byteLo = gb->vram[tileRow];
+                byteHi = gb->vram[tileRow + 1];
             }
 
             /* Produce pixel data from the combined bytes*/
@@ -555,37 +556,47 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             const uint8_t bgIndex = (bitHi << 1) + bitLo;
             
             pixels[lineX] = (gb->io[BGPalette] >> (bgIndex << 1)) & 3;
+        }
 
-            /* Draw sprites */
-            if (LCDC_(1))
+        /* Draw sprites */
+        if (LCDC_(1) && visibleSprites > 0)
+        {
+            int8_t obj;
+            for (obj = visibleSprites - 1; obj >= 0; obj--) 
             {
-                uint8_t obj;
-                for (obj = 0; obj < visibleSprites; obj++) 
+                const uint8_t s = sprites[obj];
+                const uint8_t spriteX = gb->oam[s + 1];
+                const uint8_t spriteY = gb->oam[s];
+
+                if (lineY + (LCDC_(2) ? 0 : 8) >= spriteY || lineY + 16 < spriteY) continue;
+                if (spriteX == 0 || spriteX >= DISPLAY_WIDTH + 8) continue;
+
+                const uint8_t sLeft = (spriteX - 8 < 0) ? 0 : spriteX - 8;
+                const uint8_t sRight = (spriteX  >= DISPLAY_WIDTH) ? DISPLAY_WIDTH : spriteX;               
+
+                for (lineX = sLeft; lineX < sRight; lineX++)
                 {
-                    const uint8_t s = sprites[obj];
-                    uint8_t spriteX = gb->oam[s + 1];
+                    const uint8_t spriteY = (lineY - gb->oam[s]) & 7;
+                    tileID = gb->oam[s + 2] & (LCDC_(2) ? 0xFE : 0xFF);
+                    tileRow = (tileID << 4) + ((spriteY ^ (gb->oam[s + 3] & 0x40 ? 7 : 0)) << 1);
 
-                    if (lineX >= spriteX + 8 && lineX < spriteX)
-                    {
-                        tileID = gb->oam[s + 2] & (LCDC_(2) ? 0xFE : 0xFF);
-                        tileRow = (tileID << 4) + (((lineY - gb->oam[s]) & 7) << 1);
+                    /* Get the pixel bytes from these addresses */
+                    byteLo = gb->vram[tileRow];
+                    byteHi = gb->vram[tileRow + 1];
 
-                        /* Get the pixel bytes from these addresses */
-                        byteLo = gb->vram[tileRow];
-                        byteHi = gb->vram[tileRow + 1];
-                        /* Flip sprite if necessary */
-                        relX = (gb->oam[s + 3] & 0x20) ? lineX - spriteX : 7 - (lineX - spriteX);
+                    /* Flip sprite if necessary */
+                    const uint8_t relX = (gb->oam[s + 3] & 0x20) ? lineX - spriteX : 7 - (lineX - spriteX);
 
-                        /* Produce pixel data from the combined bytes*/
-                        const uint8_t bitLo = (byteLo >> (relX & 7)) & 1;
-                        const uint8_t bitHi = (byteHi >> (relX & 7)) & 1;
-                        const uint8_t objIndex = (bitHi << 1) + bitLo;
+                    /* Produce pixel data from the combined bytes*/
+                    const uint8_t bitLo = (byteLo >> (relX & 7)) & 1;
+                    const uint8_t bitHi = (byteHi >> (relX & 7)) & 1;
+                    const uint8_t objIndex = (bitHi << 1) + bitLo;
 
-                        if ((gb->oam[s + 3] & 0x80 && bgIndex > 0) || objIndex == 0) continue;
+                    if (objIndex == 0) continue;
+                    if (gb->oam[s + 3] & 0x80 && pixels[lineX] & 0x3) continue;
 
-                        const uint8_t palette = OBJPalette0 + !!(gb->oam[s + 3] & 0x10);
-                        pixels[lineX] = (gb->io[palette] >> (objIndex << 1)) & 3;
-                    }
+                    const uint8_t palette = OBJPalette0 + !!(gb->oam[s + 3] & 0x10);
+                    pixels[lineX] = (gb->io[palette] >> (objIndex << 1)) & 3;
                 }
             }
         }

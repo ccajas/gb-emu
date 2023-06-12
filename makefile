@@ -1,5 +1,5 @@
 CFLAGS = -Wall -s -Os -std=gnu90 -MMD -MP
-CFLAGS_LIN = $(CFLAGS) `pkg-config --cflags glfw3 freetype2`
+CFLAGS_LIN = $(CFLAGS) `pkg-config --cflags glfw3`
 LDFLAGS = $(pkg-config --static --libs glfw3)
 
 #`pkg-config --cflags glfw3 freetype2`
