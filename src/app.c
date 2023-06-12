@@ -203,17 +203,16 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
 { 
     /* Load file from command line */
     FILE * f = fopen (fileName, "rb");
-
-    fseek (f, 0, SEEK_END);
-    uint32_t size = ftell(f);
-    fseek (f, 0, SEEK_SET);
-
     if (!f)
     {
         fclose (f);
         LOG_("Failed to load file \"%s\"\n", fileName);
         return NULL;
     }
+
+    fseek (f, 0, SEEK_END);
+    uint32_t size = ftell(f);
+    fseek (f, 0, SEEK_SET);
 
     uint8_t * rom = calloc(size, sizeof (uint8_t));
     if (!fread (rom, size, 1, f))
@@ -314,7 +313,9 @@ void app_run (struct App * app)
     {
         while (frames < totalFrames)
         {
+            time = clock();
             gb_frame (&app->gb);
+            totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
             frames++;
             //printf("\033[A\33[2KT\rFrames: %d\n", frames);
         }
