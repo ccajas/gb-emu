@@ -1,7 +1,7 @@
 /* Instruction helpers */
 
 #define ADDR_HL       ((gb->r[H] << 8) + gb->r[L])
-#define ADDR_XY(X,Y)  ((gb->r[X] << 8) + gb->r[Y])
+#define ADDR_XY(X,Y)  ((X << 8) + Y)
 
 #define CPU_RB(A)     gb_mem_access (gb, A, 0, 0)
 #define CPU_WB(A,X)   gb_mem_access (gb, A, (X), 1)
@@ -42,7 +42,7 @@
 
 /** 8-bit load instructions **/   
 
-#define LD_r8     OP(LD_r8);    if (r1 != r2) { *reg1 = *reg2; }
+#define LD_r8     OP(LD_r8);    if (*reg1 != *reg2) { *reg1 = *reg2; }
 #define LDrm      OP(LDrm);     *reg1 = CPU_RB_PC;
 #define LD_rHL    OP(LD_rHL);   *reg1 = CPU_RB (ADDR_HL);
 
@@ -61,11 +61,11 @@
     #define INCR_HL   gb->r[L]++; if (!gb->r[L]) gb->r[H]++
     #define DECR_HL   gb->r[L]--; if (gb->r[L] == 255) gb->r[H]--
 
-#define LDrrmA    OP(LDrrmA);   CPU_WB (ADDR_XY (r1, r1 + 1), gb->r[A]);
+#define LDrrmA    OP(LDrrmA);   CPU_WB (ADDR_XY (*reg1, *(reg1+1)), gb->r[A]);
 #define LDHLIA    OP(LDHLIA);   CPU_WB (ADDR_HL, gb->r[A]); INCR_HL;
 #define LDHLDA    OP(LDHLDA);   CPU_WB (ADDR_HL, gb->r[A]); DECR_HL;
 
-#define LDArrm    OP(LDArrm);   gb->r[A] = CPU_RB (ADDR_XY(r1 - 1, r1));
+#define LDArrm    OP(LDArrm);   gb->r[A] = CPU_RB (ADDR_XY(*(reg1-1), *reg1));
 #define LDAHLI    OP(LDAHLI);   gb->r[A] = CPU_RB (ADDR_HL); INCR_HL;
 #define LDAHLD    OP(LDAHLD);   gb->r[A] = CPU_RB (ADDR_HL); DECR_HL;
 
@@ -77,7 +77,7 @@
 
 #define LDrr      OP(LDrr)\
     if (opHh == 6) gb->sp = CPU_RW (gb->pc);\
-    else { gb->r[r1 + 1] = CPU_RB (gb->pc); *reg1 = CPU_RB (gb->pc + 1); }\
+    else { *(reg1+1) = CPU_RB (gb->pc); *reg1 = CPU_RB (gb->pc + 1); }\
     gb->pc += 2;\
 
 #define PUSH_(X, Y)                 gb->sp--; CPU_WB (gb->sp, X); gb->sp--; CPU_WB (gb->sp, Y);
@@ -197,7 +197,7 @@
     #define FLAGS_SPm   gb->flags = 0; gb->f_h = ((gb->sp & 0xF) + (i & 0xF) > 0xF); gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);
 
 #define ADHLrr   OP(ADHLrr);  {\
-    uint16_t r16 = (opHh == 7) ? gb->sp : ADDR_XY(r1 - 1, r1);\
+    uint16_t r16 = (opHh == 7) ? gb->sp : ADDR_XY(*(reg1-1), *reg1);\
     uint16_t hl = ADDR_HL; uint16_t tmp = hl + r16; FLAGS_ADHL;\
     gb->r[H] = (tmp >> 8); gb->r[L] = tmp & 0xFF;\
 }
@@ -210,8 +210,8 @@
     gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);\
 }
 
-#define INCrr    OP(INCrr);   if (opHh == 6) gb->sp++; else { gb->r[r1 + 1]++; if (!gb->r[r1 + 1]) (*reg1)++; }
-#define DECrr    OP(DECrr);   if (opHh == 7) gb->sp--; else { (*reg1)--; if (*reg1 == 0xff) gb->r[r1 - 1]--; }
+#define INCrr    OP(INCrr);   if (opHh == 6) gb->sp++; else { *(reg1 + 1) += 1; if (!*(reg1 + 1)) (*reg1)++; }
+#define DECrr    OP(DECrr);   if (opHh == 7) gb->sp--; else { (*reg1)--; if (*reg1 == 0xff) *(reg1 - 1) -= 1; }
 
 /** CPU control instructions **/
 
@@ -282,9 +282,9 @@
 #define RRCA    OP(RRCA);  gb->flags = (gb->r[A] & 1) * FLAG_C; gb->r[A] = (gb->r[A] >> 1) | (gb->r[A] << 7); 
 
 #define RLC     OP(RLC); {\
-    uint8_t tmp = gb->r[r];\
-    gb->r[r] <<= 1; gb->r[r] |= (tmp >> 7);\
-    SET_FLAGS(0, gb->r[r], 0, 0, (tmp >> 7));\
+    uint8_t tmp = *reg1;\
+    *reg1 <<= 1; *reg1 |= (tmp >> 7);\
+    SET_FLAGS(0, *reg1, 0, 0, (tmp >> 7));\
 }
 
 #define RLCHL   OP(RLCHL); {\
@@ -293,9 +293,9 @@
 }
 
 #define RL      OP(RL); {\
-    uint8_t tmp = gb->r[r];\
-    gb->r[r] <<= 1; gb->r[r] |= gb->f_c;\
-    SET_FLAGS(0, gb->r[r], 0, 0, (tmp >> 7));\
+    uint8_t tmp = *reg1;\
+    *reg1 <<= 1; *reg1 |= gb->f_c;\
+    SET_FLAGS(0, *reg1, 0, 0, (tmp >> 7));\
 }
 
 #define RLHL    OP(RLHL); {\
@@ -304,9 +304,9 @@
 }
 
 #define RRC     OP(RRC); {\
-    uint8_t tmp = gb->r[r];\
-    gb->r[r] >>= 1; gb->r[r] |= (tmp << 7);\
-    SET_FLAGS(0, gb->r[r], 0, 0, (tmp & 1));\
+    uint8_t tmp = *reg1;\
+    *reg1 >>= 1; *reg1 |= (tmp << 7);\
+    SET_FLAGS(0, *reg1, 0, 0, (tmp & 1));\
 }
 
 #define RRCHL   OP(RRCHL); {\
@@ -315,9 +315,9 @@
 }
 
 #define RR      OP(RR); {\
-    uint8_t tmp = gb->r[r];\
-    gb->r[r] >>= 1; gb->r[r] |= gb->f_c << 7;\
-    SET_FLAGS(0, gb->r[r], 0, 0, (tmp & 1));\
+    uint8_t tmp = *reg1;\
+    *reg1 >>= 1; *reg1 |= gb->f_c << 7;\
+    SET_FLAGS(0, *reg1, 0, 0, (tmp & 1));\
 }
 
 #define RRHL    OP(RRHL); {\
@@ -325,14 +325,14 @@
     SET_FLAGS(0, hl, 0, 0, (tmp & 1));\
 }
 
-#define SLA     OP(SLA);   gb->flags = 0; SET_FLAG_C (gb->r[r] >> 7); gb->r[r] <<= 1; SET_FLAG_Z (gb->r[r]);
-#define SRA     OP(SRA);   gb->flags = 0; SET_FLAG_C (gb->r[r] & 1); gb->r[r] = (gb->r[r] >> 1) | (gb->r[r] & 0X80); SET_FLAG_Z(gb->r[r]);
+#define SLA     OP(SLA);   gb->flags = 0; SET_FLAG_C (*reg1 >> 7); *reg1 <<= 1; SET_FLAG_Z (*reg1);
+#define SRA     OP(SRA);   gb->flags = 0; SET_FLAG_C (*reg1 & 1); *reg1 = (*reg1 >> 1) | (*reg1 & 0X80); SET_FLAG_Z(*reg1);
 #define SLAHL   OP(SLAHL); gb->flags = 0; SET_FLAG_C (hl >> 7); hl <<= 1; SET_FLAG_Z(hl);
 #define SRAHL   OP(SRAHL); gb->flags = 0; SET_FLAG_C (hl & 1); hl = (hl >> 1) | (hl & 0X80); SET_FLAG_Z(hl);
 
 #define SWAP    OP(SWAP) {\
-    uint8_t tmp = gb->r[r] << 4;\
-    gb->r[r] >>= 4; gb->r[r] |= tmp; SET_FLAGS(0, gb->r[r], 0, 0, 0);\
+    uint8_t tmp = *reg1 << 4;\
+    *reg1 >>= 4; *reg1 |= tmp; SET_FLAGS(0, *reg1, 0, 0, 0);\
 }
 
 #define SWAPHL  OP(SWAPHL) {\
@@ -341,8 +341,8 @@
 }
 
 #define SRL     OP(SRL); {\
-    uint8_t fc = (gb->r[r] & 1) ? 1 : 0;\
-    gb->r[r] >>= 1; SET_FLAGS(0, gb->r[r], 0, 0, fc);\
+    uint8_t fc = (*reg1 & 1) ? 1 : 0;\
+    *reg1 >>= 1; SET_FLAGS(0, *reg1, 0, 0, fc);\
 }
 
 #define SRLHL   OP(SRLHL); {\
@@ -350,13 +350,13 @@
     hl >>= 1; SET_FLAGS(0, hl, 0, 0, fc);\
 }
 
-#define BIT     OP(BIT);   SET_FLAGS(16, (gb->r[r] & (1 << r_bit)), 0, 1, 0);
+#define BIT     OP(BIT);   SET_FLAGS(16, (*reg1 & (1 << r_bit)), 0, 1, 0);
 #define BITHL   OP(BITHL); SET_FLAGS(16, (hl & (1 << r_bit)), 0, 1, 0); gb->rm += 1;
 
-#define RES     OP(RES);   gb->r[r] &= (0xFE << r_bit) | (0xFF >> (8 - r_bit));
+#define RES     OP(RES);   *reg1 &= (0xFE << r_bit) | (0xFF >> (8 - r_bit));
 #define RESHL   OP(RESHL); hl &= (0xFE << r_bit) | (0xFF >> (8 - r_bit)); gb->rm += 2;
 
-#define SET     OP(SET);   gb->r[r] |= (1 << r_bit); 
+#define SET     OP(SET);   *reg1 |= (1 << r_bit); 
 #define SETHL   OP(SET);   hl |= (1 << r_bit); gb->rm += 2;
 
 /* Misc instructions */

@@ -182,8 +182,6 @@ const int8_t opTicks[256] = {
 	3,3,2,1,0,4,2,4,3,2,4,1,0,0,2,4
 };
 
-static const uint8_t r8_group[] = { B, C, D, E, H, L, 0, A };
-
 void gb_exec_cb (struct GB * gb, const uint8_t op)
 {
     gb->rm = 3;
@@ -191,8 +189,11 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
     const uint8_t opL  = op & 0xf;
     const uint8_t opHh = op >> 3; /* Octal divisions */
 
-    const uint8_t r = r8_group[(opL & 7)];
+    uint8_t * r8_g[] = { 
+        gb->r + 2, gb->r + 3, gb->r + 4, gb->r + 5,  gb->r + 6,  gb->r + 7, &gb->flags,  gb->r };
+
     const uint8_t r_bit  = opHh & 7;
+    uint8_t * reg1 = r8_g[opL & 7];
 
     /* Fetch value at address (HL) if it's needed */
     uint8_t hl = (opL == 0x6 || opL == 0xE) ? CPU_RB (ADDR_HL) : 0;
@@ -227,12 +228,11 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
     const uint8_t opHh = op >> 3; /* Octal divisions */
 
     uint8_t * r8_g[] = { 
-        gb->r + 2, gb->r + 3, gb->r + 4, gb->r + 5,  gb->r + 6,  gb->r + 7, &gb->flags,  gb->r };
+        gb->r + 2, gb->r + 3, gb->r + 4, gb->r + 5, gb->r + 6,  gb->r + 7, &gb->flags, gb->r };
 
     /* Default values for operands (can be overridden for other opcodes) */
-    const uint8_t r1 = r8_group[(opHh & 7)];
-    uint8_t * reg1 = r8_g[(opHh & 7)];
-    uint8_t * reg2 = r8_g[(opL & 7)];
+    uint8_t * reg1 = r8_g[opHh & 7];
+    uint8_t * reg2 = r8_g[opL & 7];
 
     uint8_t tmp = gb->r[A];
 
