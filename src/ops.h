@@ -217,7 +217,10 @@
 
 #define CCF     OP(CCF);  gb->f_c = !gb->f_c; gb->f_n = gb->f_h = 0;
 #define SCF     OP(SCF);  gb->f_c = 1; gb->f_n = gb->f_h = 0;
-#define HALT    OP(HALT); if (gb->ime) gb->halted = 1; 
+#define HALT    OP(HALT);\
+    if (gb->ime) gb->halted = 1;\
+    else if (gb->io[IntrEnabled % 0x80] && gb->io[IntrFlags]) gb->pcInc = 0;
+
 #define STOP    OP(STOP); gb->stop = 1; /* STOP is handled after switch/case */
 #define NOP     OP(NOP);
 #define DI      OP(DI);   gb->ime = 0; 

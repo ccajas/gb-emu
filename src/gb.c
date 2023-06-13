@@ -111,6 +111,7 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
     gb->clock_t = gb->clock_m = 0;
     gb->divClock = 0;
     gb->frame = 0;
+    gb->pcInc = 1;
     printf ("CPU state done\n");
 }
 
@@ -248,8 +249,13 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
     /* Default values for operands (can be overridden for other opcodes) */
     uint8_t * reg1 = r8_g[opHh & 7];
     uint8_t * reg2 = r8_g[opL & 7];
-
     uint8_t tmp = gb->r[A];
+
+    /* HALT bug skips PC increment, essentially rollback one byte */
+    if (!gb->pcInc) {
+        gb->pc--;
+        gb->pcInc = 1;
+    }
 
     switch (opHh)
     {
@@ -390,7 +396,6 @@ void gb_handle_interrupts (struct GB * gb)
     /* Run if CPU ran HALT instruction or IME enabled w/flags */
     if (io_IE & io_IF & IF_Any)
     {
-        gb->halted = 0;
         gb->ime = 0;
 
         /* Check all 5 IE and IF bits for flag confirmations 

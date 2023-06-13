@@ -52,7 +52,8 @@ struct GB
     uint8_t  timAOverflow;
     uint8_t  rt, rm; /* Tracks individual step clocks */
 
-    uint8_t stop, halted;
+    /* HALT and STOP status, PC increment toggle */
+    uint8_t stop : 1, halted : 1, pcInc : 1;
     uint8_t vramBlocked, oamBlocked;
     uint8_t invalid;
 
@@ -63,8 +64,8 @@ struct GB
     uint8_t hram[HRAM_SIZE];   /* High RAM  */
     uint8_t io  [IO_SIZE];
 
-    /* Interrupt master enable */
-    uint8_t ime;
+    /* Interrupt master enable and PC increment */
+    uint8_t ime : 1;
 
     /* Catridge which holds ROM and RAM */
     struct Cartridge cart;
@@ -147,21 +148,24 @@ static inline void gb_cpu_state (struct GB * gb)
 
 static inline void gb_step (struct GB * gb)
 {
-    gb_handle_interrupts (gb);
-
     gb->rt = 0;
     gb->rm = 0;
 
     if (gb->halted)
+    {
         gb->rm++;
+        if (gb->io[IntrFlags]) gb->halted = 0;
+    }
     else
-    {    /* Load next op and execute */
+    {   /* Load next op and execute */
         const uint8_t op = CPU_RB (gb->pc++);
         if (op != 0xCB)
             gb_cpu_exec (gb, op);
         else
             gb_exec_cb (gb, CPU_RB (gb->pc++));
     }
+
+    gb_handle_interrupts (gb);
 
     /* Update timers for every m-cycle */
     int m = 0;
