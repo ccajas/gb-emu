@@ -21,32 +21,22 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose (window, GLFW_TRUE);
 
-    /* Game controls */
-    if (key == GLFW_KEY_J && action == GLFW_PRESS) app->gb.extData.joypad &= 0xEF; /* A button      */
-    if (key == GLFW_KEY_K && action == GLFW_PRESS) app->gb.extData.joypad &= 0xDF; /* B button      */
-    if (key == GLFW_KEY_L && action == GLFW_PRESS) app->gb.extData.joypad &= 0xBF; /* Select button */
-    if (key == GLFW_KEY_M && action == GLFW_PRESS) app->gb.extData.joypad &= 0x7F; /* Start button  */
-    if (key == GLFW_KEY_D && action == GLFW_PRESS) app->gb.extData.joypad &= 0xFE; /* D-pad Right   */
-    if (key == GLFW_KEY_A && action == GLFW_PRESS) app->gb.extData.joypad &= 0xFD; /* D-pad Left    */
-    if (key == GLFW_KEY_W && action == GLFW_PRESS) app->gb.extData.joypad &= 0xFB; /* D-pad Up      */
-    if (key == GLFW_KEY_S && action == GLFW_PRESS) app->gb.extData.joypad &= 0xF7; /* D-pad Down    */
-
-    if (key == GLFW_KEY_J && action == GLFW_RELEASE) app->gb.extData.joypad |= 0x10; /* A button      */
-    if (key == GLFW_KEY_K && action == GLFW_RELEASE) app->gb.extData.joypad |= 0x20; /* B button      */
-    if (key == GLFW_KEY_L && action == GLFW_RELEASE) app->gb.extData.joypad |= 0x40; /* Select button */
-    if (key == GLFW_KEY_M && action == GLFW_RELEASE) app->gb.extData.joypad |= 0x80; /* Start button  */
-    if (key == GLFW_KEY_D && action == GLFW_RELEASE) app->gb.extData.joypad |= 0x1;  /* D-pad Right   */
-    if (key == GLFW_KEY_A && action == GLFW_RELEASE) app->gb.extData.joypad |= 0x2;  /* D-pad Left    */
-    if (key == GLFW_KEY_W && action == GLFW_RELEASE) app->gb.extData.joypad |= 0x4;  /* D-pad Up      */
-    if (key == GLFW_KEY_S && action == GLFW_RELEASE) app->gb.extData.joypad |= 0x8;  /* D-pad Down    */
+    /* Setup game controls - buttons are assigned in this order: Right, left, Up, Down, A, B, Select, Start */
+    const uint16_t GBkeys[8] = { 
+        GLFW_KEY_D, GLFW_KEY_A, GLFW_KEY_W, GLFW_KEY_S, 
+        GLFW_KEY_J, GLFW_KEY_K, GLFW_KEY_L, GLFW_KEY_M
+    };
+    uint8_t k;
+    for (k = 0; k < 8; k++) {
+        if (key == GBkeys[k] && action == GLFW_PRESS)   app->gb.extData.joypad &= ~(1 << k);
+        if (key == GBkeys[k] && action == GLFW_RELEASE) app->gb.extData.joypad |= (1 << k);
+    }
 
     /* Pause emulation */
-    if (key == GLFW_KEY_P && action == GLFW_PRESS)
-        app->paused = !app->paused;
+    if (key == GLFW_KEY_P && action == GLFW_PRESS) app->paused = !app->paused;
 
     /* Toggle debug */
-    if (key == GLFW_KEY_B && action == GLFW_PRESS)
-        app->debug = !app->debug;
+    if (key == GLFW_KEY_B && action == GLFW_PRESS) app->debug = !app->debug;
     
     /* Toggle window size (scale) */
     if (key == GLFW_KEY_G && action == GLFW_PRESS)
@@ -60,9 +50,8 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
     /* Switch palette */
     if (key == GLFW_KEY_O && action == GLFW_PRESS)
     {
-        app->gbData.palette++;
-        if (app->gbData.palette >= sizeof(palettes) / sizeof(palettes[0]))
-            app->gbData.palette = 0;
+        app->gbData.palette = 
+            (app->gbData.palette + 1) % (sizeof(palettes) / sizeof(palettes[0]));
     }
 
     /* Reset game */
@@ -260,16 +249,21 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
     const uint32_t yOffset = line * DISPLAY_WIDTH * 3;
     uint8_t coloredPixels[DISPLAY_WIDTH * 3];
 
+    float LERP_(float v0, float v1, float t) {
+        return (1 - t) * v0 + t * v1;
+    }
+
     uint8_t x;
 	for (x = 0; x < DISPLAY_WIDTH; x++)
 	{
-		const uint8_t idx = (3 - *pixels++) & 3;
-        //const uint8_t pal = *pixels++ >> 2;
+		const uint8_t idx = (3 - *pixels) & 3;
+        const uint8_t pal = *pixels++ >> 2;
         const uint8_t * pixel = palettes[data->palette].colors[idx];
+        const float lerp = (pal == 1) ? 0.28 : 0;
 
-        coloredPixels[x * 3]     = pixel[0];
-        coloredPixels[x * 3 + 1] = pixel[1];
-        coloredPixels[x * 3 + 2] = pixel[2];
+        coloredPixels[x * 3]     = LERP_((float) pixel[0], 255.0, lerp);
+        coloredPixels[x * 3 + 1] = LERP_((float) pixel[1], 255.0, lerp);
+        coloredPixels[x * 3 + 2] = LERP_((float) pixel[2], 255.0, lerp);
 	}
     memcpy (data->frameBuffer.imgData + yOffset, coloredPixels, DISPLAY_WIDTH * 3);
 }

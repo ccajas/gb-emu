@@ -565,7 +565,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             const uint8_t bitHi = (byteHi >> (7 - relX)) & 1;
             const uint8_t bgIndex = (bitHi << 1) + bitLo;
             /* Add 4 (set bit 2) to denote background pixel */
-            pixels[lineX] = ((gb->io[BGPalette] >> (bgIndex << 1)) & 3) | PIXEL_BG;
+            pixels[lineX] = ((gb->io[BGPalette] >> (bgIndex << 1)) & 3) | ((isWindow) ? 0 : PIXEL_BG);
         }
 
         /* Draw sprites */
