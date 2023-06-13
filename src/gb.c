@@ -523,7 +523,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
 
         /* X position counter */
         uint8_t lineX = 0;
-        uint16_t tileAddr, tileID, bit12, tileRow;
+
         /* For storing pixel bytes */
         uint8_t byteLo = 0;
         uint8_t byteHi = 0;
@@ -545,15 +545,15 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             /* Get next tile to be drawn */
             if (lineX == 0 || relX == 0)
             {
-                tileAddr = ((isWindow) ? winTileMap : BGTileMap) + 
+                const uint16_t tileAddr = ((isWindow) ? winTileMap : BGTileMap) + 
                     ((posY >> 3) << 5) +  /* Bits 5-9, Y location */
                     (posX >> 3);          /* Bits 0-4, X location */
-                tileID = gb->vram[tileAddr & 0x1FFF];
+                const uint16_t tileID = gb->vram[tileAddr & 0x1FFF];
 
                 /* Tilemap location depends on LCDC 4 set, which are different rules for BG and Window tiles */
                 /* Fetcher gets low byte and high byte for tile */
-                bit12 = !(LCDC_(4) || (tileID & 0x80)) << 12;
-                tileRow = bit12 + (tileID << 4) + ((posY & 7) << 1);
+                const uint16_t bit12 = !(LCDC_(4) || (tileID & 0x80)) << 12;
+                const uint16_t tileRow = bit12 + (tileID << 4) + ((posY & 7) << 1);
 
                 /* Finally get the pixel bytes from these addresses */
                 byteLo = gb->vram[tileRow];
@@ -575,26 +575,30 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             for (obj = visibleSprites - 1; obj >= 0; obj--) 
             {
                 const uint8_t s = sprites[obj];
-                const uint8_t spriteX = gb->oam[s + 1];
-                const uint8_t spriteY = gb->oam[s];
+                const uint8_t spriteX = gb->oam[s + 1], spriteY = gb->oam[s];
 
                 if (lineY - (LCDC_(2) ? 0 : 8) >= spriteY || lineY < spriteY - 16) continue;
                 if (spriteX == 0 || spriteX >= DISPLAY_WIDTH + 8) continue;
 
                 const uint8_t sLeft = (spriteX - 8 < 0) ? 0 : spriteX - 8;
-                const uint8_t sRight = (spriteX  >= DISPLAY_WIDTH) ? DISPLAY_WIDTH : spriteX;               
+                const uint8_t sRight = (spriteX  >= DISPLAY_WIDTH) ? DISPLAY_WIDTH : spriteX;
+                const uint8_t posY = (lineY - gb->oam[s]) & 7;
+
+                /* Get tile ID depending on sprite size */
+                uint16_t tileID = gb->oam[s + 2] & (LCDC_(2) ? 0xFE : 0xFF);
+                if (LCDC_(2) && spriteY - lineY <= 8) tileID = gb->oam[s + 2] | 1;
+
+                /* Flip Y if necessary */
+                const uint8_t relY = (gb->oam[s + 3] & 0x40) ? (LCDC_(2) ? 15 : 7) : 0;
+                const uint16_t tileRow = (tileID << 4) + ((posY ^ relY) << 1);
+
+                /* Get the pixel bytes from these addresses */
+                byteLo = gb->vram[tileRow];
+                byteHi = gb->vram[tileRow + 1];
 
                 for (lineX = sLeft; lineX < sRight; lineX++)
                 {
-                    const uint8_t spriteY = (lineY - gb->oam[s]) & 7;
-                    tileID = gb->oam[s + 2] & (LCDC_(2) ? 0xFE : 0xFF);
-                    tileRow = (tileID << 4) + ((spriteY ^ (gb->oam[s + 3] & 0x40 ? 7 : 0)) << 1);
-
-                    /* Get the pixel bytes from these addresses */
-                    byteLo = gb->vram[tileRow];
-                    byteHi = gb->vram[tileRow + 1];
-
-                    /* Flip sprite if necessary */
+                    /* Flip X if necessary */
                     const uint8_t relX = (gb->oam[s + 3] & 0x20) ? lineX - spriteX : 7 - (lineX - spriteX);
 
                     /* Produce pixel data from the combined bytes*/

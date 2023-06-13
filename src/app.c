@@ -263,9 +263,9 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
     uint8_t x;
 	for (x = 0; x < DISPLAY_WIDTH; x++)
 	{
-		const uint8_t idx = (3 - *pixels) & 3;
-        const uint8_t pal = *pixels++ >> 2;
-        const uint8_t * pixel = palettes[data->palette + pal].colors[idx];
+		const uint8_t idx = (3 - *pixels++) & 3;
+        //const uint8_t pal = *pixels++ >> 2;
+        const uint8_t * pixel = palettes[data->palette].colors[idx];
 
         coloredPixels[x * 3]     = pixel[0];
         coloredPixels[x * 3 + 1] = pixel[1];
