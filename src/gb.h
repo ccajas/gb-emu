@@ -154,7 +154,10 @@ static inline void gb_step (struct GB * gb)
     if (gb->halted)
     {
         gb->rm++;
-        if (gb->io[IntrFlags]) gb->halted = 0;
+        /* Get interrupt flags */
+        const uint8_t io_IE = gb->io[IntrEnabled % 0x80];
+        const uint8_t io_IF = gb->io[IntrFlags];
+        if (io_IE & io_IF & IF_Any) gb->halted = 0;
     }
     else
     {   /* Load next op and execute */
