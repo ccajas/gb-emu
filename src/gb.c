@@ -725,7 +725,7 @@ void gb_render (struct GB * const gb)
                 gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
                 gb->io[IntrFlags] |= IF_VBlank;
                 /* Mode 1 interrupt */
-                if LCDC_(4) gb->io[IntrFlags] |= IF_LCD_STAT;
+                if STAT_(4) gb->io[IntrFlags] |= IF_LCD_STAT;
             }
         }
     }
