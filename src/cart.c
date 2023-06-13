@@ -67,19 +67,26 @@ uint8_t mbc2_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
         if LOW_BANK   return cart->romData[addr];
         if HIGH_BANK 
             return cart->romData[((cart->bank1st & cart->romMask) - 1) * 0x4000 + addr];
-        if RAM_BANK
-            return (cart->usingRAM) ? (cart->ramData[addr & 0x1FF] & 0xF) : 0xF;      /* Return only lower 4 bits  */
+        if RAM_BANK {
+            uint8_t v = (cart->ramData[addr & 0x1FF] & 0xF);     /* Return only lower 4 bits  */
+            LOG_("read %02x from %04x, ramEnabled %d\n", v, addr, cart->usingRAM);
+            return v;
+        }
     }
     else /* Write to registers */
     {
         if LOW_BANK {
             if (addr >> 8 & 1) { 
                 cart->bank1st = val & 0xF; if (!cart->bank1st) cart->bank1st++; }     /* LSB == 1, ROM bank select */
-            if (!(addr >> 8 & 1)) {
-                cart->usingRAM = ((val & 0xF) == 0xA); return 0xFF; }                 /* LSB == 0, RAM switch      */
+            else if ((addr >> 8 & 1) == 0) {
+                cart->usingRAM = ((val & 0xF) == 0xA); 
+                LOG_("Wrote %02x to %04x, ramEnabled %d\n", val, addr, cart->usingRAM); return 0; }                    /* LSB == 0, RAM switch      */
         }
-        if RAM_BANK
-            if (cart->usingRAM) { cart->ramData[addr & 0x1FF] = val & 0xF; }          /* Write only lower 4 bits   */
+        if RAM_BANK {
+            LOG_("write attempt %02x to %04x, ramEnabled %d\n", val, addr, cart->usingRAM);
+            if (!cart->usingRAM) return 0xFF; 
+            cart->ramData[addr & 0x1FFF] = val & 0xF;                                  /* Write only lower 4 bits   */
+        }
     }
     return 0;
 }
@@ -90,12 +97,29 @@ uint8_t mbc3_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
     {
         if LOW_BANK   return cart->romData[addr];
         if HIGH_BANK  return cart->romData[((cart->bank1st & cart->romMask) - 1) * 0x4000 + addr];
+        if (RAM_BANK && cart->ram) {                                     /* Select RAM bank and fetch data (if enabled) */
+            if (!cart->usingRAM) return 0xFF;
+            //LOG_("Reading %02x from %04x\n", cart->bkRamData[addr % 0x2000], addr);
+            if (cart->ramSizeKB == 8) return cart->ramData[addr % 0x2000];                  /* Fetch only lower 8KB     */
+            const uint16_t ramOffset = cart->bank2nd * 0x2000;
+            return cart->ramData[(addr % 0x2000) + ramOffset];
+        }
     }
     else /* Write to registers */
     {
         if RAM_ENABLE_REG  cart->usingRAM = ((val & 0xF) == 0xA);                           /* Enable both RAM and RTC  */
         if BANK_SELECT     cart->bank1st = ((val == 0) ? 1 : (val & 0x7F));                 /* Write lower 7 bank bits  */
-        if BANK_SELECT_2   if (val < 4) { cart->bank2nd = val & 3; }                        /* Lower 3 bits for RAM     */
+        if BANK_SELECT_2   {                                                                /* Lower 3 bits for RAM     */ 
+            cart->bank2nd = val & 3; 
+            if (cart->ram) cart->bkRamData = cart->ramData + (cart->bank2nd * 0x2000);
+        }
+        if (RAM_BANK && cart->ram) {                                     /* Select RAM bank and fetch data (if enabled) */
+            if (!cart->usingRAM) return 0xFF;
+            //LOG_("Writing %02x to %04x\n", cart->bkRamData[addr % 0x2000], addr);
+            //return cart->bkRamData[addr % 0x2000];                           /* Write only to lower 8KB if no banking */
+            const uint16_t ramOffset = (cart->ramSizeKB == 8) ? 0 : cart->bank2nd * 0x2000;
+            cart->ramData[(addr % 0x2000) + ramOffset] = val;
+        }
     }
     return 0xFF;
 }
@@ -179,8 +203,10 @@ void cart_identify (struct Cartridge * cart)
     printf ("GB: RAM file size (KiB): %d\n", cart->ramSizeKB);
     printf ("GB: Cart type: %02X Mapper type: %d\n", header[0x47], cart->mbc);
 
-    if (cart->ramSizeKB)
+    if (cart->ramSizeKB) {
         cart->ramData = calloc(cart->ramSizeKB * 1024, sizeof (uint8_t));
+        cart->bkRamData = cart->ramData;
+    }
 
     cart->ram = (cart->ramSizeKB > 0);
     cart->romMask = (1 << (header[0x48] + 1)) - 1;
