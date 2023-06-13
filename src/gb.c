@@ -477,6 +477,14 @@ enum {
 }
 modeTicks;
 
+/* Custom pixel palette values for the frontend */
+
+enum {
+    PIXEL_BG   = 4,
+    PIXEL_OBJ1 = 8,
+    PIXEL_OBJ2 = 12
+};
+
 #define IO_STAT_CLEAR   (gb->io[LCDStatus] & 0xFC)
 #define IO_STAT_MODE    (gb->io[LCDStatus] & 3)
 
@@ -497,9 +505,11 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
     uint8_t s;
     for (s = 0; s < OAM_SIZE; s += 4)
     {
-        if (lineY < gb->oam[s] - 8 && lineY >= gb->oam[s] - (LCDC_(2) ? 24 : 16))
-            if (gb->oam[s] > 0 && gb->oam[s] < 160)
-                sprites[visibleSprites++] = s;
+        if (gb->oam[s] == 0 && gb->oam[s] >= 160) continue;
+        if (lineY >= gb->oam[s] - (LCDC_(2) ? 0 : 8) || 
+            lineY < gb->oam[s] - 16) continue;
+        
+        sprites[visibleSprites++] = s;
         if (visibleSprites == 10) break;
     }
 
@@ -554,8 +564,8 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             const uint8_t bitLo = (byteLo >> (7 - relX)) & 1;
             const uint8_t bitHi = (byteHi >> (7 - relX)) & 1;
             const uint8_t bgIndex = (bitHi << 1) + bitLo;
-            
-            pixels[lineX] = (gb->io[BGPalette] >> (bgIndex << 1)) & 3;
+            /* Add 4 (set bit 2) to denote background pixel */
+            pixels[lineX] = ((gb->io[BGPalette] >> (bgIndex << 1)) & 3) | PIXEL_BG;
         }
 
         /* Draw sprites */
@@ -568,7 +578,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
                 const uint8_t spriteX = gb->oam[s + 1];
                 const uint8_t spriteY = gb->oam[s];
 
-                if (lineY + (LCDC_(2) ? 0 : 8) >= spriteY || lineY + 16 < spriteY) continue;
+                if (lineY - (LCDC_(2) ? 0 : 8) >= spriteY || lineY < spriteY - 16) continue;
                 if (spriteX == 0 || spriteX >= DISPLAY_WIDTH + 8) continue;
 
                 const uint8_t sLeft = (spriteX - 8 < 0) ? 0 : spriteX - 8;
@@ -596,7 +606,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
                     if (gb->oam[s + 3] & 0x80 && pixels[lineX] & 0x3) continue;
 
                     const uint8_t palette = OBJPalette0 + !!(gb->oam[s + 3] & 0x10);
-                    pixels[lineX] = (gb->io[palette] >> (objIndex << 1)) & 3;
+                    pixels[lineX] = ((gb->io[palette] >> (objIndex << 1)) & 3) | PIXEL_OBJ1;
                 }
             }
         }
@@ -627,12 +637,11 @@ static inline void gb_transfer (struct GB * gb)
     if (IO_STAT_MODE != Stat_Transfer)
     {
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
+        if (gb->frame) return;
 
         /* Fetch line of pixels for the screen and draw them */
-        if (gb->frame == 0) {
-            uint8_t * pixels = gb_pixel_fetch (gb);
-            gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
-        }
+        uint8_t * pixels = gb_pixel_fetch (gb);
+        gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
     }
 }
 

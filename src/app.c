@@ -109,6 +109,7 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
     app->draw = 0;
 #endif
     app->scale = 3;
+    app->fullScreen = 0;
     app->paused = 1;
     app->debug = 0;
 }
@@ -257,13 +258,14 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
     struct gb_data * const data = dataPtr;
 
     const uint32_t yOffset = line * DISPLAY_WIDTH * 3;
-    uint8_t  coloredPixels[DISPLAY_WIDTH * 3];
+    uint8_t coloredPixels[DISPLAY_WIDTH * 3];
 
     uint8_t x;
 	for (x = 0; x < DISPLAY_WIDTH; x++)
 	{
-		uint8_t idx = 3 - (*pixels++);
-        const uint8_t * pixel = palettes[data->palette].colors[idx];
+		const uint8_t idx = (3 - *pixels) & 3;
+        const uint8_t pal = *pixels++ >> 2;
+        const uint8_t * pixel = palettes[data->palette + pal].colors[idx];
 
         coloredPixels[x * 3]     = pixel[0];
         coloredPixels[x * 3 + 1] = pixel[1];
