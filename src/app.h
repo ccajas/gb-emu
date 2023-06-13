@@ -25,12 +25,12 @@
 
 struct App
 {
-    uint8_t draw;
-    uint8_t paused;
+    uint8_t draw, paused, step;
     uint8_t debug;
 
     /* Cosmetic options */
     uint8_t scale;
+    uint8_t fullScreen : 1;
 
     char defaultFile[256];
 

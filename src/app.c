@@ -33,7 +33,11 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
     }
 
     /* Pause emulation */
-    if (key == GLFW_KEY_P && action == GLFW_PRESS) app->paused = !app->paused;
+    if (key == GLFW_KEY_P && action == GLFW_PRESS) 
+        if (gb_rom_loaded(&app->gb)) app->paused = !app->paused;
+
+    /* Step one instruction */
+    if (key == GLFW_KEY_T && action == GLFW_PRESS) app->step = 1;
 
     /* Toggle debug */
     if (key == GLFW_KEY_B && action == GLFW_PRESS) app->debug = !app->debug;
@@ -77,7 +81,7 @@ void drop_callback(GLFWwindow * window, int count, const char** paths)
     if (app_load(&app->gb, app->defaultFile))
     {
         app->gb.extData.ptr = &app->gbData;
-        app->paused = 0;
+        //app->paused = 0;
     }
     else app->defaultFile[0] = '\0';
 }
@@ -100,7 +104,7 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
     app->scale = 3;
     app->fullScreen = 0;
     app->paused = 1;
-    app->debug = 0;
+    app->debug = app->step = 0;
 }
 
 void app_init (struct App * app)
@@ -308,12 +312,22 @@ void app_run (struct App * app)
             glfwMakeContextCurrent (app->window);
             draw_begin (app->window, &app->display);
 
-            if (frames < -1 && app->paused == 0 && gb_rom_loaded(&app->gb))
+            if (gb_rom_loaded(&app->gb))
             {
-                time = clock();
-                gb_frame (&app->gb);
-                totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
-                frames++;
+                if (app->paused == 0)
+                {
+                    time = clock();
+                    gb_frame (&app->gb);
+                    totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
+                    frames++;
+                }
+                else {
+                    if (app->step) {
+                        gb_step(&app->gb);
+                        gb_cpu_state(&app->gb);
+                        app->step = 0;
+                    }
+                }
             }
             app_draw (app);
             glfwSwapBuffers (app->window);
