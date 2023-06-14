@@ -49,7 +49,7 @@ struct GB
 
     /* Timer data */
     uint16_t divClock, lastDiv;
-    uint8_t  timAOverflow;
+    uint8_t  timAOverflow, nextTimA_IRQ;
     uint8_t  rt, rm; /* Tracks individual step clocks */
 
     /* HALT and STOP status, PC increment toggle */
@@ -96,10 +96,11 @@ void    gb_boot_reset (struct GB *);
 
 /* Other update-specific functions */
 
-void gb_handle_interrupts (struct GB * gb);
-void gb_handle_timings    (struct GB * gb);
-void gb_ppu_step          (struct GB * gb);
-void gb_render            (struct GB * gb);
+void gb_handle_interrupts (struct GB *);
+void gb_handle_timings    (struct GB *);
+void gb_timer_update      (struct GB *, const uint8_t);
+void gb_ppu_step          (struct GB *);
+void gb_render            (struct GB *);
 
 static inline uint8_t gb_rom_loaded (struct GB * gb)
 {
@@ -162,10 +163,7 @@ static inline void gb_step (struct GB * gb)
     else
     {   /* Load next op and execute */
         const uint8_t op = CPU_RB (gb->pc++);
-        if (op != 0xCB)
-            gb_cpu_exec (gb, op);
-        else
-            gb_exec_cb (gb, CPU_RB (gb->pc++));
+        gb_cpu_exec (gb, op);
     }
 
     gb_handle_interrupts (gb);

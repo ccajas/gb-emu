@@ -39,7 +39,7 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
             case BootROM:                 /* Boot ROM register should be unwritable at some point? */
                 break;
             case Divider:
-                gb->divClock = 0; return 0;                                           /* DIV reset */
+                gb_timer_update (gb, 0); return 0;                                    /* DIV reset */
             case DMA:                                     /* OAM DMA transfer                      */
                 gb->io[DMA] = val; int i = 0;             /* Todo: Make it write across 160 cycles */
                 const uint16_t src = val << 8;
@@ -302,7 +302,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
                 case 0x37: SCF     break; case 0x3F: CCF     break;
                 /* ... */
                 case 0xC3: JPNN    break; case 0xC6: ADDm    break;
-                case 0xC9: RET     break; case 0xCB: PREFIX  break;
+                case 0xC9: RET     break; 
                 case 0xCD: CALLm   break; case 0xCE: ADCm    break;
 
                 case 0xD6: SUBm    break; case 0xD9: RETI    break;
@@ -330,6 +330,9 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
                 case 0xC7:   case 0xCF:   case 0xD7:
                 case 0xDF:   case 0xE7:   case 0xEF:
                 case 0xF7:   case 0xFF: RST         break;
+                case 0xCB:   
+                    gb_exec_cb (gb, CPU_RB (gb->pc++));
+                break;
                 default:   INVALID;
             }
             switch (op)
@@ -397,7 +400,6 @@ void gb_handle_interrupts (struct GB * gb)
     if (io_IE & io_IF & IF_Any)
     {
         gb->ime = 0;
-
         /* Check all 5 IE and IF bits for flag confirmations 
            This loop also services interrupts by priority (0 = highest) */
         uint8_t i;
@@ -426,21 +428,11 @@ void gb_handle_interrupts (struct GB * gb)
     }
 }
 
-void gb_handle_timings (struct GB * gb)
+void gb_timer_update (struct GB * gb, const uint8_t change)
 {
     /* Increment div every m-cycle and save bits 6-13 to DIV register */
-    gb->divClock++;
+    gb->divClock = (change) ? gb->divClock + 1 : 0 ;
     gb->io[Divider] = (gb->divClock >> 6) & 0xFF;
-
-    if (gb->timAOverflow)
-    {
-        /* Check overflow in the next cycle */
-        gb->io[IntrFlags] |= IF_Timer;
-        gb->io[TimA] = gb->io[TMA];
-
-        gb_handle_interrupts (gb);
-        gb->timAOverflow = 0;
-    }
 
     /* Leave if timer is disabled */
     const uint8_t tac = gb->io[TimerCtrl];
@@ -454,10 +446,27 @@ void gb_handle_timings (struct GB * gb)
     {
         uint8_t timA = gb->io[TimA];
         /* Request timer interrupt if pending */
-        if (++timA == 0) gb->timAOverflow = 1;
+        if (++timA == 0) gb->nextTimA_IRQ = 1;
         gb->io[TimA] = timA;
     }
     gb->lastDiv = gb->divClock;
+}
+
+void gb_handle_timings (struct GB * gb)
+{
+    if (gb->nextTimA_IRQ) 
+    {
+        /* Check overflow in the next cycle */
+        gb->nextTimA_IRQ--;
+        if (gb->nextTimA_IRQ == 0)
+        {
+            gb->io[IntrFlags] |= IF_Timer;
+            gb->io[TimA] = gb->io[TMA];
+            //this.TIMA_reload_cycle = true
+        }
+    }
+
+    gb_timer_update (gb, 1);
 }
 
 /*
