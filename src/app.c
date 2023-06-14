@@ -56,11 +56,23 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
     {
         app->gbData.palette = 
             (app->gbData.palette + 1) % (sizeof(palettes) / sizeof(palettes[0]));
+
+        if (key == GLFW_KEY_U && action == GLFW_PRESS)
+            app->gbData.pixelTint = (!app->gbData.pixelTint) ? 72 : 0;
     }
 
     /* Reset game */
     if (key == GLFW_KEY_R && action == GLFW_PRESS)
         gb_boot_reset(&app->gb);
+}
+
+void joystick_callback(int joystickID, int event)
+{
+    if (event == GLFW_CONNECTED)
+        LOG_("Joystick connected.\n");
+
+    else if (event == GLFW_DISCONNECTED)
+        LOG_("Joystick diconnected.\n");
 }
 
 void framebuffer_size_callback (GLFWwindow * window, int width, int height)
@@ -81,7 +93,7 @@ void drop_callback(GLFWwindow * window, int count, const char** paths)
     if (app_load(&app->gb, app->defaultFile))
     {
         app->gb.extData.ptr = &app->gbData;
-        //app->paused = 0;
+        app->paused = 0;
     }
     else app->defaultFile[0] = '\0';
 }
@@ -116,6 +128,7 @@ void app_init (struct App * app)
     app->gbData = (struct gb_data) 
     {
         .palette = 0,
+        .pixelTint = 0,
 #ifdef USE_GLFW
         .tileMap = {
             .width = 128,
@@ -190,6 +203,7 @@ void app_init (struct App * app)
 
         glfwSetKeyCallback(window, key_callback);
         glfwSetDropCallback(window, drop_callback);
+        glfwSetJoystickCallback(joystick_callback);
         glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
         glfwMakeContextCurrent(window);
 
@@ -246,6 +260,25 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
 }
 
 #ifdef USE_GLFW
+void app_read_gamepad (struct App * app)
+{
+    GLFWgamepadstate state;
+ 
+    if (glfwGetGamepadState(GLFW_JOYSTICK_1, &state))
+    {
+        LOG_("Gamepad State: ");
+        uint8_t i;
+        for (i = 0; i < sizeof(state.buttons); i++)
+            LOG_("%d ", state.buttons[i]);
+        LOG_("\n");
+
+        if (state.buttons[GLFW_GAMEPAD_BUTTON_A])
+        {
+            
+        }
+    }
+}
+
 void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 {
     struct gb_data * const data = dataPtr;
@@ -263,7 +296,7 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 		const uint8_t idx = (3 - *pixels) & 3;
         const uint8_t pal = *pixels++ >> 2;
         const uint8_t * pixel = palettes[data->palette].colors[idx];
-        const float lerp = (pal == 1) ? 0.28 : 0;
+        const float lerp = (pal == 1) ? (float)data->pixelTint / 255 : 0;
 
         coloredPixels[x * 3]     = LERP_((float) pixel[0], 255.0, lerp);
         coloredPixels[x * 3 + 1] = LERP_((float) pixel[1], 255.0, lerp);
@@ -309,6 +342,7 @@ void app_run (struct App * app)
 #ifdef USE_GLFW
         while (!glfwWindowShouldClose (app->window))
         {
+            app_read_gamepad(app);
             glfwMakeContextCurrent (app->window);
             draw_begin (app->window, &app->display);
 
@@ -320,13 +354,6 @@ void app_run (struct App * app)
                     gb_frame (&app->gb);
                     totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
                     frames++;
-                }
-                else {
-                    if (app->step) {
-                        gb_step(&app->gb);
-                        gb_cpu_state(&app->gb);
-                        app->step = 0;
-                    }
                 }
             }
             app_draw (app);
