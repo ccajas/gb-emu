@@ -20,6 +20,12 @@ const char * ppu_fs_source =
 "uniform vec3 textColor;\n"
 "uniform vec2 screenSize;\n"
 
+"#define PI_2 3.1415926538 * 2\n"
+
+"uniform float rr = 0.720000;\n"
+"uniform float rg = 0.650000;\n"
+"uniform float rb = 0.740000;\n"
+
 "vec3 dotMatrix(vec3 color, vec3 tint)\n"
 "{\n"
 "    vec2 position = (TexCoords.xy);\n"
@@ -30,12 +36,25 @@ const char * ppu_fs_source =
 "    return color;\n"
 "}\n"
 
+"vec3 lcdSimple(vec3 color, vec3 tint)\n"
+"{\n"
+"    vec2 position = (TexCoords.xy);\n"
+"    if (fract(position.x * screenSize.x) > 0.75) color = mix(color, vec3(0), 0.2);"
+"    float tr = sin(position.x * screenSize.x * PI_2) + 0.5;"
+"    float tg = sin((position.x + 0.33) * screenSize.x * PI_2) + 0.5;"
+"    float tb = sin((position.x + 0.67) * screenSize.x * PI_2) + 0.5;"
+"    color.r *= tr * rr; color.g *= tg * rg; color.b *= tb * rb;"
+"    color *= 1.34;\n"
+"    if (fract(position.y * screenSize.y) > 0.75) color = mix(color, vec3(0), 0.48);"
+"    return color;\n"
+"}\n"
+
 "void main()\n"
 "{\n"
 "    vec3 tint = vec3(0.37, 0.84, 0.87);\n"
 "    vec3 tint2 = vec3(0.61, 0.74, 0.03);\n"
 "    vec3 sampled = texture2D(indexed, TexCoords).rgb;\n"
-"    gl_FragColor = vec4(dotMatrix(sampled, tint2), 1.0);\n"
+"    gl_FragColor = vec4(lcdSimple(sampled, tint2), 1.0);\n"
 "}\n";
 
 const char * ppu_vs_source =
