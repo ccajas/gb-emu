@@ -354,11 +354,12 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
                 OP_R8_G (0x70)
                     OP(LDHLr); CPU_WB (ADDR_HL, *reg2); break;
                 case 0x76: 
-                    OP(HALT); gb->halted = 1;
+                    OP(HALT);
                     if (!gb->ime) {
-                        if (gb->io[IntrEnabled] && gb->io[IntrFlags] & IF_Any) gb->pcInc = 0; }
-                    else {
-                        
+                        if (gb->io[IntrEnabled] && gb->io[IntrFlags] & IF_Any) gb->pcInc = 0; 
+                        else gb->halted = 1;
+                    } else {
+                        gb->halted = 1;
                     }
                 break;
             }
@@ -468,7 +469,6 @@ void gb_handle_timings (struct GB * gb)
         {
             gb->io[IntrFlags] |= IF_Timer;
             gb->io[TimA] = gb->io[TMA];
-            //this.TIMA_reload_cycle = true
         }
     }
 
