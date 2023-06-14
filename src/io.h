@@ -58,4 +58,19 @@ static const enum
 }
 LCD_STAT_Flags;
 
+/* LCD Control flags by bit */
+
+static const enum
+{
+    BG_Win_Enable = 0,
+    OBJ_Enable,
+    OBJ_Size,
+    BG_Area,
+    BG_Win_Data,
+    Window_Enable,
+    Window_Area,
+    LCD_Enable
+}
+LCD_Control_Flags;
+
 #endif
