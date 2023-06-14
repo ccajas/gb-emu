@@ -36,6 +36,10 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
     {
         switch (addr % 0x80)
         {
+            case IntrFlags:                                   /* */
+                gb->io[IntrFlags] = 0xE0 | val; return 0;
+            case IntrEnabled:
+                gb->io[IntrEnabled] = 0xE0 | val; return 0;
             case BootROM:                 /* Boot ROM register should be unwritable at some point? */
                 break;
             case Divider:
@@ -397,8 +401,6 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
 
 void gb_handle_interrupts (struct GB * gb)
 {
-    if (!gb->halted && !gb->ime) return;
-
     /* Get interrupt flags */
     const uint8_t io_IE = gb->io[IntrEnabled];
     const uint8_t io_IF = gb->io[IntrFlags];
@@ -662,7 +664,6 @@ static inline void gb_transfer (struct GB * gb)
     {
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
         if (gb->frame) return;
-
         /* Fetch line of pixels for the screen and draw them */
         uint8_t * pixels = gb_pixel_fetch (gb);
         gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
@@ -735,8 +736,7 @@ void gb_render (struct GB * const gb)
         else if (gb->lineClock < TICKS_TRANSFER) gb_transfer (gb);
         else if (gb->lineClock < TICKS_HBLANK)   gb_hblank (gb);
         else
-        {
-            /* Starting new line */
+        {   /* Starting new line */
             gb->lineClock -= TICKS_HBLANK;
             gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
             gb_eval_LYC (gb);

@@ -45,7 +45,7 @@ struct GB
     uint64_t clock_t, clock_m;
     uint16_t lineClock;
     uint32_t frameClock;
-    uint8_t  frame;
+    uint8_t  frame, totalFrames;
 
     /* Timer data */
     uint16_t divClock, lastDiv;
@@ -169,11 +169,14 @@ static inline void gb_step (struct GB * gb)
     gb->clock_m += gb->rm;
     gb->clock_t += gb->rm * 4;
 
-    gb_handle_interrupts (gb);
+    if (gb->halted || gb->ime)
+        gb_handle_interrupts (gb);
+
     /* Update timers for every m-cycle */
     int m = 0;
     while (m++ < gb->rm)
         gb_handle_timings (gb);
+        
     gb_render (gb);
 }
 
@@ -193,6 +196,7 @@ static inline void gb_frame (struct GB * gb)
     }
     /* Indicates odd or even frame */
     gb->frame = 1 - gb->frame;
+    gb->totalFrames++;
 }
 
 #endif
