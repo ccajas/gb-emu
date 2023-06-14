@@ -156,7 +156,7 @@ static inline void gb_step (struct GB * gb)
     {
         gb->rm++;
         /* Get interrupt flags */
-        const uint8_t io_IE = gb->io[IntrEnabled % 0x80];
+        const uint8_t io_IE = gb->io[IntrEnabled];
         const uint8_t io_IF = gb->io[IntrFlags];
         if (io_IE & io_IF & IF_Any) gb->halted = 0;
     }
@@ -166,16 +166,15 @@ static inline void gb_step (struct GB * gb)
         gb_cpu_exec (gb, op);
     }
 
-    gb_handle_interrupts (gb);
+    gb->rt = gb->rm * 4;
+    gb->clock_m += gb->rm;
+    gb->clock_t += gb->rm * 4;
 
+    gb_handle_interrupts (gb);
     /* Update timers for every m-cycle */
     int m = 0;
     while (m++ < gb->rm)
         gb_handle_timings (gb);
-
-    gb->rt = gb->rm * 4;
-    gb->clock_m += gb->rm;
-    gb->clock_t += gb->rm * 4;
     gb_render (gb);
 }
 

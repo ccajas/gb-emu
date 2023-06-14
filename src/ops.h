@@ -219,7 +219,7 @@
 #define SCF     OP(SCF);  gb->f_c = 1; gb->f_n = gb->f_h = 0;
 #define HALT    OP(HALT);\
     if (gb->ime) gb->halted = 1;\
-    else if (!gb->ime && (gb->io[IntrEnabled % 0x80] && gb->io[IntrFlags] & IF_Any)) gb->pcInc = 0;
+    else if (!gb->ime && (gb->io[IntrEnabled] && gb->io[IntrFlags] & IF_Any)) gb->pcInc = 0;
 
 #define STOP    OP(STOP); gb->stop = 1; /* STOP is handled after switch/case */
 #define NOP     OP(NOP);

@@ -352,9 +352,15 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
             /* 8-bit load, LDHLr or HALT */ 
             switch (op) {
                 OP_R8_G (0x70)
-                    CPU_WB (ADDR_HL, *reg2); break;
+                    OP(LDHLr); CPU_WB (ADDR_HL, *reg2); break;
                 case 0x76: 
-                    HALT  break;
+                    OP(HALT); gb->halted = 1;
+                    if (!gb->ime) {
+                        if (gb->io[IntrEnabled] && gb->io[IntrFlags] & IF_Any) gb->pcInc = 0; }
+                    else {
+                        
+                    }
+                break;
             }
             //OPR_2_(LD_HLr, HALT)
         break;
@@ -393,7 +399,7 @@ void gb_handle_interrupts (struct GB * gb)
     if (!gb->halted && !gb->ime) return;
 
     /* Get interrupt flags */
-    const uint8_t io_IE = gb->io[IntrEnabled % 0x80];
+    const uint8_t io_IE = gb->io[IntrEnabled];
     const uint8_t io_IF = gb->io[IntrFlags];
 
     /* Run if CPU ran HALT instruction or IME enabled w/flags */
