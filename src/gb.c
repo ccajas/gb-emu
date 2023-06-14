@@ -648,7 +648,7 @@ static inline void gb_oam_read (struct GB * gb)
     if (IO_STAT_MODE != Stat_OAM_Search)
     {
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_OAM_Search;
-        if STAT_(5) gb->io[IntrFlags] |= IF_LCD_STAT;      /* Mode 2 interrupt */
+        if STAT_(IR_OAM) gb->io[IntrFlags] |= IF_LCD_STAT;      /* Mode 2 interrupt */
 
         /* Fetch OAM data for sprites to be drawn on this line */
         //ppu_OAM_fetch (ppu, io_regs);
@@ -676,7 +676,7 @@ static inline void gb_hblank (struct GB * gb)
     {
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;
         /* Mode 0 interrupt */
-        if STAT_(3) gb->io[IntrFlags] |= IF_LCD_STAT;
+        if STAT_(IR_HBlank) gb->io[IntrFlags] |= IF_LCD_STAT;
     }
 }
 
@@ -696,20 +696,28 @@ static inline void gb_eval_LYC (struct GB * const gb)
 }
 
 static inline void gb_vblank (struct GB * const gb) 
-{ 
-    /* Starting new line */
-    gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
-    gb->lineClock -= (TICKS_OAM_READ + TICKS_TRANSFER + TICKS_HBLANK);
-    gb_eval_LYC (gb);
-
-    /* Check if all visible lines are done */
-    if (gb->io[LY] == DISPLAY_HEIGHT)
+{
+    if (gb->lineClock < TICKS_VBLANK)
     {
-        /* Enter Vblank and indicate that a frame is completed */
-        gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
-        gb->io[IntrFlags] |= IF_VBlank;
-        /* Mode 1 interrupt */
-        if STAT_(4) gb->io[IntrFlags] |= IF_LCD_STAT;
+        /* Mode 1 - V-blank */
+        if (IO_STAT_MODE != Stat_VBlank)
+        {
+            /* Enter Vblank and indicate that a frame is completed */
+            if (LCDC_(LCD_Enable)) 
+            {
+                gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
+                gb->io[IntrFlags] |= IF_VBlank;
+                /* Mode 1 interrupt */
+                if STAT_(IR_VBLank) gb->io[IntrFlags] |= IF_LCD_STAT;
+            }
+        }
+    }
+    else
+    {
+        /* Starting new line */
+        gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
+        gb->lineClock -= TICKS_VBLANK;
+        gb_eval_LYC (gb);
     }
 }
 
@@ -732,28 +740,9 @@ void gb_render (struct GB * const gb)
             gb->lineClock -= TICKS_HBLANK;
             gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
             gb_eval_LYC (gb);
-
-            /* Check if all visible lines are done */
-            if (gb->io[LY] == DISPLAY_HEIGHT)
-            {
-                /* Enter Vblank and indicate that a frame is completed */
-                gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
-                gb->io[IntrFlags] |= IF_VBlank;
-                /* Mode 1 interrupt */
-                if STAT_(4) gb->io[IntrFlags] |= IF_LCD_STAT;
-            }
         }
     }
     else /* Outside of screen Y bounds */
-    {
-        /* Mode 1 - V-blank */
-        if(gb->lineClock >= TICKS_VBLANK)
-        {
-            /* Advance though lines below the screen */
-            gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
-            gb->lineClock -= TICKS_VBLANK;
-            gb_eval_LYC (gb);
-        }
-    }
+        gb_vblank (gb);
     /* ...and DMA transfer to OMA, if needed */
 }
