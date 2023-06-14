@@ -46,7 +46,7 @@ struct App
         Tigr * tileMap;
         Tigr * frameBuffer;
 #endif        
-        uint8_t palette;
+        uint8_t paletteBG, paletteOBJ;
         uint8_t pixelTint;
     }
     gbData;

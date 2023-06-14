@@ -45,21 +45,21 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
     /* Toggle window size (scale) */
     if (key == GLFW_KEY_G && action == GLFW_PRESS)
     {
-        app->scale += (app->scale == 5) ? -4 : 1;
+        app->scale += (app->scale == 6) ? -5 : 1;
         glfwSetWindowSize(window, 
             app->gbData.frameBuffer.width * app->scale,
             app->gbData.frameBuffer.height * app->scale);
     }
 
-    /* Switch palette */
-    if (key == GLFW_KEY_O && action == GLFW_PRESS)
-    {
-        app->gbData.palette = 
-            (app->gbData.palette + 1) % (sizeof(palettes) / sizeof(palettes[0]));
-
-        if (key == GLFW_KEY_U && action == GLFW_PRESS)
-            app->gbData.pixelTint = (!app->gbData.pixelTint) ? 72 : 0;
+    const uint8_t totalPalettes = (sizeof(palettes) / sizeof(palettes[0]));
+    /* Switch palettes */
+    if (key == GLFW_KEY_O && action == GLFW_PRESS) {
+        app->gbData.paletteBG  = (app->gbData.paletteBG  + 1) % totalPalettes;
+        app->gbData.paletteOBJ = (app->gbData.paletteOBJ + 1) % totalPalettes;
     }
+
+    if (key == GLFW_KEY_I && action == GLFW_PRESS)
+        app->gbData.paletteOBJ = (app->gbData.paletteOBJ + 1) % totalPalettes;
 
     /* Reset game */
     if (key == GLFW_KEY_R && action == GLFW_PRESS)
@@ -127,7 +127,8 @@ void app_init (struct App * app)
 
     app->gbData = (struct gb_data) 
     {
-        .palette = 0,
+        .paletteBG = 0,
+        .paletteOBJ = 0,
         .pixelTint = 0,
 #ifdef USE_GLFW
         .tileMap = {
@@ -293,14 +294,15 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
     uint8_t x;
 	for (x = 0; x < DISPLAY_WIDTH; x++)
 	{
-		const uint8_t idx = (3 - *pixels) & 3;
-        const uint8_t pal = *pixels++ >> 2;
-        const uint8_t * pixel = palettes[data->palette].colors[idx];
-        const float lerp = (pal == 1) ? (float)data->pixelTint / 255 : 0;
+        /* Get color and palette to use it with */
+		const uint8_t idx = (3 - *pixels++) & 3;
+        //const uint8_t pal = ((*pixels++ & 0xC) == 4) ? data->paletteBG : data->paletteOBJ;
+        const uint8_t * pixel = palettes[data->paletteBG].colors[idx];
+        //const float lerp = (pal == 1) ? (float)data->pixelTint / 255 : 0;
 
-        coloredPixels[x * 3]     = LERP_((float) pixel[0], 255.0, lerp);
-        coloredPixels[x * 3 + 1] = LERP_((float) pixel[1], 255.0, lerp);
-        coloredPixels[x * 3 + 2] = LERP_((float) pixel[2], 255.0, lerp);
+        coloredPixels[x * 3]     = pixel[0];
+        coloredPixels[x * 3 + 1] = pixel[1];
+        coloredPixels[x * 3 + 2] = pixel[2];
 	}
     memcpy (data->frameBuffer.imgData + yOffset, coloredPixels, DISPLAY_WIDTH * 3);
 }
