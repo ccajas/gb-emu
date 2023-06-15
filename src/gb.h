@@ -49,7 +49,7 @@ struct GB
 
     /* Timer data */
     uint16_t divClock, lastDiv;
-    uint8_t  timAOverflow, nextTimA_IRQ;
+    uint8_t  timAOverflow, nextTimA_IRQ, newTimALoaded;
     uint8_t  rt, rm; /* Tracks individual step clocks */
 
     /* HALT and STOP status, PC increment toggle */
@@ -155,9 +155,12 @@ static inline void gb_step (struct GB * gb)
     if (gb->halted)
     {
         gb->rm++;
-        /* Check if interrupt is pending  */
+        /* Check if interrupt is pending */
         if (gb->io[IntrEnabled] & gb->io[IntrFlags] & IF_Any)
             gb->halted = 0;
+
+        if (gb->ime)
+            gb_handle_interrupts (gb);
     }
     else
     {   /* Load next op and execute */
@@ -165,12 +168,12 @@ static inline void gb_step (struct GB * gb)
         gb_cpu_exec (gb, op);
     }
 
+    if (gb->ime)
+        gb_handle_interrupts (gb);
+
     gb->rt = gb->rm * 4;
     gb->clock_m += gb->rm;
     gb->clock_t += gb->rm * 4;
-
-    if (gb->halted || gb->ime)
-        gb_handle_interrupts (gb);
 
     /* Update timers for every m-cycle */
     int m = 0;

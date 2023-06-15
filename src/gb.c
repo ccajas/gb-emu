@@ -36,14 +36,20 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
     {
         switch (addr % 0x80)
         {
-            case IntrFlags:                                   /* */
+            case TimA:
+                if (!gb->newTimALoaded) gb->io[TimA] = val;    /* Update TIMA if new value wasn't loaded last cycle    */
+                if (gb->nextTimA_IRQ)   gb->nextTimA_IRQ = 0;  /* Cancel any pending IRQ when accessing TIMA           */
+                return 0;
+            case TMA:                                          /* Update TIMA also if TMA is written in the same cycle */
+                if (gb->newTimALoaded) { gb->io[TimA] = val; } break;
+            case IntrFlags:                               /* Mask unused bits for IE and IF        */
                 gb->io[IntrFlags] = 0xE0 | val; return 0;
             case IntrEnabled:
                 gb->io[IntrEnabled] = 0xE0 | val; return 0;
             case BootROM:                 /* Boot ROM register should be unwritable at some point? */
                 break;
             case Divider:
-                gb_timer_update (gb, 0); return 0;                                    /* DIV reset */
+                gb_timer_update (gb, 0); return 0;        /* DIV reset                             */
             case DMA:                                     /* OAM DMA transfer                      */
                 gb->io[DMA] = val; int i = 0;             /* Todo: Make it write across 160 cycles */
                 const uint16_t src = val << 8;
@@ -463,6 +469,8 @@ void gb_timer_update (struct GB * gb, const uint8_t change)
 
 void gb_handle_timings (struct GB * gb)
 {
+    gb->newTimALoaded = 0;
+
     if (gb->nextTimA_IRQ) 
     {
         /* Check overflow in the next cycle */
@@ -471,6 +479,7 @@ void gb_handle_timings (struct GB * gb)
         {
             gb->io[IntrFlags] |= IF_Timer;
             gb->io[TimA] = gb->io[TMA];
+            gb->newTimALoaded = 1;
         }
     }
 
@@ -663,7 +672,7 @@ static inline void gb_transfer (struct GB * gb)
     if (IO_STAT_MODE != Stat_Transfer)
     {
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
-        if (gb->frame) return;
+        if (gb->frame || !LCDC_(LCD_Enable)) return;
         /* Fetch line of pixels for the screen and draw them */
         uint8_t * pixels = gb_pixel_fetch (gb);
         gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
