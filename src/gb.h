@@ -22,7 +22,7 @@
 struct GB
 {
     enum { A = 0, F, B, C, D, E, H, L } registers;
-    //enum { C = 0, B, E, D, L, H, F, A } registers;
+    //enum { C = 0, B, E, D, L, H, A, F } registers;
 
     uint8_t    r[8];     /* A-F, H, L - 8-bit registers */
     uint16_t * r16;      /* Registers in 16-bit gorups  */
@@ -54,7 +54,10 @@ struct GB
 
     /* HALT and STOP status, PC increment toggle */
     uint8_t stop : 1, halted : 1, pcInc : 1;
+
+    /* PPU related tracking */
     uint8_t vramBlocked, oamBlocked;
+    uint8_t windowLY;
     uint8_t invalid;
 
     /* Memory and I/O registers */
@@ -154,13 +157,14 @@ static inline void gb_step (struct GB * gb)
 
     if (gb->halted)
     {
-        gb->rm++;
         /* Check if interrupt is pending */
         if (gb->io[IntrEnabled] & gb->io[IntrFlags] & IF_Any)
             gb->halted = 0;
 
         if (gb->ime)
             gb_handle_interrupts (gb);
+
+        gb->rm++;
     }
     else
     {   /* Load next op and execute */
@@ -171,15 +175,15 @@ static inline void gb_step (struct GB * gb)
     if (gb->ime)
         gb_handle_interrupts (gb);
 
-    gb->rt = gb->rm * 4;
-    gb->clock_m += gb->rm;
-    gb->clock_t += gb->rm * 4;
-
-    /* Update timers for every m-cycle */
+    /* Update timers for every remaining m-cycle */
     int m = 0;
     while (m++ < gb->rm)
         gb_handle_timings (gb);
         
+    gb->rt = gb->rm * 4;
+    gb->clock_m += gb->rm;
+    gb->clock_t += gb->rm * 4;
+
     gb_render (gb);
 }
 

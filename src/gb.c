@@ -518,12 +518,6 @@ enum {
     PIXEL_OBJ2 = 12
 };
 
-#define IO_STAT_CLEAR   (gb->io[LCDStatus] & 0xFC)
-#define IO_STAT_MODE    (gb->io[LCDStatus] & 3)
-
-#define LCDC_(bit)  (gb->io[LCDControl] & (1 << bit))
-#define STAT_(bit)  (gb->io[LCDStatus]  & (1 << bit))
-
 static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
 {
     uint8_t * pixels = calloc(DISPLAY_WIDTH, sizeof(uint8_t));
@@ -572,7 +566,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             const uint8_t isWindow = (LCDC_(Window_Enable) && lineX >= gb->io[WindowX] - 7 && lineY >= gb->io[WindowY]);
 
             const uint8_t posX = (isWindow) ? lineX : lineX + gb->io[ScrollX];
-            const uint8_t posY = (isWindow) ? lineY - gb->io[WindowY] : lineY + gb->io[ScrollY];
+            const uint8_t posY = (isWindow) ? gb->windowLY - gb->io[WindowY] : lineY + gb->io[ScrollY];
             uint8_t relX = (isWindow) ? gb->io[WindowX] - 7 + (lineX % 8) : posX % 8;
 
             /* Get next tile to be drawn */
@@ -662,7 +656,8 @@ static inline void gb_oam_read (struct GB * gb)
     {
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_OAM_Search;
         if STAT_(IR_OAM) gb->io[IntrFlags] |= IF_LCD_STAT;      /* Mode 2 interrupt */
-
+        /* Increment Window Y counter when window is enabled   */
+        if (LCDC_(Window_Enable)) gb->windowLY++;
         /* Fetch OAM data for sprites to be drawn on this line */
         //ppu_OAM_fetch (ppu, io_regs);
     }
@@ -729,6 +724,7 @@ static inline void gb_vblank (struct GB * const gb)
         /* Starting new line */
         gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
         gb->lineClock -= TICKS_VBLANK;
+        if (!gb->io[LY]) gb->windowLY = -1; /* Reset window Y counter if line is 0 */
         gb_eval_LYC (gb);
     }
 }
