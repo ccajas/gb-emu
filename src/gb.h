@@ -184,6 +184,15 @@ static inline void gb_step (struct GB * gb)
     gb->clock_m += gb->rm;
     gb->clock_t += gb->rm * 4;
 
+<<<<<<< HEAD
+=======
+    gb_handle_interrupts (gb);
+    /* Update timers for every m-cycle */
+    int m = 0;
+    while (m++ < gb->rm)
+        gb_handle_timings (gb);
+        
+>>>>>>> 82b256ab3e6acb9d56279267f18540c2dfd9ff5d
     gb_render (gb);
 }
 
