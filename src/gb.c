@@ -36,7 +36,6 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
     {
         switch (addr % 0x80)
         {
-<<<<<<< HEAD
             case TimA:
                 if (!gb->newTimALoaded) gb->io[TimA] = val;    /* Update TIMA if new value wasn't loaded last cycle    */
                 if (gb->nextTimA_IRQ)   gb->nextTimA_IRQ = 0;  /* Cancel any pending IRQ when accessing TIMA           */
@@ -49,12 +48,6 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
             case IntrFlags:                               /* Mask unused bits for IE and IF        */
             case IntrEnabled:
                 gb->io[addr % 0x80] = val | 0xE0; return 0;
-=======
-            case IntrFlags:                                   /* */
-                gb->io[IntrFlags] = 0xE0 | val; return 0;
-            case IntrEnabled:
-                gb->io[IntrEnabled] = 0xE0 | val; return 0;
->>>>>>> 82b256ab3e6acb9d56279267f18540c2dfd9ff5d
             case BootROM:                 /* Boot ROM register should be unwritable at some point? */
                 break;
             case Divider:
@@ -676,11 +669,7 @@ static inline void gb_transfer (struct GB * gb)
     if (IO_STAT_MODE != Stat_Transfer)
     {
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
-<<<<<<< HEAD
         if (gb->frame || !LCDC_(LCD_Enable)) return;
-=======
-        if (gb->frame) return;
->>>>>>> 82b256ab3e6acb9d56279267f18540c2dfd9ff5d
         /* Fetch line of pixels for the screen and draw them */
         uint8_t * pixels = gb_pixel_fetch (gb);
         gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
