@@ -34,10 +34,10 @@ glfw-l: $(obj)
 tigr: $(obj)
 	$(CC) $(CFLAGS) -DUSE_TIGR $(src_min) $(srcTIGR) -o $(target) -I../_include -lm -lopengl32 -lgdi32
 
-min: $(obj)
+core: $(obj)
 	$(CC) $(CFLAGS) $(src_min) -o $(target) -I../_include -lm -lgdi32
 
-min-l: $(obj)
+core-l: $(obj)
 	gcc $(CFLAGS) $(src_min) -o $(target) -lm
 
 clean:
