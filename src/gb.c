@@ -36,14 +36,22 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
     {
         switch (addr % 0x80)
         {
-            case IntrFlags:                                   /* */
-                gb->io[IntrFlags] = 0xE0 | val; return 0;
+            case TimA:
+                if (!gb->newTimALoaded) gb->io[TimA] = val;    /* Update TIMA if new value wasn't loaded last cycle    */
+                if (gb->nextTimA_IRQ)   gb->nextTimA_IRQ = 0;  /* Cancel any pending IRQ when accessing TIMA           */
+                return 0;
+            case TMA:                                          /* Update TIMA also if TMA is written in the same cycle */
+                if (gb->newTimALoaded) gb->io[TimA] = val;
+                break;
+            case TimerCtrl:
+                gb->io[TimerCtrl] = val | 0xF8; return 0;
+            case IntrFlags:                               /* Mask unused bits for IE and IF        */
             case IntrEnabled:
-                gb->io[IntrEnabled] = 0xE0 | val; return 0;
+                gb->io[addr % 0x80] = val | 0xE0; return 0;
             case BootROM:                 /* Boot ROM register should be unwritable at some point? */
                 break;
             case Divider:
-                gb_timer_update (gb, 0); return 0;                                    /* DIV reset */
+                gb_timer_update (gb, 0); return 0;        /* DIV reset                             */
             case DMA:                                     /* OAM DMA transfer                      */
                 gb->io[DMA] = val; int i = 0;             /* Todo: Make it write across 160 cycles */
                 const uint16_t src = val << 8;
@@ -202,46 +210,6 @@ const int8_t opTicks[256] = {
  ===================================================
 */
 
-void gb_exec_cb (struct GB * gb, const uint8_t op)
-{
-    gb->rm = 3;
-
-    const uint8_t opL  = op & 0xf;
-    const uint8_t opHh = op >> 3; /* Octal divisions */
-
-    uint8_t * r8_g[] = { 
-        gb->r + 2, gb->r + 3, gb->r + 4, gb->r + 5,  gb->r + 6,  gb->r + 7, &gb->flags,  gb->r };
-
-    const uint8_t r_bit  = opHh & 7;
-    uint8_t * reg1 = r8_g[opL & 7];
-
-    /* Fetch value at address (HL) if it's needed */
-    uint8_t hl = (opL == 0x6 || opL == 0xE) ? CPU_RB (ADDR_HL) : 0;
-
-    switch (opHh)
-    {
-        case 0 ... 7:
-            switch (op & 0b00111000)
-            {
-                case 0:    OPR_2_(RLC,  RLCHL)  break;
-                case 8:    OPR_2_(RRC,  RRCHL)  break;
-                case 0x10: OPR_2_(RL,   RLHL)   break;
-                case 0x18: OPR_2_(RR,   RRHL)   break;
-                case 0x20: OPR_2_(SLA,  SLAHL)  break;
-                case 0x28: OPR_2_(SRA,  SRAHL)  break;
-                case 0x30: OPR_2_(SWAP, SWAPHL) break;
-                case 0x38: OPR_2_(SRL,  SRLHL ) break;
-            }
-        break;
-        case 8 ... 0xF:     OPR_2_(BIT, BITHL) break; /* Bit test  */
-        case 0x10 ... 0x17: OPR_2_(RES, RESHL) break; /* Bit reset */
-        case 0x18 ... 0x1F: OPR_2_(SET, SETHL) break; /* Bit set   */
-    }
-    /* Write back to (HL) for most (HL) operations except BIT */
-    if ((op & 7) == 6 && (opHh < 8 || opHh > 0xF))
-        CPU_WB (ADDR_HL, hl);
-}
-
 void gb_cpu_exec (struct GB * gb, const uint8_t op)
 {
     const uint8_t opL = op & 0xf;
@@ -399,10 +367,48 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
     assert (gb->rm >= opTicks[op]);  
 }
 
+void gb_exec_cb (struct GB * gb, const uint8_t op)
+{
+    gb->rm = 3;
+
+    const uint8_t opL  = op & 0xf;
+    const uint8_t opHh = op >> 3; /* Octal divisions */
+
+    uint8_t * r8_g[] = { 
+        gb->r + 2, gb->r + 3, gb->r + 4, gb->r + 5,  gb->r + 6,  gb->r + 7, &gb->flags,  gb->r };
+
+    const uint8_t r_bit  = opHh & 7;
+    uint8_t * reg1 = r8_g[opL & 7];
+
+    /* Fetch value at address (HL) if it's needed */
+    uint8_t hl = (opL == 0x6 || opL == 0xE) ? CPU_RB (ADDR_HL) : 0;
+
+    switch (opHh)
+    {
+        case 0 ... 7:
+            switch (op & 0b00111000)
+            {
+                case 0:    OPR_2_(RLC,  RLCHL)  break;
+                case 8:    OPR_2_(RRC,  RRCHL)  break;
+                case 0x10: OPR_2_(RL,   RLHL)   break;
+                case 0x18: OPR_2_(RR,   RRHL)   break;
+                case 0x20: OPR_2_(SLA,  SLAHL)  break;
+                case 0x28: OPR_2_(SRA,  SRAHL)  break;
+                case 0x30: OPR_2_(SWAP, SWAPHL) break;
+                case 0x38: OPR_2_(SRL,  SRLHL ) break;
+            }
+        break;
+        case 8 ... 0xF:     OPR_2_(BIT, BITHL) break; /* Bit test  */
+        case 0x10 ... 0x17: OPR_2_(RES, RESHL) break; /* Bit reset */
+        case 0x18 ... 0x1F: OPR_2_(SET, SETHL) break; /* Bit set   */
+    }
+    /* Write back to (HL) for most (HL) operations except BIT */
+    if ((op & 7) == 6 && (opHh < 8 || opHh > 0xF))
+        CPU_WB (ADDR_HL, hl);
+}
+
 void gb_handle_interrupts (struct GB * gb)
 {
-    if (!gb->halted && !gb->ime) return;
-
     /* Get interrupt flags */
     const uint8_t io_IE = gb->io[IntrEnabled];
     const uint8_t io_IF = gb->io[IntrFlags];
@@ -465,6 +471,8 @@ void gb_timer_update (struct GB * gb, const uint8_t change)
 
 void gb_handle_timings (struct GB * gb)
 {
+    gb->newTimALoaded = 0;
+
     if (gb->nextTimA_IRQ) 
     {
         /* Check overflow in the next cycle */
@@ -473,6 +481,7 @@ void gb_handle_timings (struct GB * gb)
         {
             gb->io[IntrFlags] |= IF_Timer;
             gb->io[TimA] = gb->io[TMA];
+            gb->newTimALoaded = 1;
         }
     }
 
@@ -509,12 +518,6 @@ enum {
     PIXEL_OBJ2 = 12
 };
 
-#define IO_STAT_CLEAR   (gb->io[LCDStatus] & 0xFC)
-#define IO_STAT_MODE    (gb->io[LCDStatus] & 3)
-
-#define LCDC_(bit)  (gb->io[LCDControl] & (1 << bit))
-#define STAT_(bit)  (gb->io[LCDStatus]  & (1 << bit))
-
 static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
 {
     uint8_t * pixels = calloc(DISPLAY_WIDTH, sizeof(uint8_t));
@@ -538,12 +541,12 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
     }
 
 	/* Check if background is enabled */
-	if (LCDC_(0) && LCDC_(7))
+	if (LCDC_(LCD_Enable) && LCDC_(BG_Win_Enable))
 	{
         /* Get minimum starting address depends on LCDC bits 3 and 6 are set.
         Starts at 0x1800 as this is the VRAM index minus 0x8000 */
-        uint16_t BGTileMap  = (LCDC_(3)) ? 0x9C00 : 0x9800;
-        uint16_t winTileMap = (LCDC_(6)) ? 0x9C00 : 0x9800;
+        uint16_t BGTileMap  = (LCDC_(BG_Area))     ? 0x9C00 : 0x9800;
+        uint16_t winTileMap = (LCDC_(Window_Area)) ? 0x9C00 : 0x9800;
 
         /* X position counter */
         uint8_t lineX = 0;
@@ -560,10 +563,10 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             https://github.com/ISSOtm/pandocs/blob/rendering-internals/src/Rendering_Internals.md */
 
             /* Stop BG rendering if window is found here */
-            const uint8_t isWindow = (LCDC_(5) && lineX >= gb->io[WindowX] - 7 && lineY >= gb->io[WindowY]);
+            const uint8_t isWindow = (LCDC_(Window_Enable) && lineX >= gb->io[WindowX] - 7 && lineY >= gb->io[WindowY]);
 
             const uint8_t posX = (isWindow) ? lineX : lineX + gb->io[ScrollX];
-            const uint8_t posY = (isWindow) ? lineY - gb->io[WindowY] : lineY + gb->io[ScrollY];
+            const uint8_t posY = (isWindow) ? gb->windowLY - gb->io[WindowY] : lineY + gb->io[ScrollY];
             uint8_t relX = (isWindow) ? gb->io[WindowX] - 7 + (lineX % 8) : posX % 8;
 
             /* Get next tile to be drawn */
@@ -593,7 +596,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
         }
 
         /* Draw sprites */
-        if (LCDC_(1) && visibleSprites > 0)
+        if (LCDC_(OBJ_Enable) && visibleSprites > 0)
         {
             int8_t obj;
             for (obj = visibleSprites - 1; obj >= 0; obj--) 
@@ -601,7 +604,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
                 const uint8_t s = sprites[obj];
                 const uint8_t spriteX = gb->oam[s + 1], spriteY = gb->oam[s];
 
-                if (lineY - (LCDC_(2) ? 0 : 8) >= spriteY || lineY < spriteY - 16) continue;
+                if (lineY - (LCDC_(OBJ_Size) ? 0 : 8) >= spriteY || lineY < spriteY - 16) continue;
                 if (spriteX == 0 || spriteX >= DISPLAY_WIDTH + 8) continue;
 
                 const uint8_t sLeft = (spriteX - 8 < 0) ? 0 : spriteX - 8;
@@ -610,10 +613,10 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
 
                 /* Get tile ID depending on sprite size */
                 uint16_t tileID = gb->oam[s + 2] & (LCDC_(2) ? 0xFE : 0xFF);
-                if (LCDC_(2) && spriteY - lineY <= 8) tileID = gb->oam[s + 2] | 1;
+                if (LCDC_(OBJ_Size) && spriteY - lineY <= 8) tileID = gb->oam[s + 2] | 1;
 
                 /* Flip Y if necessary */
-                const uint8_t relY = (gb->oam[s + 3] & 0x40) ? (LCDC_(2) ? 15 : 7) : 0;
+                const uint8_t relY = (gb->oam[s + 3] & 0x40) ? (LCDC_(OBJ_Size) ? 15 : 7) : 0;
                 const uint16_t tileRow = (tileID << 4) + ((posY ^ relY) << 1);
 
                 /* Get the pixel bytes from these addresses */
@@ -653,7 +656,8 @@ static inline void gb_oam_read (struct GB * gb)
     {
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_OAM_Search;
         if STAT_(IR_OAM) gb->io[IntrFlags] |= IF_LCD_STAT;      /* Mode 2 interrupt */
-
+        /* Increment Window Y counter when window is enabled   */
+        if (LCDC_(Window_Enable)) gb->windowLY++;
         /* Fetch OAM data for sprites to be drawn on this line */
         //ppu_OAM_fetch (ppu, io_regs);
     }
@@ -665,7 +669,7 @@ static inline void gb_transfer (struct GB * gb)
     if (IO_STAT_MODE != Stat_Transfer)
     {
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
-        if (gb->frame) return;
+        if (gb->frame || !LCDC_(LCD_Enable)) return;
         /* Fetch line of pixels for the screen and draw them */
         uint8_t * pixels = gb_pixel_fetch (gb);
         gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
@@ -720,6 +724,7 @@ static inline void gb_vblank (struct GB * const gb)
         /* Starting new line */
         gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
         gb->lineClock -= TICKS_VBLANK;
+        if (!gb->io[LY]) gb->windowLY = -1; /* Reset window Y counter if line is 0 */
         gb_eval_LYC (gb);
     }
 }

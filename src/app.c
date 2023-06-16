@@ -174,7 +174,6 @@ void app_init (struct App * app)
 
     /* Select image to display */
     app->image = &app->gbData.tileMap;
-
     GLFWwindow * window;
 
     if (app->draw)
@@ -243,14 +242,13 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
     }
 
     /* Load boot file if present */
-    /*FILE * fb = fopen ("test/dmg_boot.bin", "rb");
+    FILE * fb = fopen ("test/dmg_boot.bin", "rb");
     
     uint8_t * boot = calloc(BOOT_ROM_SIZE, sizeof (uint8_t));
     if (!fread (boot, BOOT_ROM_SIZE, 1, f))
         boot = NULL;
     else
-        fclose (fb);*/
-    uint8_t * boot = NULL;
+        fclose (fb);
 
     /* Copy ROM to cart */
     LOG_("GB: \"%s\"\n", fileName);
@@ -280,16 +278,14 @@ void app_read_gamepad (struct App * app)
     }
 }
 
+#define LERP_(v0, v1, t)   ((1 - t) * v0 + t * v1)
+
 void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 {
     struct gb_data * const data = dataPtr;
 
     const uint32_t yOffset = line * DISPLAY_WIDTH * 3;
     uint8_t coloredPixels[DISPLAY_WIDTH * 3];
-
-    float LERP_(float v0, float v1, float t) {
-        return (1 - t) * v0 + t * v1;
-    }
 
     uint8_t x;
 	for (x = 0; x < DISPLAY_WIDTH; x++)
@@ -372,7 +368,6 @@ void app_run (struct App * app)
             gb_frame (&app->gb);
             totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
             frames++;
-            //printf("\033[A\33[2KT\rFrames: %d\n", frames);
         }
     }
 
