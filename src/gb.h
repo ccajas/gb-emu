@@ -19,17 +19,31 @@
 #define HRAM_SIZE     0x80
 #define IO_SIZE       0x80
 
-#define R_H  6
-#define R_L  7
+/* Assign register pair as 16-bit union */
+
+#define REG_16(XY, X, Y)\
+    union {\
+        struct { uint8_t X, Y; } r8;\
+        uint16_t r16;\
+    } XY;\
+
+#define REG_A    gb->af.r8.a
+#define REG_B    gb->bc.r8.b
+#define REG_C    gb->bc.r8.c
+#define REG_D    gb->de.r8.d
+#define REG_E    gb->de.r8.e
+#define REG_H    gb->hl.r8.h
+#define REG_L    gb->hl.r8.l
 
 struct GB
 {
-    enum { A = 0, F, B, C, D, E } registers;
-    //enum { C = 0, B, E, D, L, H, A, F } registers;
+    enum { A = 0, F } registers;
 
-    uint8_t    r[8];     /* A-F, H, L - 8-bit registers */
-    uint8_t  * r8_g;     /* Register group              */
-    uint16_t * r16;      /* Registers in 16-bit group   */
+    /* A-F, H, L - 8-bit registers */
+    REG_16(af, a, f);
+    REG_16(bc, b, c);
+    REG_16(de, d, e);
+    REG_16(hl, h, l);
 
     union
     {
@@ -149,7 +163,7 @@ static inline void gb_cpu_state (struct GB * gb)
     //printf("%08X ", (uint32_t) gb->clock_t);
     printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X "
         "SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",
-        gb->r[A], gb->flags, gb->r[B], gb->r[C], gb->r[D], gb->r[E], gb->r[R_H], gb->r[R_L], 
+        REG_A, gb->flags, REG_B, REG_C, REG_D, REG_E, REG_H, REG_L, 
         gb->sp, pc, cpu_read (pc), cpu_read (pc+1), cpu_read (pc+2), cpu_read (pc+3)
     );
 }
