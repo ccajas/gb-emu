@@ -66,7 +66,7 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
 {
     /* For Blargg's CPU instruction tests */
 #ifdef CPU_INSTRS
-    if (addr == 0xFF44 && !write) return 0x90;
+    //if (addr == 0xFF44 && !write) return 0x90;
     //if (gb->io[SerialCtrl] == 0x81) { LOG_("%c", gb->io[SerialData]); gb->io[SerialCtrl] = 0x0; }
 #endif
     /* Byte to be accessed from memory */
@@ -239,16 +239,42 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
             {
                 case 0x0:  NOP     break;
                 /* 16-bit load, arithmetic instructions */
-                case 0x01:   case 0x11:
-                case 0x21:   case 0x31: LDrr    break;
+                case 0x01:
+                    OP(LDrr) gb->bc.r16 = CPU_RW (gb->pc); gb->pc += 2;
+                break;
+                case 0x11:
+                    OP(LDrr) gb->de.r16 = CPU_RW (gb->pc); gb->pc += 2;
+                break;
+                case 0x21:
+                    OP(LDrr) gb->hl.r16 = CPU_RW (gb->pc); gb->pc += 2;
+                break;
+                case 0x31:
+                    OP(LDrr) gb->sp = CPU_RW (gb->pc); gb->pc += 2;
+                break;
                 case 0x02:                case 0x12: LDrrmA  break; 
                 case 0x22: LDHLIA  break; case 0x32: LDHLDA  break;
                 case 0x03:   case 0x13:
                 case 0x23:   case 0x33: INCrr   break;
-                case 0x09:   case 0x19:
-                case 0x29:   case 0x39: ADHLrr  break;
-                case 0x0B:   case 0x1B:
-                case 0x2B:   case 0x3B: DECrr   break;
+                case 0x09: {
+                    OP(ADHLrr) uint16_t hl = ADDR_HL; uint16_t tmp = hl + gb->bc.r16; FLAGS_ADHL; gb->hl.r16 = tmp;
+                } break;
+                case 0x19: {
+                    OP(ADHLrr) uint16_t hl = ADDR_HL; uint16_t tmp = hl + gb->de.r16; FLAGS_ADHL; gb->hl.r16 = tmp;
+                } break;
+                case 0x29: {
+                    OP(ADHLrr) uint16_t hl = ADDR_HL; uint16_t tmp = hl + gb->hl.r16; FLAGS_ADHL; gb->hl.r16 = tmp;
+                } break;
+                case 0x39: {
+                    OP(ADHLrr) uint16_t hl = ADDR_HL; uint16_t tmp = hl + gb->sp; FLAGS_ADHL; gb->hl.r16 = tmp;
+                } break;
+                case 0x0B:   
+                    OP(DECrr) gb->bc.r16--; break;
+                case 0x1B:   
+                    OP(DECrr) gb->de.r16--; break;
+                case 0x2B:   
+                    OP(DECrr) gb->hl.r16--; break; 
+                case 0x3B: 
+                    OP(DECrr) gb->sp--;     break;
                 /* Increment, decrement, LD r8,n, RST */
                 case 0x04:   case 0x0C:   case 0x14:
                 case 0x1C:   case 0x24:   case 0x2C:

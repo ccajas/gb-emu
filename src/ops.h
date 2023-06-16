@@ -207,7 +207,7 @@
     #define FLAGS_SPm   gb->flags = 0; gb->f_h = ((gb->sp & 0xF) + (i & 0xF) > 0xF); gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);
 
 #define ADHLrr   OP(ADHLrr);  {\
-    uint16_t r16 = (opHh == 7) ? gb->sp : ADDR_XY(*(reg1-1), *reg1);\
+    uint16_t r16 = (opHh == 7) ? gb->sp : ADDR_XY(*reg1, *(reg1-1));\
     uint16_t hl = ADDR_HL; uint16_t tmp = hl + r16; FLAGS_ADHL;\
     REG_H = (tmp >> 8); REG_L = tmp & 0xFF;\
 }
