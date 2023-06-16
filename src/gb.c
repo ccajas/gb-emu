@@ -149,16 +149,16 @@ void gb_boot_reset (struct GB * gb)
     gb->extData.joypad = 0xFF;
 
     /* Setup CPU registers as if bootrom was loaded */
-    gb->r[A]  = 0x01;
+    REG_A = 0x01;
     gb->flags = 0xB0;
-    gb->r[B]  = 0x0;
-    gb->r[C]  = 0x13;
-    gb->r[D]  = 0x0;
-    gb->r[E]  = 0xD8;
-    gb->r[H]  = 0x01;
-    gb->r[L]  = 0x4D;
-    gb->sp    = 0xFFFE;
-    gb->pc    = 0x0100;
+    REG_B = 0x0;
+    REG_C = 0x13;
+    REG_D = 0x0;
+    REG_E = 0xD8;
+    REG_H = 0x01;
+    REG_L = 0x4D;
+    gb->sp = 0xFFFE;
+    gb->pc = 0x0100;
 
     gb->ime = 1;
     gb->invalid = 0;
@@ -216,12 +216,12 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
     const uint8_t opHh = op >> 3; /* Octal divisions */
 
     uint8_t * r8_g[] = { 
-        gb->r + 2, gb->r + 3, gb->r + 4, gb->r + 5, gb->r + 6,  gb->r + 7, &gb->flags, gb->r };
+        &REG_B, &REG_C, &REG_D, &REG_E, &REG_H, &REG_L, &gb->flags, &REG_A };
 
     /* Default values for operands (can be overridden for other opcodes) */
     uint8_t * reg1 = r8_g[opHh & 7];
     uint8_t * reg2 = r8_g[opL & 7];
-    uint8_t tmp = gb->r[A];
+    uint8_t tmp = gb->af.r8.a;
 
     /* HALT bug skips PC increment, essentially rollback one byte */
     if (!gb->pcInc) {
@@ -314,15 +314,17 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
             }
         }
         break;
-        case 8 ... 0xD: case 0xF:
-            /* 8-bit load, LD or LDrHL */
-            //OPR_2_(LD_r8, LD_rHL)
-            *reg1 = ((op & 7) == 6) ? 
-                CPU_RB(ADDR_HL) : *reg2;
-        break;
-        case 0xE:
-            /* 8-bit load, LDHLr or HALT */ 
+        case 8 ... 0xF:
             switch (op) {
+                /* 8-bit load, LD or LDrHL */
+                LD_r8(0x40, REG_B)
+                LD_r8(0x48, REG_C)
+                LD_r8(0x50, REG_D)
+                LD_r8(0x58, REG_E)
+                LD_r8(0x60, REG_H)
+                LD_r8(0x68, REG_L)
+                LD_r8(0x78, REG_A)
+                /* 8-bit load, LDHLr, or HALT */ 
                 OP_R8_G (0x70)
                     OP(LDHLr); CPU_WB (ADDR_HL, *reg2); break;
                 case 0x76: 
@@ -335,7 +337,6 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
                     }
                 break;
             }
-            //OPR_2_(LD_HLr, HALT)
         break;
         case 0x10 ... 0x17: {
             /* 8-bit arithmetic */
@@ -375,7 +376,7 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
     const uint8_t opHh = op >> 3; /* Octal divisions */
 
     uint8_t * r8_g[] = { 
-        gb->r + 2, gb->r + 3, gb->r + 4, gb->r + 5,  gb->r + 6,  gb->r + 7, &gb->flags,  gb->r };
+        &REG_B, &REG_C, &REG_D, &REG_E, &REG_H, &REG_L, &gb->flags, &REG_A };
 
     const uint8_t r_bit  = opHh & 7;
     uint8_t * reg1 = r8_g[opL & 7];
