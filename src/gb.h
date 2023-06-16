@@ -19,13 +19,17 @@
 #define HRAM_SIZE     0x80
 #define IO_SIZE       0x80
 
+#define R_H  6
+#define R_L  7
+
 struct GB
 {
-    enum { A = 0, F, B, C, D, E, H, L } registers;
+    enum { A = 0, F, B, C, D, E } registers;
     //enum { C = 0, B, E, D, L, H, A, F } registers;
 
     uint8_t    r[8];     /* A-F, H, L - 8-bit registers */
-    uint16_t * r16;      /* Registers in 16-bit gorups  */
+    uint8_t  * r8_g;     /* Register group              */
+    uint16_t * r16;      /* Registers in 16-bit group   */
 
     union
     {
@@ -145,7 +149,7 @@ static inline void gb_cpu_state (struct GB * gb)
     //printf("%08X ", (uint32_t) gb->clock_t);
     printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X "
         "SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",
-        gb->r[A], gb->flags, gb->r[B], gb->r[C], gb->r[D], gb->r[E], gb->r[H], gb->r[L], 
+        gb->r[A], gb->flags, gb->r[B], gb->r[C], gb->r[D], gb->r[E], gb->r[R_H], gb->r[R_L], 
         gb->sp, pc, cpu_read (pc), cpu_read (pc+1), cpu_read (pc+2), cpu_read (pc+3)
     );
 }

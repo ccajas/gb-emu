@@ -1,6 +1,6 @@
 /* Instruction helpers */
 
-#define ADDR_HL       ((gb->r[H] << 8) + gb->r[L])
+#define ADDR_HL       ((gb->r[R_H] << 8) + gb->r[R_L])
 #define ADDR_XY(X,Y)  ((X << 8) + Y)
 
 #define CPU_RB(A)     gb_mem_access (gb, A, 0, 0)
@@ -58,8 +58,8 @@
 #define LDAIOC    OP(LDAIOC);   gb->r[A] = CPU_RB (0xFF00 + gb->r[C]); 
 
     /* Increment instruction templates */
-    #define INCR_HL   gb->r[L]++; if (!gb->r[L]) gb->r[H]++
-    #define DECR_HL   gb->r[L]--; if (gb->r[L] == 255) gb->r[H]--
+    #define INCR_HL   gb->r[R_L]++; if (!gb->r[R_L]) gb->r[R_H]++
+    #define DECR_HL   gb->r[R_L]--; if (gb->r[R_L] == 255) gb->r[R_H]--
 
 #define LDrrmA    OP(LDrrmA);   CPU_WB (ADDR_XY (*reg1, *(reg1+1)), gb->r[A]);
 #define LDHLIA    OP(LDHLIA);   CPU_WB (ADDR_HL, gb->r[A]); INCR_HL;
@@ -89,7 +89,7 @@
 #define R16_OPS_3(OP_, START) \
     OP_ (START, (gb->r[B]), (gb->r[C]))\
     OP_ (START + 0x10, (gb->r[D]), (gb->r[E]))\
-    OP_ (START + 0x20, (gb->r[H]), (gb->r[L]))\
+    OP_ (START + 0x20, (gb->r[R_H]), (gb->r[R_L]))\
     OP_ (START + 0x30, (gb->r[A]), (gb->flags))\
 
 /* Flag setting helpers */
@@ -199,12 +199,12 @@
 #define ADHLrr   OP(ADHLrr);  {\
     uint16_t r16 = (opHh == 7) ? gb->sp : ADDR_XY(*(reg1-1), *reg1);\
     uint16_t hl = ADDR_HL; uint16_t tmp = hl + r16; FLAGS_ADHL;\
-    gb->r[H] = (tmp >> 8); gb->r[L] = tmp & 0xFF;\
+    gb->r[R_H] = (tmp >> 8); gb->r[R_L] = tmp & 0xFF;\
 }
 
 #define ADDSPm   OP(ADDSPm);  { int8_t i = (int8_t) CPU_RB_PC; FLAGS_SPm; gb->sp += i; }
 #define LDHLSP   OP(LDHLSP);  { int8_t i = (int8_t) CPU_RB_PC;\
-    gb->r[H] = ((gb->sp + i) >> 8); gb->r[L] = (gb->sp + i) & 0xFF;\
+    gb->r[R_H] = ((gb->sp + i) >> 8); gb->r[R_L] = (gb->sp + i) & 0xFF;\
     gb->flags = 0;\
     gb->f_h = ((gb->sp & 0xF) + (i & 0xF) > 0xF);\
     gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);\

@@ -155,8 +155,8 @@ void gb_boot_reset (struct GB * gb)
     gb->r[C]  = 0x13;
     gb->r[D]  = 0x0;
     gb->r[E]  = 0xD8;
-    gb->r[H]  = 0x01;
-    gb->r[L]  = 0x4D;
+    gb->r[R_H]  = 0x01;
+    gb->r[R_L]  = 0x4D;
     gb->sp    = 0xFFFE;
     gb->pc    = 0x0100;
 
@@ -216,7 +216,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
     const uint8_t opHh = op >> 3; /* Octal divisions */
 
     uint8_t * r8_g[] = { 
-        gb->r + 2, gb->r + 3, gb->r + 4, gb->r + 5, gb->r + 6,  gb->r + 7, &gb->flags, gb->r };
+        gb->r + 2, gb->r + 3, gb->r + 4, gb->r + 5, &gb->r[R_H], &gb->r[R_L], &gb->flags, gb->r };
 
     /* Default values for operands (can be overridden for other opcodes) */
     uint8_t * reg1 = r8_g[opHh & 7];
@@ -375,7 +375,7 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
     const uint8_t opHh = op >> 3; /* Octal divisions */
 
     uint8_t * r8_g[] = { 
-        gb->r + 2, gb->r + 3, gb->r + 4, gb->r + 5,  gb->r + 6,  gb->r + 7, &gb->flags,  gb->r };
+        gb->r + 2, gb->r + 3, gb->r + 4, gb->r + 5, &gb->r[R_H], &gb->r[R_L], &gb->flags,  gb->r };
 
     const uint8_t r_bit  = opHh & 7;
     uint8_t * reg1 = r8_g[opL & 7];
