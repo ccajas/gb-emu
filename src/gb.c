@@ -214,11 +214,10 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
     /* Define register groups organized by opcode menmonic */
     uint8_t * r8_g[] = {
         &REG_B, &REG_C, &REG_D, &REG_E, &REG_H, &REG_L, &R_FLAGS, &REG_A };
-    uint16_t * r16_g[] = {
-        { &REG_BC, &REG_DE, &REG_HL, &gb->sp }, /* r16 group 1 */
-        { &REG_BC, &REG_DE, &REG_HL, &REG_HL }, /* r16 group 2 */
-        { &REG_BC, &REG_DE, &REG_HL, &REG_AF }  /* r16 group 3 */
-    };
+
+    uint16_t * r16_g1[4] = { &REG_BC, &REG_DE, &REG_HL, &gb->sp }; /* r16 group 1 */
+    uint16_t * r16_g2[4] = { &REG_BC, &REG_DE, &REG_HL, &REG_HL }; /* r16 group 2 */
+    uint16_t * r16_g3[4] = { &REG_BC, &REG_DE, &REG_HL, &REG_AF }; /* r16 group 3 */
     const uint8_t r16_inc[] = { 0, 0, 1, -1 };
 
     /* Default values for operands (can be overridden for other opcodes) */
@@ -244,48 +243,19 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
             {
                 case 0x0:  NOP     break;
                 /* 16-bit load, arithmetic instructions */
-                case 0x01:
-                    OP(LDrr) gb->bc.r16 = CPU_RW (gb->pc); gb->pc += 2;
-                break;
-                case 0x11:
-                    OP(LDrr) gb->de.r16 = CPU_RW (gb->pc); gb->pc += 2;
-                break;
-                case 0x21:
-                    OP(LDrr) gb->hl.r16 = CPU_RW (gb->pc); gb->pc += 2;
-                break;
-                case 0x31:
-                    OP(LDrr) gb->sp = CPU_RW (gb->pc); gb->pc += 2;
+                case 0x01: case 0x11: case 0x21: case 0x31:
+                    OP(LDrr) *(r16_g1[op >> 4]) = CPU_RW (gb->pc); gb->pc += 2;
                 break;
                 case 0x02:                case 0x12: LDrrmA  break; 
                 case 0x22: LDHLIA  break; case 0x32: LDHLDA  break;
-                case 0x03:   
-                    OP(INCrr) gb->bc.r16++; break;
-                case 0x13:   
-                    OP(INCrr) gb->de.r16++; break;
-                case 0x23:   
-                    OP(INCrr) gb->hl.r16++; break; 
-                case 0x33: 
-                    OP(INCrr) gb->sp++;     break;
-                case 0x09: {
-                    OP(ADHLrr) uint16_t hl = ADDR_HL; uint16_t tmp = hl + gb->bc.r16; FLAGS_ADHL; gb->hl.r16 = tmp;
+                case 0x03: case 0x13: case 0x23: case 0x33:
+                    OP(INCrr) (*r16_g1[op >> 4])++; break;
+                case 0x09: case 0x19: case 0x29: case 0x39: {
+                    OP(ADHLrr) uint16_t tmp = REG_HL + *r16_g1[op >> 4]; 
+                    FLAGS_ADHL; gb->hl.r16 = tmp;
                 } break;
-                case 0x19: {
-                    OP(ADHLrr) uint16_t hl = ADDR_HL; uint16_t tmp = hl + gb->de.r16; FLAGS_ADHL; gb->hl.r16 = tmp;
-                } break;
-                case 0x29: {
-                    OP(ADHLrr) uint16_t hl = ADDR_HL; uint16_t tmp = hl + gb->hl.r16; FLAGS_ADHL; gb->hl.r16 = tmp;
-                } break;
-                case 0x39: {
-                    OP(ADHLrr) uint16_t hl = ADDR_HL; uint16_t tmp = hl + gb->sp; FLAGS_ADHL; gb->hl.r16 = tmp;
-                } break;
-                case 0x0B:
-                    OP(DECrr) gb->bc.r16--; break;
-                case 0x1B:
-                    OP(DECrr) gb->de.r16--; break;
-                case 0x2B:
-                    OP(DECrr) gb->hl.r16--; break; 
-                case 0x3B:
-                    OP(DECrr) gb->sp--;     break;
+                case 0x0B: case 0x1B: case 0x2B: case 0x3B:
+                    OP(DECrr) (*r16_g1[op >> 4])--; break;
                 /* Increment, decrement, LD r8,n, RST */
                 case 0x04:   case 0x0C:   case 0x14:
                 case 0x1C:   case 0x24:   case 0x2C:
@@ -364,7 +334,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
                 LD_r8(0x78, REG_A)
                 /* 8-bit load, LDHLr, or HALT */ 
                 OP_R8_G (0x70)
-                    OP(LDHLr); CPU_WB (ADDR_HL, *reg2); break;
+                    OP(LDHLr); CPU_WB (REG_HL, *reg2); break;
                 case 0x76: 
                     OP(HALT);
                     if (!gb->ime) {
@@ -420,7 +390,7 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
     uint8_t * reg1 = r8_g[opL & 7];
 
     /* Fetch value at address (HL) if it's needed */
-    uint8_t hl = (opL == 0x6 || opL == 0xE) ? CPU_RB (ADDR_HL) : 0;
+    uint8_t hl = (opL == 0x6 || opL == 0xE) ? CPU_RB (REG_HL) : 0;
 
     switch (opHh)
     {
@@ -443,7 +413,7 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
     }
     /* Write back to (HL) for most (HL) operations except BIT */
     if ((op & 7) == 6 && (opHh < 8 || opHh > 0xF))
-        CPU_WB (ADDR_HL, hl);
+        CPU_WB (REG_HL, hl);
 }
 
 void gb_handle_interrupts (struct GB * gb)
