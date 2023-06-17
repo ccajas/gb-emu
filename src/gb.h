@@ -40,10 +40,10 @@ struct GB
     enum { A = 0, F } registers;
 
     /* A-F, H, L - 8-bit registers */
-    REG_16(af, a, f);
-    REG_16(bc, b, c);
-    REG_16(de, d, e);
-    REG_16(hl, h, l);
+    REG_16(af, f, a);
+    REG_16(bc, c, b);
+    REG_16(de, e, d);
+    REG_16(hl, l, h);
 
     union
     {
@@ -188,6 +188,7 @@ static inline void gb_step (struct GB * gb)
     {   /* Load next op and execute */
         const uint8_t op = CPU_RB (gb->pc++);
         gb_cpu_exec (gb, op);
+        //gb_cpu_state (gb);
     }
 
     if (gb->ime)

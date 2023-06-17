@@ -68,14 +68,14 @@
 #define LDAIOC    OP(LDAIOC);   REG_A = CPU_RB (0xFF00 + REG_C); 
 
     /* Increment instruction templates */
-    #define INCR_HL   REG_L++; if (!REG_L) REG_H++
-    #define DECR_HL   REG_L--; if (REG_L == 255) REG_H--
+    #define INCR_HL   gb->hl.r16++;//  REG_L++; if (!REG_L) REG_H++
+    #define DECR_HL   gb->hl.r16--;//REG_L--; if (REG_L == 255) REG_H--
 
-#define LDrrmA    OP(LDrrmA);   CPU_WB (ADDR_XY (*reg1, *(reg1+1)), REG_A);
+#define LDrrmA    OP(LDrrmA);   CPU_WB (ADDR_XY (*reg1, *(reg1-1)), REG_A);
 #define LDHLIA    OP(LDHLIA);   CPU_WB (ADDR_HL, REG_A); INCR_HL;
 #define LDHLDA    OP(LDHLDA);   CPU_WB (ADDR_HL, REG_A); DECR_HL;
 
-#define LDArrm    OP(LDArrm);   REG_A = CPU_RB (ADDR_XY(*(reg1-1), *reg1));
+#define LDArrm    OP(LDArrm);   REG_A = CPU_RB (ADDR_XY(*reg1, *(reg1+1)));
 #define LDAHLI    OP(LDAHLI);   REG_A = CPU_RB (ADDR_HL); INCR_HL;
 #define LDAHLD    OP(LDAHLD);   REG_A = CPU_RB (ADDR_HL); DECR_HL;
 
@@ -87,7 +87,7 @@
 
 #define LDrr      OP(LDrr)\
     if (opHh == 6) gb->sp = CPU_RW (gb->pc);\
-    else { *(reg1+1) = CPU_RB (gb->pc); *reg1 = CPU_RB (gb->pc + 1); }\
+    else { *(reg1-1) = CPU_RB (gb->pc); *reg1 = CPU_RB (gb->pc + 1); }\
     gb->pc += 2;\
 
 #define PUSH_(X, Y)                 gb->sp--; CPU_WB (gb->sp, X); gb->sp--; CPU_WB (gb->sp, Y);
@@ -207,7 +207,7 @@
     #define FLAGS_SPm   gb->flags = 0; gb->f_h = ((gb->sp & 0xF) + (i & 0xF) > 0xF); gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);
 
 #define ADHLrr   OP(ADHLrr);  {\
-    uint16_t r16 = (opHh == 7) ? gb->sp : ADDR_XY(*(reg1-1), *reg1);\
+    uint16_t r16 = (opHh == 7) ? gb->sp : ADDR_XY(*reg1, *(reg1-1));\
     uint16_t hl = ADDR_HL; uint16_t tmp = hl + r16; FLAGS_ADHL;\
     REG_H = (tmp >> 8); REG_L = tmp & 0xFF;\
 }
@@ -220,7 +220,7 @@
     gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);\
 }
 
-#define INCrr    OP(INCrr);   if (opHh == 6) gb->sp++; else { *(reg1 + 1) += 1; if (!*(reg1 + 1)) (*reg1)++; }
+#define INCrr    OP(INCrr);   if (opHh == 6) gb->sp++; else { *(reg1 - 1) += 1; if (!*(reg1 - 1)) (*reg1)++; }
 #define DECrr    OP(DECrr);   if (opHh == 7) gb->sp--; else { (*reg1)--; if (*reg1 == 0xff) *(reg1 - 1) -= 1; }
 
 /** CPU control instructions **/
