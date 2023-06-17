@@ -30,12 +30,18 @@
 /* Todo: Reorganize structs so that macros for renaming regs aren't needed */
 
 #define REG_A    gb->af.r8.a
+#define R_FLAGS  gb->flags    
 #define REG_B    gb->bc.r8.b
 #define REG_C    gb->bc.r8.c
 #define REG_D    gb->de.r8.d
 #define REG_E    gb->de.r8.e
 #define REG_H    gb->hl.r8.h
 #define REG_L    gb->hl.r8.l
+
+#define REG_AF   gb->af.r16
+#define REG_BC   gb->bc.r16
+#define REG_DE   gb->de.r16
+#define REG_HL   gb->hl.r16
 
 struct GB
 {
@@ -46,6 +52,16 @@ struct GB
     REG_16(bc, c, b);
     REG_16(de, e, d);
     REG_16(hl, l, h);
+
+    union
+    {
+        struct {
+            uint8_t f, a, c, b, e, d, l, h;
+        } r8;
+        struct {
+            uint16_t af, bc, de, hl; 
+        } r16;
+    }; 
 
     union
     {

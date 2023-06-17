@@ -211,8 +211,15 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
     const uint8_t opL = op & 0xf;
     const uint8_t opHh = op >> 3; /* Octal divisions */
 
-    uint8_t * r8_g[] = { 
-        &REG_B, &REG_C, &REG_D, &REG_E, &REG_H, &REG_L, &gb->flags, &REG_A };
+    /* Define register groups organized by opcode menmonic */
+    uint8_t * r8_g[] = {
+        &REG_B, &REG_C, &REG_D, &REG_E, &REG_H, &REG_L, &R_FLAGS, &REG_A };
+    uint16_t * r16_g[] = {
+        { &REG_BC, &REG_DE, &REG_HL, &gb->sp }, /* r16 group 1 */
+        { &REG_BC, &REG_DE, &REG_HL, &REG_HL }, /* r16 group 2 */
+        { &REG_BC, &REG_DE, &REG_HL, &REG_AF }  /* r16 group 3 */
+    };
+    const uint8_t r16_inc[] = { 0, 0, 1, -1 };
 
     /* Default values for operands (can be overridden for other opcodes) */
     uint8_t * reg1 = r8_g[opHh & 7];
@@ -251,8 +258,14 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
                 break;
                 case 0x02:                case 0x12: LDrrmA  break; 
                 case 0x22: LDHLIA  break; case 0x32: LDHLDA  break;
-                case 0x03:   case 0x13:
-                case 0x23:   case 0x33: INCrr   break;
+                case 0x03:   
+                    OP(INCrr) gb->bc.r16++; break;
+                case 0x13:   
+                    OP(INCrr) gb->de.r16++; break;
+                case 0x23:   
+                    OP(INCrr) gb->hl.r16++; break; 
+                case 0x33: 
+                    OP(INCrr) gb->sp++;     break;
                 case 0x09: {
                     OP(ADHLrr) uint16_t hl = ADDR_HL; uint16_t tmp = hl + gb->bc.r16; FLAGS_ADHL; gb->hl.r16 = tmp;
                 } break;
@@ -265,13 +278,13 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
                 case 0x39: {
                     OP(ADHLrr) uint16_t hl = ADDR_HL; uint16_t tmp = hl + gb->sp; FLAGS_ADHL; gb->hl.r16 = tmp;
                 } break;
-                case 0x0B:   
+                case 0x0B:
                     OP(DECrr) gb->bc.r16--; break;
-                case 0x1B:   
+                case 0x1B:
                     OP(DECrr) gb->de.r16--; break;
-                case 0x2B:   
+                case 0x2B:
                     OP(DECrr) gb->hl.r16--; break; 
-                case 0x3B: 
+                case 0x3B:
                     OP(DECrr) gb->sp--;     break;
                 /* Increment, decrement, LD r8,n, RST */
                 case 0x04:   case 0x0C:   case 0x14:
@@ -401,7 +414,7 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
     const uint8_t opHh = op >> 3; /* Octal divisions */
 
     uint8_t * r8_g[] = { 
-        &REG_B, &REG_C, &REG_D, &REG_E, &REG_H, &REG_L, &gb->flags, &REG_A };
+        &REG_B, &REG_C, &REG_D, &REG_E, &REG_H, &REG_L, &R_FLAGS, &REG_A };
 
     const uint8_t r_bit  = opHh & 7;
     uint8_t * reg1 = r8_g[opL & 7];
@@ -412,7 +425,7 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
     switch (opHh)
     {
         case 0 ... 7:
-            switch (op & 0b00111000)
+            switch (op & 0x38)
             {
                 case 0:    OPR_2_(RLC,  RLCHL)  break;
                 case 8:    OPR_2_(RRC,  RRCHL)  break;
