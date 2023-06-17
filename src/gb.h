@@ -27,6 +27,8 @@
         uint16_t r16;\
     } XY;\
 
+/* Todo: Reorganize structs so that macros for renaming regs aren't needed */
+
 #define REG_A    gb->af.r8.a
 #define REG_B    gb->bc.r8.b
 #define REG_C    gb->bc.r8.c
@@ -155,18 +157,19 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
     return 0;
 }
 
-static inline void gb_cpu_state (struct GB * gb)
-{
-    const uint16_t pc = gb->pc;
-    #define cpu_read(X)   gb_mem_access (gb, X, 0, 0)
+#define LOG_CPU_STATE(gb)
 
-    //printf("%08X ", (uint32_t) gb->clock_t);
-    printf("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X "
-        "SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",
-        REG_A, gb->flags, REG_B, REG_C, REG_D, REG_E, REG_H, REG_L, 
-        gb->sp, pc, cpu_read (pc), cpu_read (pc+1), cpu_read (pc+2), cpu_read (pc+3)
-    );
-}
+#ifdef CPU_INSTRS_TESTING
+    #define LOG_CPU_STATE(gb) {\
+        const uint16_t pc = gb->pc;\
+        #define cpu_read(X)   gb_mem_access (gb, X, 0, 0)\
+        LOG_("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X "\
+            "SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",\
+            REG_A, gb->flags, REG_B, REG_C, REG_D, REG_E, REG_H, REG_L, \
+            gb->sp, pc, cpu_read (pc), cpu_read (pc+1), cpu_read (pc+2), cpu_read (pc+3)\
+        );\
+    }
+#endif
 
 static inline void gb_step (struct GB * gb)
 {
@@ -188,7 +191,7 @@ static inline void gb_step (struct GB * gb)
     {   /* Load next op and execute */
         const uint8_t op = CPU_RB (gb->pc++);
         gb_cpu_exec (gb, op);
-        //gb_cpu_state (gb);
+        LOG_CPU_STATE (gb);
     }
 
     if (gb->ime)
