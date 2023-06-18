@@ -214,10 +214,8 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
     /* Define register groups organized by opcode menmonic */
     uint8_t * r8_g[] = {
         &REG_B, &REG_C, &REG_D, &REG_E, &REG_H, &REG_L, &R_FLAGS, &REG_A };
-    const uint8_t r16_inc[] = { 0, 0, 1, -1 };
 
     /* Default values for operands (can be overridden for other opcodes) */
-    uint8_t * reg1 = r8_g[opHh & 7];
     uint8_t * reg2 = r8_g[opL & 7];
     uint8_t tmp = REG_A;
 
@@ -234,37 +232,34 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         case 0x0:  NOP     break;
         /* 16-bit load, arithmetic instructions */
         OP_r16_g1 (0x01, LDrr)
-        case 0x02:                case 0x12: LDrrmA  break; 
-        case 0x22: LDHLIA  break; case 0x32: LDHLDA  break;
+        OP_r16_g2 (0x02, LDrrmA)
         OP_r16_g1 (0x03, INCrr)
         OP_r16_g1 (0x09, ADHLrr)
         OP_r16_g1 (0x0B, DECrr)
-        /* Increment, decrement, LD r8,n, RST */
+        /* Increment, decrement, LD r8,n  */
         OP_r8_g (0x04, INC, 0)
-        case 0x34: OP(INC) {
-            CPU_WB (REG_HL, tmp = CPU_RB (REG_HL) + 1); INC(tmp) }
-        break;
+        case 0x34: OP(INC) CPU_WB (REG_HL, tmp = CPU_RB (REG_HL) + 1); INC(tmp) break;
         OP_r8_g (0x05, DEC, 0)
-        case 0x35: OP(DEC) {
-            CPU_WB (REG_HL, tmp = CPU_RB (REG_HL) - 1); DEC(tmp) }
-        break;
-        case 0x06:   case 0x0E:   case 0x16:
-        case 0x1E:   case 0x26:   case 0x2E:
-        case 0x36:   case 0x3E:              LDrm_   break;
-        case 0x07: RLCA    break; case 0x08: LDmSP   break;
-        case 0x0A: 
-            REG_A = CPU_RB (gb->bc.r16); break;
-        case 0x1A:
-            REG_A = CPU_RB (gb->de.r16); break;
-        case 0x2A: LDAHLI  break; case 0x3A: LDAHLD  break;
-        case 0x0F: RRCA    break; 
-        
-        case 0x10: STOP    break; case 0x17: RLA     break; 
-        case 0x18: JRm     break; case 0x1F: RRA     break; 
+        case 0x35: OP(DEC) CPU_WB (REG_HL, tmp = CPU_RB (REG_HL) - 1); DEC(tmp) break;
+        OP_r8_g (0x06, LDrm, 0)
+        case 0x36: OP(LDHLm); CPU_WB (REG_HL, CPU_RB_PC); break;
+        /* Opcode group 1 */
+        case 0x07: RLCA    break; 
+        case 0x17: RLA     break;
         case 0x27: DAA     break;
+        case 0x37: SCF     break; 
+        
+        case 0x08: LDmSP   break;
+        OP_r16_g2 (0x0A, LDArrm)
+        
+        case 0x10: STOP    break;
+        case 0x18: JRm     break; 
+        
+        /* Opcode group 2 */
+        case 0x0F: RRCA    break; 
+        case 0x1F: RRA     break; 
         case 0x2F: CPL     break; 
-
-        case 0x37: SCF     break; case 0x3F: CCF     break;
+        case 0x3F: CCF     break;
         /* ... */
         case 0xC3: JPNN    break; case 0xC6: ADDm    break;
         case 0xC9: RET     break; 

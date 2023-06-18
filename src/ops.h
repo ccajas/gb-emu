@@ -85,11 +85,7 @@
     OP_r8_hl(0x68, LD, REG_L)\
     OP_r8_hl(0x78, LD, REG_A)\
 
-#define LDrm      OP(LDrm);     *reg1 = CPU_RB_PC;
-#define LD_rHL    OP(LD_rHL);   *reg1 = CPU_RB (REG_HL);
-
-#define LD_HLr    OP(LDHLr);    CPU_WB (REG_HL, *reg2);
-#define LDHLm     OP(LDHLm);    CPU_WB (REG_HL, CPU_RB_PC);
+#define LDrm_r8(r8, _)   OP(LDrm);     r8 = CPU_RB_PC;
 
 #define LDAmm     OP(LDAmm);    REG_A = CPU_RB (CPU_RW (gb->pc)); gb->pc += 2;
 #define LDmmA     OP(LDmmA);    CPU_WB (CPU_RW (gb->pc), REG_A);  gb->pc += 2;
@@ -99,25 +95,24 @@
 #define LDIOCA    OP(LDIOCA);   CPU_WB (0xFF00 + REG_C, REG_A);
 #define LDAIOC    OP(LDAIOC);   REG_A = CPU_RB (0xFF00 + REG_C); 
 
-#define LDrrmA    OP(LDrrmA);   CPU_WB (ADDR_XY (*reg1, *(reg1-1)), REG_A);
-#define LDHLIA    OP(LDHLIA);   CPU_WB (REG_HL, REG_A); gb->hl.r16++;
-#define LDHLDA    OP(LDHLDA);   CPU_WB (REG_HL, REG_A); gb->hl.r16--;
+#define LDrrmA(r16)  OP(LDrrmA)\
+    CPU_WB (r16, REG_A); REG_HL += (op > 0x30) ? -1 : (op > 0x20) ? 1 : 0;
 
-#define LDArrm    OP(LDArrm);   REG_A = CPU_RB (ADDR_XY(*reg1, *(reg1+1)));
-#define LDAHLI    OP(LDAHLI);   REG_A = CPU_RB (REG_HL); gb->hl.r16++;
-#define LDAHLD    OP(LDAHLD);   REG_A = CPU_RB (REG_HL); gb->hl.r16--;
+#define LDArrm(r16)  OP(LDArrm)\
+    REG_A = CPU_RB (r16); REG_HL += (op > 0x30) ? -1 : (op > 0x20) ? 1 : 0;
+
+#define LDrm_    if (op == 0x36) { LDHLm } else { LDrm }
 
 /** 16-bit load instructions **/
 
-#define LDmSP     OP(LDmSP);  CPU_WW (CPU_RW (gb->pc), gb->sp); gb->pc += 2;
-#define LDSP      OP(LDSP);   gb->sp = CPU_RW (gb->pc); gb->pc += 2;
-#define LDSPHL    OP(LDSPHL); gb->sp = REG_HL;
+#define LDmSP           OP(LDmSP)   CPU_WW (CPU_RW (gb->pc), gb->sp); gb->pc += 2;
+#define LDSP            OP(LDSP)    gb->sp = CPU_RW (gb->pc); gb->pc += 2;
+#define LDSPHL          OP(LDSPHL)  gb->sp = REG_HL;
+#define LDrr(r16)       OP(LDrr)    r16 = CPU_RW (gb->pc); gb->pc += 2;
 
-#define LDrr(r16)                  OP(LDrr); r16 = CPU_RW (gb->pc); gb->pc += 2;
+#define PUSH_(X, Y)     gb->sp--; CPU_WB (gb->sp, X); gb->sp--; CPU_WB (gb->sp, Y);
 
-#define PUSH_(X, Y)                gb->sp--; CPU_WB (gb->sp, X); gb->sp--; CPU_WB (gb->sp, Y);
 #define PUSHrr(op_, R16_1, R16_2)  OP(PUSHrr); PUSH_(R16_1, R16_2);
-
 #define POPrr(op_, R16_1, R16_2)   OP(POPrr);\
     R16_2 = CPU_RB (gb->sp++) & ((op_ == 0xF1) ? 0xF0 : 0xFF); R16_1 = CPU_RB (gb->sp++);\
 
@@ -201,8 +196,6 @@
 #define INC_r8(reg, _)  OP(INC)  reg++; SET_FLAGS (16, reg, 0, ((reg & 0xF) == 0), 0);
 #define DEC_r8(reg, _)  OP(DEC)  reg--; SET_FLAGS (16, reg, 1, ((reg & 0xF) == 0xF), 0);
 
-#define LDrm_    if (op == 0x36) { LDHLm } else { LDrm }
-
 /* The following is from SameBoy. MIT License. */
 #define DAA      OP(DAA);     {\
     int16_t a = REG_A;\
@@ -229,8 +222,8 @@
     uint16_t tmp = REG_HL + r16; FLAGS_ADHL; REG_HL = tmp;\
 }
 
-#define ADDSPm   OP(ADDSPm);  { int8_t i = (int8_t) CPU_RB_PC; FLAGS_SPm; gb->sp += i; }
-#define LDHLSP   OP(LDHLSP);  { int8_t i = (int8_t) CPU_RB_PC;\
+#define ADDSPm   OP(ADDSPm)   { int8_t i = (int8_t) CPU_RB_PC; FLAGS_SPm; gb->sp += i; }
+#define LDHLSP   OP(LDHLSP)   { int8_t i = (int8_t) CPU_RB_PC;\
     REG_H = ((gb->sp + i) >> 8); REG_L = (gb->sp + i) & 0xFF;\
     gb->flags = 0;\
     gb->f_h = ((gb->sp & 0xF) + (i & 0xF) > 0xF);\
@@ -242,55 +235,48 @@
 
 /** CPU control instructions **/
 
-#define CCF     OP(CCF);  gb->f_c = !gb->f_c; gb->f_n = gb->f_h = 0;
-#define SCF     OP(SCF);  gb->f_c = 1; gb->f_n = gb->f_h = 0;
-#define HALT    OP(HALT);\
-    if (gb->ime) gb->halted = 1;\
-    else if (!gb->ime && (gb->io[IntrEnabled] && gb->io[IntrFlags] & IF_Any)) gb->pcInc = 0;
+#define CCF     OP(CCF)   gb->f_c = !gb->f_c; gb->f_n = gb->f_h = 0;
+#define SCF     OP(SCF)   gb->f_c = 1; gb->f_n = gb->f_h = 0;
 
-#define STOP    OP(STOP); gb->stop = 1; /* STOP is handled after switch/case */
-#define NOP     OP(NOP);
-#define DI      OP(DI);   gb->ime = 0; 
-#define EI      OP(EI);   gb->ime = 1; 
+#define STOP    OP(STOP)  gb->stop = 1; /* STOP is handled after switch/case */
+#define NOP     OP(NOP) 
+#define DI      OP(DI)    gb->ime = 0; 
+#define EI      OP(EI)    gb->ime = 1; 
 
 /** Jump and call instructions **/
 
 /* Jump to | relative jump */
-#define JPNN    OP(JPNN); gb->pc = CPU_RW (gb->pc);
-#define JPHL    OP(JPHL); gb->pc = REG_HL; 
-#define JRm     OP(JRm);  gb->pc += (int8_t) CPU_RB (gb->pc); gb->pc++;
-
-    /* Jump and call function templates */
-    #define JP_IF(X) \
-    uint16_t mm = CPU_RW (gb->pc); if (X) {\
-        gb->pc = mm; gb->rm++;\
-    } else gb->pc += 2;
-
-    #define JR_IF(X) \
-    int8_t e = (int8_t) CPU_RB (gb->pc); if (X) {\
-        gb->pc += e; gb->rm++;\
-    } gb->pc++;
-
-    #define CALL_IF(X) \
-    uint16_t mm = CPU_RW (gb->pc); if (X) {\
-        PUSH_((gb->pc + 2) >> 8, (gb->pc + 2) & 0xFF);\
-        gb->pc = mm; gb->rm += 3;\
-    } else gb->pc += 2;
-
-    /* Return function templates */
-    #define RET__     gb->pc = CPU_RW (gb->sp); gb->sp += 2;
-    #define RET_IF(X) if (X) { RET__; gb->rm += 3; }
-
-/* Conditional jump */
-
-/* Conditional relative jump */
+#define JPNN    OP(JPNN)  gb->pc = CPU_RW (gb->pc);
+#define JPHL    OP(JPHL)  gb->pc = REG_HL; 
+#define JRm     OP(JRm)   gb->pc += (int8_t) CPU_RB (gb->pc); gb->pc++;
 
 /* Calls */
 #define CALLm   OP(CALLm);  {\
     uint16_t tmp = CPU_RW (gb->pc); gb->pc += 2; gb->sp -= 2; CPU_WW(gb->sp, gb->pc); gb->pc = tmp; }\
 
-#define RET     OP(RET);   RET__;
-#define RETI    OP(RETI);  RET__; gb->ime = 1;
+    /* Return function template */
+    #define RET__     gb->pc = CPU_RW (gb->sp); gb->sp += 2;
+
+#define RET     OP(RET)    RET__;
+#define RETI    OP(RETI)   RET__; gb->ime = 1;
+
+    /* Conditional function templates */
+    #define JP_IF(X) \
+        uint16_t mm = CPU_RW (gb->pc); gb->pc += 2;\
+        if (X) { gb->pc = mm; gb->rm++; }\
+
+    #define JR_IF(X) \
+        int8_t e = (int8_t) CPU_RB (gb->pc++);\
+        if (X) { gb->pc += e; gb->rm++; }\
+
+    #define CALL_IF(X) \
+        uint16_t mm = CPU_RW (gb->pc); gb->pc += 2;\
+        if (X) { PUSH_(gb->pc >> 8, gb->pc & 0xFF);\
+            gb->pc = mm; gb->rm += 3; }\
+
+    #define RET_IF(X) if (X) { RET__; gb->rm += 3; }
+
+/* Conditional jump, relative jump, return, call */
 
 #define COND_(_)\
     (_ == 0) ? (!gb->f_z) :\
