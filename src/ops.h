@@ -26,32 +26,65 @@
 
 #endif
 
-/** Choose between operations based on position */
+/** Choose between operations based on position **/
 
 #define OPR_2_(A, B)  if ((op & 7) != 6) { A } else { B }
 
-#define OP_R8_G(op_) \
-    case op_:\
-    case op_ + 1:\
-    case op_ + 2:\
-    case op_ + 3:\
-    case op_ + 4:\
-    case op_ + 5:\
-    case op_ + 7:\
+#define OP_r8(op_, name, R)\
+    case op_:     name ##_r8(R, REG_B); break;\
+    case op_ + 1: name ##_r8(R, REG_C); break;\
+    case op_ + 2: name ##_r8(R, REG_D); break;\
+    case op_ + 3: name ##_r8(R, REG_E); break;\
+    case op_ + 4: name ##_r8(R, REG_H); break;\
+    case op_ + 5: name ##_r8(R, REG_L); break;\
+    case op_ + 7: name ##_r8(R, REG_A); break;\
+
+#define OP_r8_hl(op_, name, R)\
+    OP_r8(op_, name, R);\
+    case op_ + 6: name ##_r8(R, CPU_RB(REG_HL)); break;\
+
+#define OP_r8_g(op_, name, R)\
+    case op_:        name ##_r8(REG_B, R); break;\
+    case op_ + 0x8:  name ##_r8(REG_C, R); break;\
+    case op_ + 0x10: name ##_r8(REG_D, R); break;\
+    case op_ + 0x18: name ##_r8(REG_E, R); break;\
+    case op_ + 0x20: name ##_r8(REG_H, R); break;\
+    case op_ + 0x28: name ##_r8(REG_L, R); break;\
+    case op_ + 0x38: name ##_r8(REG_A, R); break;\
+
+#define OP_r16_g(op_, _r16)\
+    case op_: _r16        (REG_BC) break;\
+    case op_ + 0x10: _r16 (REG_DE) break;\
+    case op_ + 0x20: _r16 (REG_HL) break;\
+
+#define OP_r16_g1(op_, _r16)\
+    OP_r16_g(op_, _r16)\
+    case op_ + 0x30: _r16 (gb->sp) break;\
+
+#define OP_r16_g2(op_, _r16)\
+    OP_r16_g(op_, _r16)\
+    case op_ + 0x30: _r16 (REG_HL) break;\
+
+#define OP_r16_g3(op_, _r16)\
+    case op_: _r16        (op_,        REG_B, REG_C)       break;\
+    case op_ + 0x10: _r16 (op_ + 0x10, REG_D, REG_E)       break;\
+    case op_ + 0x20: _r16 (op_ + 0x20, REG_H, REG_L)       break;\
+    case op_ + 0x30: _r16 (op_ + 0x30, REG_A, (gb->flags)) break;\
 
 /** 8-bit load instructions **/
 
-#define LD_r8(op_, dest)\
-    case op_:     dest = REG_B; break;\
-    case op_ + 1: dest = REG_C; break;\
-    case op_ + 2: dest = REG_D; break;\
-    case op_ + 3: dest = REG_E; break;\
-    case op_ + 4: dest = REG_H; break;\
-    case op_ + 5: dest = REG_L; break;\
-    case op_ + 6: dest = CPU_RB (REG_HL); break;\
-    case op_ + 7: dest = REG_A; break;\
+#define LD_r8(dest, src)     OP(LD_r8) dest = src;
+#define LD_HL_r8(dest, src)  OP(LD_r8) CPU_WB(REG_HL, src);
 
-//#define LD_r8     OP(LD_r8);    if (*reg1 != *reg2) { *reg1 = *reg2; }
+#define LD_OPS\
+    OP_r8_hl(0x40, LD, REG_B)\
+    OP_r8_hl(0x48, LD, REG_C)\
+    OP_r8_hl(0x50, LD, REG_D)\
+    OP_r8_hl(0x58, LD, REG_E)\
+    OP_r8_hl(0x60, LD, REG_H)\
+    OP_r8_hl(0x68, LD, REG_L)\
+    OP_r8_hl(0x78, LD, REG_A)\
+
 #define LDrm      OP(LDrm);     *reg1 = CPU_RB_PC;
 #define LD_rHL    OP(LD_rHL);   *reg1 = CPU_RB (REG_HL);
 
@@ -66,17 +99,13 @@
 #define LDIOCA    OP(LDIOCA);   CPU_WB (0xFF00 + REG_C, REG_A);
 #define LDAIOC    OP(LDAIOC);   REG_A = CPU_RB (0xFF00 + REG_C); 
 
-    /* Increment instruction templates */
-    #define INCR_HL   gb->hl.r16++;//  REG_L++; if (!REG_L) REG_H++
-    #define DECR_HL   gb->hl.r16--;//REG_L--; if (REG_L == 255) REG_H--
-
 #define LDrrmA    OP(LDrrmA);   CPU_WB (ADDR_XY (*reg1, *(reg1-1)), REG_A);
-#define LDHLIA    OP(LDHLIA);   CPU_WB (REG_HL, REG_A); INCR_HL;
-#define LDHLDA    OP(LDHLDA);   CPU_WB (REG_HL, REG_A); DECR_HL;
+#define LDHLIA    OP(LDHLIA);   CPU_WB (REG_HL, REG_A); gb->hl.r16++;
+#define LDHLDA    OP(LDHLDA);   CPU_WB (REG_HL, REG_A); gb->hl.r16--;
 
 #define LDArrm    OP(LDArrm);   REG_A = CPU_RB (ADDR_XY(*reg1, *(reg1+1)));
-#define LDAHLI    OP(LDAHLI);   REG_A = CPU_RB (REG_HL); INCR_HL;
-#define LDAHLD    OP(LDAHLD);   REG_A = CPU_RB (REG_HL); DECR_HL;
+#define LDAHLI    OP(LDAHLI);   REG_A = CPU_RB (REG_HL); gb->hl.r16++;
+#define LDAHLD    OP(LDAHLD);   REG_A = CPU_RB (REG_HL); gb->hl.r16--;
 
 /** 16-bit load instructions **/
 
@@ -84,22 +113,13 @@
 #define LDSP      OP(LDSP);   gb->sp = CPU_RW (gb->pc); gb->pc += 2;
 #define LDSPHL    OP(LDSPHL); gb->sp = REG_HL;
 
-#define LDrr      OP(LDrr)\
-    if (opHh == 6) gb->sp = CPU_RW (gb->pc);\
-    else { *(reg1-1) = CPU_RB (gb->pc); *reg1 = CPU_RB (gb->pc + 1); }\
-    gb->pc += 2;\
+#define LDrr(r16)                  OP(LDrr); r16 = CPU_RW (gb->pc); gb->pc += 2;
 
-#define PUSH_(X, Y)                 gb->sp--; CPU_WB (gb->sp, X); gb->sp--; CPU_WB (gb->sp, Y);
-#define PUSHrr_(op_, R16_1, R16_2)  OP(PUSHrr); case op_: PUSH_(R16_1, R16_2); break;
+#define PUSH_(X, Y)                gb->sp--; CPU_WB (gb->sp, X); gb->sp--; CPU_WB (gb->sp, Y);
+#define PUSHrr(op_, R16_1, R16_2)  OP(PUSHrr); PUSH_(R16_1, R16_2);
 
-#define POPrr_(op_, R16_1, R16_2)   OP(POPrr); case op_:\
-    R16_2 = CPU_RB (gb->sp++) & ((op_ == 0xF1) ? 0xF0 : 0xFF); R16_1 = CPU_RB (gb->sp++); break;\
-
-#define R16_OPS_3(OP_, START) \
-    OP_ (START, REG_B, REG_C)\
-    OP_ (START + 0x10, REG_D, REG_E)\
-    OP_ (START + 0x20, (REG_H), (REG_L))\
-    OP_ (START + 0x30, (REG_A), (gb->flags))\
+#define POPrr(op_, R16_1, R16_2)   OP(POPrr);\
+    R16_2 = CPU_RB (gb->sp++) & ((op_ == 0xF1) ? 0xF0 : 0xFF); R16_1 = CPU_RB (gb->sp++);\
 
 /* Flag setting helpers */
 
@@ -121,16 +141,13 @@
 /** 8-bit arithmetic/logic instructions **/
 
     /* Add function templates */
-    #define FLAGS_ADD_(X)  SET_FLAGS (0,\
-        (tmp & 0xFF), 0,(((REG_A ^ X ^ tmp) & 0x10) > 0),(tmp >= 0x100));\
-
-    #define FLAGS_SUB_(X)  SET_FLAGS (0,\
-        (tmp & 0xFF), 1,(((REG_A ^ X ^ tmp) & 0x10) > 0),((tmp & 0xFF00) ? 1 : 0));\
+    #define FLAGS_ALU_(X, N)  SET_FLAGS (0,\
+        (tmp & 0xFF), N,(((REG_A ^ X ^ tmp) & 0x10) > 0), (tmp >= 0x100));\
 
     #define FLAGS_CP       SET_FLAGS (0, tmp, 1, ((tmp & 0xF) > (REG_A & 0xF)), (tmp > REG_A));
 
-    #define ADC_A_(X, C)   uint16_t tmp = REG_A + X + C; FLAGS_ADD_(X); REG_A = tmp & 0xFF;
-    #define SBC_A_(X, C)   uint16_t tmp = REG_A - X - C; FLAGS_SUB_(X); REG_A = tmp & 0xFF;
+    #define ADC_A_(X, C)   uint16_t tmp = REG_A + X + C; FLAGS_ALU_(X, 0); REG_A = tmp & 0xFF;
+    #define SBC_A_(X, C)   uint16_t tmp = REG_A - X - C; FLAGS_ALU_(X, 1); REG_A = tmp & 0xFF;
 
     /* Add and subtract */
 
@@ -175,11 +192,14 @@
 #define DEC(X)   OP(DEC)      SET_FLAGS (16, X, 1, ((X & 0xF) == 0xF), 0);
 #define CPL      OP(CPL)      REG_A ^= 0xFF; gb->flags |= 0x60;
 
-#define INC_     OP(INC)  if (opHh == 0x6) {\
-    uint8_t tmp = CPU_RB (REG_HL); CPU_WB (REG_HL, ++tmp); INC(tmp) } else { (*reg1)++; INC(*reg1); }
+#define INC_     OP(INC) {\
+    uint8_t tmp = CPU_RB (REG_HL); CPU_WB (REG_HL, ++tmp); INC(tmp) }
 
-#define DEC_     OP(DEC)  if (opHh == 0x6) {\
-    uint8_t tmp = CPU_RB (REG_HL); CPU_WB (REG_HL, --tmp); DEC(tmp) } else { (*reg1)--; DEC(*reg1); }
+#define DEC_     OP(DEC) {\
+    uint8_t tmp = CPU_RB (REG_HL); CPU_WB (REG_HL, --tmp); DEC(tmp) }
+
+#define INC_r8(reg, _)  OP(INC)  reg++; SET_FLAGS (16, reg, 0, ((reg & 0xF) == 0), 0);
+#define DEC_r8(reg, _)  OP(DEC)  reg--; SET_FLAGS (16, reg, 1, ((reg & 0xF) == 0xF), 0);
 
 #define LDrm_    if (op == 0x36) { LDHLm } else { LDrm }
 
@@ -205,10 +225,8 @@
     #define FLAGS_ADHL  gb->f_n = 0;   gb->f_h = ((REG_HL & 0xfff) > (tmp & 0xfff)); gb->f_c = (REG_HL > tmp) ? 1 : 0;
     #define FLAGS_SPm   gb->flags = 0; gb->f_h = ((gb->sp & 0xF) + (i & 0xF) > 0xF); gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);
 
-#define ADHLrr   OP(ADHLrr);  {\
-    uint16_t r16 = (opHh == 7) ? gb->sp : ADDR_XY(*reg1, *(reg1-1));\
-    uint16_t hl = REG_HL; uint16_t tmp = hl + r16; FLAGS_ADHL;\
-    REG_H = (tmp >> 8); REG_L = tmp & 0xFF;\
+#define ADHLrr(r16)   OP(ADHLrr); {\
+    uint16_t tmp = REG_HL + r16; FLAGS_ADHL; REG_HL = tmp;\
 }
 
 #define ADDSPm   OP(ADDSPm);  { int8_t i = (int8_t) CPU_RB_PC; FLAGS_SPm; gb->sp += i; }
@@ -219,8 +237,8 @@
     gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);\
 }
 
-#define INCrr    OP(INCrr);   if (opHh == 6) gb->sp++; else { *(reg1 - 1) += 1; if (!*(reg1 - 1)) (*reg1)++; }
-#define DECrr    OP(DECrr);   if (opHh == 7) gb->sp--; else { (*reg1)--; if (*reg1 == 0xff) *(reg1 - 1) -= 1; }
+#define INCrr(r16)    OP(INCrr); r16++;
+#define DECrr(r16)    OP(DECrr); r16--;
 
 /** CPU control instructions **/
 
