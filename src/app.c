@@ -242,14 +242,15 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
     }
 
     /* Load boot file if present */
-    FILE * fb = fopen ("test/dmg_boot.bin", "rb");
+/*    FILE * fb = fopen ("test/dmg_boot.bin", "rb");
     
     uint8_t * boot = calloc(BOOT_ROM_SIZE, sizeof (uint8_t));
     if (!fread (boot, BOOT_ROM_SIZE, 1, f))
         boot = NULL;
     else
         fclose (fb);
-
+*/
+    uint8_t * boot = NULL;
     /* Copy ROM to cart */
     LOG_("GB: \"%s\"\n", fileName);
     gb->cart.romData = rom;
@@ -335,12 +336,19 @@ void app_run (struct App * app)
     const int32_t totalFrames = 60;
     float totalSeconds = (float) totalFrames / 60.0;
 
+    double lastUpdate = 0;
+
     if (app->draw)
     {
 #ifdef USE_GLFW
         while (!glfwWindowShouldClose (app->window))
         {
+            double current = glfwGetTime();
             app_read_gamepad(app);
+            glfwPollEvents();
+
+            if ((current - lastUpdate) < FPS_LIMIT) continue;
+
             glfwMakeContextCurrent (app->window);
             draw_begin (app->window, &app->display);
 
@@ -356,7 +364,8 @@ void app_run (struct App * app)
             }
             app_draw (app);
             glfwSwapBuffers (app->window);
-            glfwPollEvents();
+
+            lastUpdate = current;
         }
 #endif
     }
