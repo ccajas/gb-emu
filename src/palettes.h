@@ -20,6 +20,7 @@ static const GB_Palette palettes[] =
     { "DMG Redux",     { RGB_4 (0x173620, 0x306230, 0x7B9C0F, 0x95A501) }},
     { "Pocket",        { RGB_4 (0x181B19, 0x2D322C, 0x4E5446, 0x8E9676) }},
     { "Super GameBoy", { RGB_4 (0x331e50, 0xA63725, 0xD68E49, 0xF7E7C6) }},
+    { "Pocket HC",     { RGB_4 (0x121212, 0x383838, 0x646464, 0xB7B7B7) }},
     { "BLK AQU4",      { RGB_4 (0x002B59, 0x005F8C, 0x00B9BE, 0x9FF4E5) }},
     { "BGB",           { RGB_4 (0x081820, 0x346856, 0x88C070, 0xE0F8D0) }},
     { "Velvet Cherry", { RGB_4 (0x2D162C, 0x412752, 0x683A68, 0x9775A6) }},
