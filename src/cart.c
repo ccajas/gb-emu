@@ -65,8 +65,8 @@ uint8_t mbc2_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
         if HIGH_BANK 
             return cart->romData[((cart->bank1st & cart->romMask) - 1) * 0x4000 + addr];
         if RAM_BANK {
+            if (!cart->usingRAM) return 0;
             uint8_t v = (cart->ramData[addr & 0x1FF] & 0xF);     /* Return only lower 4 bits  */
-            LOG_("read %02x from %04x, ramEnabled %d\n", v, addr, cart->usingRAM);
             return v;
         }
     }
@@ -76,13 +76,11 @@ uint8_t mbc2_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
             if (addr >> 8 & 1) { 
                 cart->bank1st = val & 0xF; if (!cart->bank1st) cart->bank1st++; }     /* LSB == 1, ROM bank select */
             else if ((addr >> 8 & 1) == 0) {
-                cart->usingRAM = ((val & 0xF) == 0xA); 
-                LOG_("Wrote %02x to %04x, ramEnabled %d\n", val, addr, cart->usingRAM); return 0; }                    /* LSB == 0, RAM switch      */
+                cart->usingRAM = ((val & 0xF) == 0xA);  return 0; }                   /* LSB == 0, RAM switch      */
         }
         if RAM_BANK {
-            LOG_("write attempt %02x to %04x, ramEnabled %d\n", val, addr, cart->usingRAM);
             if (!cart->usingRAM) return 0xFF; 
-            cart->ramData[addr & 0x1FFF] = val & 0xF;                                  /* Write only lower 4 bits   */
+            cart->ramData[addr & 0x1FFF] = (val & 0xF) | 0xF0;                        /* Write only lower 4 bits   */
         }
     }
     return 0;
@@ -196,6 +194,7 @@ void cart_identify (struct Cartridge * cart)
 
     printf ("GB: RAM file size (KiB): %d\n", cart->ramSizeKB);
     printf ("GB: Cart type: %02X Mapper type: %d\n", header[0x47], cart->mbc);
+    printf ("GB: This is a %s cart\n", (header[0x43] & 0x80) ? "CGB" : "DMG");
 
     if (cart->ramSizeKB) {
         cart->ramData = calloc(cart->ramSizeKB * 1024, sizeof (uint8_t));
