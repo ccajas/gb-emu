@@ -38,7 +38,7 @@ core: $(obj)
 	$(CC) $(CFLAGS) $(src_min) -o $(target) -I../_include -lm -lgdi32
 
 core-l: $(obj)
-	gcc $(CFLAGS) $(src_min) -o $(target) -lm
+	gcc $(CFLAGS) $(src_min) -o $(target_linux) -lm
 
 clean:
 	rm -f $(obj) $(target)
