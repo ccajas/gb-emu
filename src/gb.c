@@ -41,17 +41,17 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
             case TMA:                                          /* Update TIMA also if TMA is written in the same cycle */
                 if (gb->newTimALoaded) gb->io[TimA] = val;
                 break;
-            case TimerCtrl:
+            case TimerCtrl: /* Todo: TIMA should increase right here if last bit was 1 and current is 0 */
                 gb->io[TimerCtrl] = val | 0xF8; return 0;
-            case IntrFlags:                               /* Mask unused bits for IE and IF        */
+            case IntrFlags:                                    /* Mask unused bits for IE and IF        */
             case IntrEnabled:
                 gb->io[addr % 0x80] = val | 0xE0; return 0;
             case BootROM:                 /* Boot ROM register should be unwritable at some point? */
                 break;
             case Divider:
-                gb_timer_update (gb, 0); return 0;        /* DIV reset                             */
-            case DMA:                                     /* OAM DMA transfer                      */
-                gb->io[DMA] = val; int i = 0;             /* Todo: Make it write across 160 cycles */
+                gb_timer_update (gb, 0); return 0;             /* DIV reset                             */
+            case DMA:                                          /* OAM DMA transfer                      */
+                gb->io[DMA] = val; int i = 0; /* Todo: Make it write across 160 cycles */
                 const uint16_t src = val << 8;
                 while (i < OAM_SIZE) { gb->oam[i] = CPU_RB (src + i); i++; } return 0;
         }
@@ -425,7 +425,8 @@ void gb_timer_update (struct GB * gb, const uint8_t change)
 
     /* Leave if timer is disabled */
     const uint8_t tac = gb->io[TimerCtrl];
-    if (!(tac & 0x4)) return;
+    const uint8_t tacEnabled = (tac >> 2) & 1;
+    if (!tacEnabled) return;
 
     /* Update timer, check bits for 1024, 16, 64, or 256 cycles respectively */
     const uint8_t checkBits[4] = { 7, 1, 3, 5 };

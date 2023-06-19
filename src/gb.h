@@ -176,15 +176,15 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
 #define LOG_CPU_STATE(gb)
 
 #ifdef CPU_INSTRS_TESTING
-    #define LOG_CPU_STATE(gb) {\
-        const uint16_t pc = gb->pc;\
-        #define cpu_read(X)   gb_mem_access (gb, X, 0, 0)\
-        LOG_("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X "\
-            "SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",\
-            REG_A, gb->flags, REG_B, REG_C, REG_D, REG_E, REG_H, REG_L, \
-            gb->sp, pc, cpu_read (pc), cpu_read (pc+1), cpu_read (pc+2), cpu_read (pc+3)\
-        );\
-    }
+#define LOG_CPU_STATE(gb) {\
+    const uint16_t pc = gb->pc;\
+    #define cpu_read(X)   gb_mem_access (gb, X, 0, 0)\
+    LOG_("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X "\
+        "SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",\
+        REG_A, gb->flags, REG_B, REG_C, REG_D, REG_E, REG_H, REG_L, \
+        gb->sp, pc, cpu_read (pc), cpu_read (pc+1), cpu_read (pc+2), cpu_read (pc+3)\
+    );\
+}
 #endif
 
 static inline void gb_step (struct GB * gb)
@@ -232,7 +232,6 @@ static inline void gb_frame (struct GB * gb)
     while (!frameDone) 
     {
         gb_step (gb);
-
         /* Check if a frame is done */
         const uint32_t lastClock = gb->frameClock;
         gb->frameClock %= FRAME_CYCLES;
