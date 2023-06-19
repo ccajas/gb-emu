@@ -336,11 +336,10 @@ void app_run (struct App * app)
     const int32_t totalFrames = 60;
     float totalSeconds = (float) totalFrames / 60.0;
 
-    double lastUpdate = 0;
-
     if (app->draw)
     {
 #ifdef USE_GLFW
+        double lastUpdate = 0;
         while (!glfwWindowShouldClose (app->window))
         {
             double current = glfwGetTime();
@@ -348,6 +347,8 @@ void app_run (struct App * app)
             glfwPollEvents();
 
             if ((current - lastUpdate) < FPS_LIMIT) continue;
+
+            printf("\rFPS: %f", 1.0 / (current - lastUpdate));
 
             glfwMakeContextCurrent (app->window);
             draw_begin (app->window, &app->display);
@@ -364,7 +365,6 @@ void app_run (struct App * app)
             }
             app_draw (app);
             glfwSwapBuffers (app->window);
-
             lastUpdate = current;
         }
 #endif
@@ -385,7 +385,7 @@ void app_run (struct App * app)
     free (app->gb.cart.romData);
     free (app->gb.cart.ramData);
 
-    LOG_("The emulation took %f seconds for %d frames.\nGB performance is %f times as fast.\n",
+    LOG_("\nThe emulation took %f seconds for %d frames.\nGB performance is %f times as fast.\n",
         totalTime, frames, totalSeconds / totalTime);
     LOG_("For each second, there is on average %.2f milliseconds free for overhead.\n",
         1000 - (1.0f / (totalSeconds / totalTime) * 1000));
