@@ -74,7 +74,7 @@
 /** 8-bit load instructions **/
 
 #define LD_r8(dest, src)     OP(LD_r8) dest = src;
-#define LD_HL_r8(dest, src)  OP(LD_r8) CPU_WB(REG_HL, src);
+#define LD_HL_r8(_, src)     OP(LD_r8) CPU_WB(REG_HL, src);
 
 #define LD_OPS\
     OP_r8_hl(0x40, LD, REG_B)\
@@ -90,18 +90,16 @@
 #define LDAmm     OP(LDAmm);    REG_A = CPU_RB (CPU_RW (gb->pc)); gb->pc += 2;
 #define LDmmA     OP(LDmmA);    CPU_WB (CPU_RW (gb->pc), REG_A);  gb->pc += 2;
 
-#define LDIOmA    OP(LDIOmA);   CPU_WB (0xFF00 + CPU_RB_PC, REG_A);
-#define LDAIOm    OP(LDAIOm);   REG_A = CPU_RB (0xFF00 + CPU_RB_PC);
-#define LDIOCA    OP(LDIOCA);   CPU_WB (0xFF00 + REG_C, REG_A);
-#define LDAIOC    OP(LDAIOC);   REG_A = CPU_RB (0xFF00 + REG_C); 
+#define LDIOmA    OP(LD IO mA);    CPU_WB (0xFF00 + CPU_RB_PC, REG_A);
+#define LDIOCA    OP(LD IO CA);    CPU_WB (0xFF00 + REG_C, REG_A);
+#define LDAIOm    OP(LD A IO m);   REG_A = CPU_RB (0xFF00 + CPU_RB_PC);
+#define LDAIOC    OP(LD A IO C);   REG_A = CPU_RB (0xFF00 + REG_C); 
 
 #define LDrrmA(r16)  OP(LDrrmA)\
-    CPU_WB (r16, REG_A); REG_HL += (op > 0x30) ? -1 : (op > 0x20) ? 1 : 0;
+    CPU_WB (r16, REG_A);  REG_HL += (op > 0x30) ? -1 : (op > 0x20) ? 1 : 0;
 
 #define LDArrm(r16)  OP(LDArrm)\
     REG_A = CPU_RB (r16); REG_HL += (op > 0x30) ? -1 : (op > 0x20) ? 1 : 0;
-
-#define LDrm_    if (op == 0x36) { LDHLm } else { LDrm }
 
 /** 16-bit load instructions **/
 
@@ -118,11 +116,6 @@
 
 /* Flag setting helpers */
 
-#define FLAG_Z   0x80
-#define FLAG_N   0x40
-#define FLAG_H   0x20
-#define FLAG_C   0x10
-
 #define SET_FLAG_Z(X)    gb->f_z = ((X) == 0);
 #define SET_FLAG_H_S(X)  gb->f_h = ((X) & 0x10) > 0;
 #define SET_FLAG_H(X)    gb->f_h = (X);
@@ -131,30 +124,22 @@
 #define SET_FLAGS(mask, z,n,h,c)\
     gb->flags = (gb->flags & mask) | ((!z << 7) + (n << 6) + (h << 5) + (c << 4));
 
-#define KEEP_CARRY      gb->flags &= FLAG_C;
-
 /** 8-bit arithmetic/logic instructions **/
 
     /* Add function templates */
     #define FLAGS_ALU_(X, N)  SET_FLAGS (0,\
         (tmp & 0xFF), N,(((REG_A ^ X ^ tmp) & 0x10) > 0), (tmp >= 0x100));\
 
-    #define FLAGS_CP       SET_FLAGS (0, tmp, 1, ((tmp & 0xF) > (REG_A & 0xF)), (tmp > REG_A));
-
-    #define ADC_A_(X, C)   uint16_t tmp = REG_A + X + C; FLAGS_ALU_(X, 0); REG_A = tmp & 0xFF;
-    #define SBC_A_(X, C)   uint16_t tmp = REG_A - X - C; FLAGS_ALU_(X, 1); REG_A = tmp & 0xFF;
+    #define ADC_A_(X, C)   const uint8_t val = X; uint16_t tmp = REG_A + val + C; FLAGS_ALU_(val, 0); REG_A = tmp & 0xFF;
+    #define SBC_A_(X, C)   const uint8_t val = X; uint16_t tmp = REG_A - val - C; FLAGS_ALU_(val, 1); REG_A = tmp & 0xFF;
 
     /* Add and subtract */
 
-#define ADD_A_r8    OP(ADD_r8)  ADC_A_(*reg2, 0)
-#define ADD_A_HL    OP(ADD_HL)  uint8_t hl = CPU_RB (REG_HL); ADC_A_(hl, 0)
-#define ADC_A_r8    OP(ADC_r8)  ADC_A_(*reg2, gb->f_c)
-#define ADC_A_HL    OP(ADC_HL)  uint8_t hl = CPU_RB (REG_HL); ADC_A_(hl, gb->f_c)
+#define ADD_r8(_, r8)  OP(ADD)  { ADC_A_(r8, 0) }
+#define ADC_r8(_, r8)  OP(ADC)  { ADC_A_(r8, gb->f_c) }
 
-#define SUB_A_r8    OP(SUB_r8)  SBC_A_(*reg2, 0)
-#define SUB_A_HL    OP(SUB_HL)  uint8_t hl = CPU_RB (REG_HL); SBC_A_(hl, 0)
-#define SBC_A_r8    OP(SBC_r8)  SBC_A_(*reg2, gb->f_c)
-#define SBC_A_HL    OP(SBC_HL)  uint8_t hl = CPU_RB (REG_HL); SBC_A_(hl, gb->f_c)
+#define SUB_r8(_, r8)  OP(SUB)  { SBC_A_(r8, 0) }
+#define SBC_r8(_, r8)  OP(SBC)  { SBC_A_(r8, gb->f_c) }
 
 /* Bitwise logic */
 
@@ -162,15 +147,12 @@
     #define FLAGS_AND_(X)    gb->flags = 0; SET_FLAG_Z (REG_A &= X); SET_FLAG_H (1);
     #define FLAGS_XOR_(X)    gb->flags = 0; SET_FLAG_Z (REG_A ^= X);
     #define FLAGS_OR_(X)     gb->flags = 0; SET_FLAG_Z (REG_A |= X);
+    #define FLAGS_CP         SET_FLAGS (0, tmp, 1, ((tmp & 0xF) > (REG_A & 0xF)), (tmp > REG_A));
 
-#define AND_A_r8    OP(AND_r8)    FLAGS_AND_(*reg2)
-#define AND_A_HL    OP(AND_HL)    FLAGS_AND_(CPU_RB (REG_HL))
-#define XOR_A_r8    OP(AND_r8)    FLAGS_XOR_(*reg2)
-#define XOR_A_HL    OP(AND_HL)    FLAGS_XOR_(CPU_RB (REG_HL))
-#define OR_A_r8     OP(AND_r8)    FLAGS_OR_(*reg2)
-#define OR_A_HL     OP(AND_HL)    FLAGS_OR_(CPU_RB (REG_HL))
-#define CP_A_r8     OP(CP_r8)     tmp -= *reg2;  FLAGS_CP;
-#define CP_A_HL     OP(CP_HL)     tmp -= CPU_RB (REG_HL); FLAGS_CP;
+#define AND_r8(_, r8)    OP(AND)    FLAGS_AND_(r8);
+#define XOR_r8(_, r8)    OP(XOR)    FLAGS_XOR_(r8);
+#define OR_r8(_, r8)     OP(OR)     FLAGS_OR_(r8);
+#define CP_r8(_, r8)     OP(CP)     tmp -= r8; FLAGS_CP;
 
 #define ADDm     OP(ADDm)     { uint8_t m = CPU_RB_PC; ADC_A_(m, 0); }
 #define ADCm     OP(ADCm)     { uint8_t m = CPU_RB_PC; ADC_A_(m, gb->f_c); }
@@ -185,16 +167,13 @@
 
 #define INC(X)   OP(INC)      SET_FLAGS (16, X, 0, ((X & 0xF) == 0),   0);
 #define DEC(X)   OP(DEC)      SET_FLAGS (16, X, 1, ((X & 0xF) == 0xF), 0);
+
+#define CCF      OP(CCF)      gb->f_c = !gb->f_c; gb->f_n = gb->f_h = 0;
+#define SCF      OP(SCF)      gb->f_c = 1;        gb->f_n = gb->f_h = 0;
 #define CPL      OP(CPL)      REG_A ^= 0xFF; gb->flags |= 0x60;
 
-#define INC_     OP(INC) {\
-    uint8_t tmp = CPU_RB (REG_HL); CPU_WB (REG_HL, ++tmp); INC(tmp) }
-
-#define DEC_     OP(DEC) {\
-    uint8_t tmp = CPU_RB (REG_HL); CPU_WB (REG_HL, --tmp); DEC(tmp) }
-
-#define INC_r8(reg, _)  OP(INC)  reg++; SET_FLAGS (16, reg, 0, ((reg & 0xF) == 0), 0);
-#define DEC_r8(reg, _)  OP(DEC)  reg--; SET_FLAGS (16, reg, 1, ((reg & 0xF) == 0xF), 0);
+#define INC_r8(reg, _)  OP(INC)  reg++; INC(reg)
+#define DEC_r8(reg, _)  OP(DEC)  reg--; DEC(reg)
 
 /* The following is from SameBoy. MIT License. */
 #define DAA      OP(DAA);     {\
@@ -234,9 +213,6 @@
 #define DECrr(r16)    OP(DECrr); r16--;
 
 /** CPU control instructions **/
-
-#define CCF     OP(CCF)   gb->f_c = !gb->f_c; gb->f_n = gb->f_h = 0;
-#define SCF     OP(SCF)   gb->f_c = 1; gb->f_n = gb->f_h = 0;
 
 #define STOP    OP(STOP)  gb->stop = 1; /* STOP is handled after switch/case */
 #define NOP     OP(NOP) 
@@ -288,14 +264,14 @@
 #define JP_(C)    OP(JP_)     { JP_IF   (COND_(C)); }
 #define CALL_(C)  OP(CALL_)   { CALL_IF (COND_(C)); }
 
-#define RST     OP(RST);   uint16_t n = (opHh - 0x18) << 3; gb->sp -= 2; CPU_WW (gb->sp, gb->pc); gb->pc = n;
+#define RST            OP(RST)    gb->sp -= 2; CPU_WW (gb->sp, gb->pc); gb->pc = op & 0x38;
 
 /* Rotate and shift instructions */
 
-#define RLA   	OP(RLA);   { uint8_t tmp = REG_A; REG_A = (REG_A << 1) | (gb->f_c);      gb->flags = ((tmp >> 7) & 1) * FLAG_C; }
-#define RRA     OP(RRA);   { uint8_t tmp = REG_A; REG_A = (REG_A >> 1) | (gb->f_c << 7); gb->flags = (tmp & 1) * FLAG_C; }
-#define RLCA    OP(RLCA);  REG_A = (REG_A << 1) | (REG_A >> 7); gb->flags = (REG_A & 1) * FLAG_C; 
-#define RRCA    OP(RRCA);  gb->flags = (REG_A & 1) * FLAG_C; REG_A = (REG_A >> 1) | (REG_A << 7); 
+#define RLA   	OP(RLA);   { uint8_t tmp = REG_A; REG_A = (REG_A << 1) | (gb->f_c);      gb->flags = 0; gb->f_c = ((tmp >> 7) & 1); }
+#define RRA     OP(RRA);   { uint8_t tmp = REG_A; REG_A = (REG_A >> 1) | (gb->f_c << 7); gb->flags = 0; gb->f_c = (tmp & 1); }
+#define RLCA    OP(RLCA);  REG_A = (REG_A << 1) | (REG_A >> 7); gb->flags = 0; gb->f_c = (REG_A & 1); 
+#define RRCA    OP(RRCA);  gb->flags = 0; gb->f_c = (REG_A & 1); REG_A = (REG_A >> 1) | (REG_A << 7); 
 
 #define RLC     OP(RLC); {\
     uint8_t tmp = *reg1;\

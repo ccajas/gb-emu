@@ -208,15 +208,7 @@ const int8_t opTicks[256] = {
 
 void gb_cpu_exec (struct GB * gb, const uint8_t op)
 {
-    const uint8_t opL = op & 0xf;
-    const uint8_t opHh = op >> 3; /* Octal divisions */
-
-    /* Define register groups organized by opcode menmonic */
-    uint8_t * r8_g[] = {
-        &REG_B, &REG_C, &REG_D, &REG_E, &REG_H, &REG_L, &R_FLAGS, &REG_A };
-
-    /* Default values for operands (can be overridden for other opcodes) */
-    uint8_t * reg2 = r8_g[opL & 7];
+    /* Copied value for operands (can be overridden for other opcodes) */
     uint8_t tmp = REG_A;
 
     /* HALT bug skips PC increment, essentially rollback one byte */
@@ -232,34 +224,59 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         case 0x0:  NOP     break;
         /* 16-bit load, arithmetic instructions */
         OP_r16_g1 (0x01, LDrr)
-        OP_r16_g2 (0x02, LDrrmA)
         OP_r16_g1 (0x03, INCrr)
         OP_r16_g1 (0x09, ADHLrr)
         OP_r16_g1 (0x0B, DECrr)
+        case 0x08: LDmSP   break;
+        /* 8-bit load instructions */
+        OP_r16_g2 (0x02, LDrrmA)
+        OP_r16_g2 (0x0A, LDArrm)
         /* Increment, decrement, LD r8,n  */
         OP_r8_g (0x04, INC, 0)
-        case 0x34: OP(INC) CPU_WB (REG_HL, tmp = CPU_RB (REG_HL) + 1); INC(tmp) break;
         OP_r8_g (0x05, DEC, 0)
-        case 0x35: OP(DEC) CPU_WB (REG_HL, tmp = CPU_RB (REG_HL) - 1); DEC(tmp) break;
         OP_r8_g (0x06, LDrm, 0)
-        case 0x36: OP(LDHLm); CPU_WB (REG_HL, CPU_RB_PC); break;
+        case 0x34: 
+            OP(INC) CPU_WB (REG_HL, tmp = CPU_RB (REG_HL) + 1); INC(tmp) break;
+        case 0x35: 
+            OP(DEC) CPU_WB (REG_HL, tmp = CPU_RB (REG_HL) - 1); DEC(tmp) break;
+        case 0x36: 
+            OP(LDHLm); CPU_WB (REG_HL, CPU_RB_PC); break;
         /* Opcode group 1 */
         case 0x07: RLCA    break; 
         case 0x17: RLA     break;
         case 0x27: DAA     break;
         case 0x37: SCF     break; 
-        
-        case 0x08: LDmSP   break;
-        OP_r16_g2 (0x0A, LDArrm)
-        
+        /* STOP and relative jump to nn */
         case 0x10: STOP    break;
         case 0x18: JRm     break; 
-        
         /* Opcode group 2 */
         case 0x0F: RRCA    break; 
         case 0x1F: RRA     break; 
         case 0x2F: CPL     break; 
         case 0x3F: CCF     break;
+        /* 8-bit load, LD or LDrHL */
+        LD_OPS
+        /* 8-bit load, LDHLr */ 
+        OP_r8(0x70, LD_HL, 0)
+        /* HALT */
+        case 0x76: 
+            OP(HALT);
+            if (!gb->ime) {
+                if (gb->io[IntrEnabled] && gb->io[IntrFlags] & IF_Any) gb->pcInc = 0; 
+                else gb->halted = 1;
+            } else {
+                gb->halted = 1;
+            }
+        break;
+        /* 8-bit arithmetic */
+        OP_r8_hl (0x80, ADD, 0)
+        OP_r8_hl (0x88, ADC, 0)
+        OP_r8_hl (0x90, SUB, 0)
+        OP_r8_hl (0x98, SBC, 0)
+        OP_r8_hl (0xA0, AND, 0)
+        OP_r8_hl (0xA8, XOR, 0)
+        OP_r8_hl (0xB0, OR, 0)
+        OP_r8_hl (0xB8, CP, 0)
         /* ... */
         case 0xC3: JPNN    break; case 0xC6: ADDm    break;
         case 0xC9: RET     break; 
@@ -287,23 +304,10 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         case 0xD2:   case 0xDA: JP_(cond)   break;
         case 0xC4:   case 0xCC:
         case 0xD4:   case 0xDC: CALL_(cond) break;
+        /* Call routines at addresses 0x00 to 0x38 */
         case 0xC7:   case 0xCF:   case 0xD7:
         case 0xDF:   case 0xE7:   case 0xEF:
-        case 0xF7:   case 0xFF: RST         break;
-        /* 8-bit load, LD or LDrHL */
-        LD_OPS
-        /* 8-bit load, LDHLr */ 
-        OP_r8(0x70, LD_HL, 0)
-        /* HALT */
-        case 0x76: 
-            OP(HALT);
-            if (!gb->ime) {
-                if (gb->io[IntrEnabled] && gb->io[IntrFlags] & IF_Any) gb->pcInc = 0; 
-                else gb->halted = 1;
-            } else {
-                gb->halted = 1;
-            }
-        break;
+        case 0xF7:   case 0xFF:   RST  break;
         /* 16-bit push and pop */
         OP_r16_g3 (0xC1, POPrr)
         OP_r16_g3 (0xC5, PUSHrr)
@@ -312,18 +316,6 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
             gb_exec_cb (gb, CPU_RB (gb->pc++));
         break;
         default: INVALID;
-    }
-    /* 8-bit arithmetic */
-    switch (op & 0xF8) 
-    {
-        case 0x80: OPR_2_(ADD_A_r8, ADD_A_HL) break;
-        case 0x88: OPR_2_(ADC_A_r8, ADC_A_HL) break;
-        case 0x90: OPR_2_(SUB_A_r8, SUB_A_HL) break;
-        case 0x98: OPR_2_(SBC_A_r8, SBC_A_HL) break;
-        case 0xA0: OPR_2_(AND_A_r8, AND_A_HL) break;
-        case 0xA8: OPR_2_(XOR_A_r8, XOR_A_HL) break;
-        case 0xB0: OPR_2_(OR_A_r8,  OR_A_HL ) break;
-        case 0xB8: OPR_2_(CP_A_r8,  CP_A_HL ) break;
     }
 
     gb->rm += opTicks[op];
