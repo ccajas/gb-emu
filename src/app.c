@@ -117,6 +117,8 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
     app->fullScreen = 0;
     app->paused = 1;
     app->debug = app->step = 0;
+    /* Frameskip (for 30 FPS) */
+    app->gb.extData.frameSkip = 0;
 }
 
 void app_init (struct App * app)

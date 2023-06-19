@@ -642,7 +642,7 @@ static inline void gb_transfer (struct GB * gb)
     if (IO_STAT_MODE != Stat_Transfer)
     {
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
-        if (gb->frame || !LCDC_(LCD_Enable)) return;
+        if ((gb->frame && gb->extData.frameSkip) || !LCDC_(LCD_Enable)) return;
         /* Fetch line of pixels for the screen and draw them */
         uint8_t * pixels = gb_pixel_fetch (gb);
         gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);

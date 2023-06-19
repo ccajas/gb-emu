@@ -115,6 +115,7 @@ struct GB
     {
         /* Joypad button inputs */
         uint8_t joypad;
+        uint8_t frameSkip : 1;
         void * ptr;
     }
     extData;
