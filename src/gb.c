@@ -528,7 +528,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
 
             const uint8_t posX = (isWindow) ? lineX : lineX + gb->io[ScrollX];
             const uint8_t posY = (isWindow) ? gb->windowLY - gb->io[WindowY] : lineY + gb->io[ScrollY];
-            uint8_t relX = (isWindow) ? gb->io[WindowX] - 7 + (lineX % 8) : posX % 8;
+            uint8_t relX = (isWindow) ? (lineX - gb->io[WindowX] + 7) % 8 : posX % 8;
 
             /* Get next tile to be drawn */
             if (lineX == 0 || relX == 0)
