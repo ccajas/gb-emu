@@ -235,12 +235,6 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         OP_r8_g (0x04, INC, 0)
         OP_r8_g (0x05, DEC, 0)
         OP_r8_g (0x06, LDrm, 0)
-        case 0x34: 
-            OP(INC) CPU_WB (REG_HL, tmp = CPU_RB (REG_HL) + 1); INC(tmp) break;
-        case 0x35: 
-            OP(DEC) CPU_WB (REG_HL, tmp = CPU_RB (REG_HL) - 1); DEC(tmp) break;
-        case 0x36: 
-            OP(LDHLm); CPU_WB (REG_HL, CPU_RB_PC); break;
         /* Opcode group 1 */
         case 0x07: RLCA    break; 
         case 0x17: RLA     break;
@@ -262,8 +256,10 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         case 0x76: 
             OP(HALT);
             if (!gb->ime) {
-                if (gb->io[IntrEnabled] && gb->io[IntrFlags] & IF_Any) gb->pcInc = 0; 
-                else gb->halted = 1;
+                if (gb->io[IntrEnabled] && gb->io[IntrFlags] & IF_Any) 
+                    gb->pcInc = 0; 
+                else 
+                    gb->halted = 1;
             } else {
                 gb->halted = 1;
             }
