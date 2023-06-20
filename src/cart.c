@@ -203,7 +203,8 @@ void cart_identify (struct Cartridge * cart)
 
     cart->ram = (cart->ramSizeKB > 0);
     cart->romMask = (1 << (header[0x48] + 1)) - 1;
-    cart->bank1st = 1;
+    cart->usingRAM = 0;
+    cart->bank1st = 0;
     cart->bank2nd = 0;
     cart->mode = 0;
 }

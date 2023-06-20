@@ -163,8 +163,11 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
     {
         if (!(gb->io[Joypad] & 0x10))   /* Direction buttons */
             gb->io[Joypad] |= (gb->extData.joypad & 0xF);
-        if (!(gb->io[Joypad] & 0x20))   /* Action buttons    */
+        else                            /* Action buttons    */
             gb->io[Joypad] |= (gb->extData.joypad >> 4);
+
+        if (!(gb->io[Joypad] & 0xF))
+            LOG_("GB: Joypad reset detected!\n");
         return gb->io[Joypad];
     }
     else { /* Set only bits 5 and 6 for selecting action/direction */
@@ -239,6 +242,8 @@ static inline void gb_frame (struct GB * gb)
 
         if (lastClock > gb->frameClock) frameDone = 1;
     }
+    LOG_("\rCPU PC at: $%04X", gb->pc);
+
     /* Indicates odd or even frame */
     gb->frame = 1 - gb->frame;
     gb->totalFrames++;
