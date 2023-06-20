@@ -553,7 +553,7 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
             const uint8_t bitHi = (byteHi >> (7 - relX)) & 1;
             const uint8_t bgIndex = (bitHi << 1) + bitLo;
             /* Add 4 (set bit 2) to denote background pixel */
-            pixels[lineX] = ((gb->io[BGPalette] >> (bgIndex << 1)) & 3) | ((isWindow) ? 0 : PIXEL_BG);
+            pixels[lineX] = ((gb->io[BGPalette] >> (bgIndex << 1)) & 3);// | ((isWindow) ? 0 : PIXEL_BG);
         }
 
         /* Draw sprites */
@@ -592,19 +592,16 @@ static inline uint8_t * gb_pixel_fetch (const struct GB * gb)
                     /* Produce pixel data from the combined bytes*/
                     const uint8_t bitLo = (byteLo >> (relX & 7)) & 1;
                     const uint8_t bitHi = (byteHi >> (relX & 7)) & 1;
-                    const uint8_t objIndex = (bitHi << 1) + bitLo;
+                    const uint8_t palIndex = (bitHi << 1) + bitLo;
 
-                    if (objIndex == 0) continue;
-                    if (gb->oam[s + 3] & 0x80 && pixels[lineX] & 0x3) continue;
+                    if (palIndex == 0) continue;
+                    if ((gb->oam[s + 3] & 0x80) && (pixels[lineX] & 0x3) > 0) continue;
 
-                    const uint8_t palette = OBJPalette0 + !!(gb->oam[s + 3] & 0x10);
-                    pixels[lineX] = ((gb->io[palette] >> (objIndex << 1)) & 3) | PIXEL_OBJ1;
+                    const uint8_t palette = OBJPalette0 + ((gb->oam[s + 3] & 0x10) ? 1 : 0);
+                    pixels[lineX] = ((gb->io[palette] >> (palIndex * 2)) & 3) | PIXEL_OBJ1;
                 }
             }
         }
-
-        /* Leave prematurely if window is disabled */
-        //if (!LCDC_(5)) return pixels;
     }
 
     return pixels;
@@ -660,7 +657,7 @@ static inline void gb_eval_LYC (struct GB * const gb)
         if (STAT_(IR_LYC)) gb->io[IntrFlags] |= IF_LCD_STAT;
     }
     else /* Unset the flag */
-        gb->io[LCDStatus] &= ~(1 << LYC_LY);
+        gb->io[LCDStatus] &= 0xFB;// &= ~(1 << LYC_LY);
 }
 
 static inline void gb_vblank (struct GB * const gb) 
