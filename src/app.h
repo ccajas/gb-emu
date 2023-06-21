@@ -35,6 +35,7 @@ struct App
     uint8_t fullScreen : 1;
 
     char defaultFile[256];
+    char debugString[64];
 
     /* Container for GB emulation data */
     struct gb_data

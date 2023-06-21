@@ -9,7 +9,10 @@
 /* GLFW callback functions */
 #ifdef USE_GLFW
 
-void error_callback(int error, const char* description)
+/* Forward declaration to resize window */
+void app_resize_window (GLFWwindow * window, const uint8_t, const uint8_t scale);
+
+void error_callback (int error, const char* description)
 {
     fprintf(stderr, "Error (%d): %s\n", error, description);
 }
@@ -40,15 +43,17 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
     if (key == GLFW_KEY_T && action == GLFW_PRESS) app->step = 1;
 
     /* Toggle debug */
-    if (key == GLFW_KEY_B && action == GLFW_PRESS) app->debug = !app->debug;
+    if (key == GLFW_KEY_B && action == GLFW_PRESS) 
+    {
+        app->debug = !app->debug;
+        app_resize_window (window, app->debug, 1);
+    }
     
     /* Toggle window size (scale) */
     if (key == GLFW_KEY_G && action == GLFW_PRESS)
     {
         app->scale += (app->scale == 6) ? -5 : 1;
-        glfwSetWindowSize(window, 
-            app->gbData.frameBuffer.width * app->scale,
-            app->gbData.frameBuffer.height * app->scale);
+        app_resize_window (window, app->debug, app->scale);
     }
 
     const uint8_t totalPalettes = (sizeof(palettes) / sizeof(palettes[0]));
@@ -80,6 +85,18 @@ void framebuffer_size_callback (GLFWwindow * window, int width, int height)
     /* make sure the viewport matches the new window dimensions; note that width and 
        height will be significantly larger than specified on retina displays. */
     glViewport(0, 0, width, height);
+}
+
+void app_resize_window (GLFWwindow * window, const uint8_t debug, const uint8_t scale)
+{
+    struct Texture newWindow;
+    glfwGetWindowSize (window, (int*) &newWindow.width, (int*) &newWindow.height);
+    LOG_("Window size: %d %d\n", newWindow.width, newWindow.height);
+
+    /* Resize accordingly if in debug mode */
+    uint16_t extraWidth = (debug) ? 480 : 0;
+    glfwSetWindowSize (window, 
+        newWindow.width * scale + extraWidth, newWindow.height * scale);
 }
 
 void drop_callback(GLFWwindow * window, int count, const char** paths)
@@ -118,7 +135,7 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
     app->paused = 1;
     app->debug = app->step = 0;
     /* Frameskip (for 30 FPS) */
-    app->gb.extData.frameSkip = 0;
+    app->gb.extData.frameSkip = 1;
 }
 
 void app_init (struct App * app)
@@ -312,6 +329,9 @@ void app_draw (struct App * app)
     app->image = &app->gbData.tileMap;
     const uint16_t w = app->gbData.frameBuffer.width  * app->scale;
     //const uint16_t h = app->gbData.frameBuffer.height * app->scale;
+        render_text (font8x8_basic, 
+            app->debugString, app->gbData.frameBuffer.width, 
+            app->gbData.frameBuffer.imgData);
 
     set_shader  (&app->display, &app->display.fbufferShader);
     set_texture (&app->display, &app->display.fbufferTexture);
@@ -320,12 +340,11 @@ void app_draw (struct App * app)
     if (app->debug)
     {
         debug_dump_tiles (&app->gb, app->gbData.tileMap.imgData);
-        render_text (font8x8_basic, "Hello World!", app->gbData.tileMap.imgData);
 
         set_shader (&app->display, &app->display.debugShader);
         set_texture (&app->display, &app->display.debugTexture);
         if (gb_rom_loaded(&app->gb))
-            draw_quad (app->window, &app->display, app->image, w - 128, 0, 1);
+            draw_quad (app->window, &app->display, app->image, w, 0, 2);
     }
 }
 #endif
@@ -353,7 +372,6 @@ void app_run (struct App * app)
             if ((current - lastUpdate) < FPS_LIMIT) continue;
 
             //printf("\rFPS: %f", 1.0 / (current - lastUpdate));
-
             glfwMakeContextCurrent (app->window);
             draw_begin (app->window, &app->display);
 
@@ -365,6 +383,8 @@ void app_run (struct App * app)
                     gb_frame (&app->gb);
                     totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
                     frames++;
+                    totalSeconds = (float) frames / 60.0;
+                    sprintf(app->debugString, "Perf: %0.2fx", totalSeconds / totalTime);
                 }
             }
             app_draw (app);

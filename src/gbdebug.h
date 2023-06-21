@@ -105,7 +105,8 @@ static const char font8x8_basic[96][8] = {
     { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}    // U+007F
 };
 
-static inline void render_text (const char textmap[][8], const char * text, uint8_t * pixelData) 
+static inline void render_text (const char textmap[][8], const char * text,
+    const uint16_t width, uint8_t * pixelData) 
 {
     uint16_t x,y;
     uint16_t set;
@@ -115,8 +116,6 @@ static inline void render_text (const char textmap[][8], const char * text, uint
     uint8_t t = 0;
     while (*(text + t) != '\0')
     {
-        //if (*(text + t) == '\0') return;
-
         const uint8_t ord = ((uint8_t) *(text + t)) - 32;
         const char * bitmap = textmap[ord];
 
@@ -125,13 +124,11 @@ static inline void render_text (const char textmap[][8], const char * text, uint
 
         for (x = 0; x < 8; x++) 
         {
-            const uint16_t yOffset = x * 128;
+            const uint16_t yOffset = x * width;
 
             for (y = 0; y < 8; y++) 
             {
                 set = bitmap[x] & 1 << y;
-                //printf("%c", set ? 'X' : ' ');
-
                 const uint32_t idx = (yOffset + tileXoffset + y) * 3;
 
                 pixelData[idx] = 0;
