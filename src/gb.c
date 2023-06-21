@@ -637,76 +637,67 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 	/* If background is enabled, draw it. */
 	if(LCDC_(BG_Win_Enable)) //->io[IO_LCDC] & LCDC_BG_ENABLE)
 	{
-		uint8_t lineX, posY, posX, tileID, px, t1, t2;
-		uint16_t tile;
+		uint8_t lineX, posX, tileID, px, rowLSB, rowMSB;
+		uint16_t bg_map, tileRow;
 
-		/* Calculate current background line to draw. Constant because
-		 * this function draws only this one line each time it is
-		 * called. */
-		posY = gb->io[LY] + gb->io[ScrollY];
+		/* Calculate current background line to draw */
+		const uint8_t posY = gb->io[LY] + gb->io[ScrollY];
 
         /* BG tile fetcher gets tile ID. Bits 0-4 define X loction, bits 5-9 define Y location
          * All related calculations following are found here:
          * https://github.com/ISSOtm/pandocs/blob/rendering-internals/src/Rendering_Internals.md */
 
 		/* Get selected background map address for first tile
-		 * corresponding to current line.
-		 * 0x20 (32) is the width of a background tile, and the bit
-		 * shift is to calculate the address. */
-        const uint16_t BGTileMap =
-            (LCDC_(BG_Area)) ? 0x9C00 : 0x9800 + ((posY >> 3) << 5);
+		 * corresponding to current line  */
+		bg_map =
+			((LCDC_(BG_Area)) ? 0x9C00 : 0x9800)
+			+ (posY >> 3) * 0x20;
 
-		/* The displays (what the player sees) X coordinate, drawn right
-		 * to left. */
 		lineX = DISPLAY_WIDTH - 1;
-		const uint8_t py = (posY & 7);
-#ifdef FETCH_FIRST
-		/* The X coordinate to begin drawing the background at */
+
+		/* Fetch first tile */
 		posX = lineX + gb->io[ScrollX];
-		/* X and Y coordinates of tile pixel to draw */
+		tileID = gb->vram[(bg_map & 0x1FFF) + (posX >> 3)];
 		px = 7 - (posX & 7);
-		/* Get tile index for current background tile */
-		tileID = gb->vram[(BGTileMap & 0x1FFF) + (posX >> 3)];
 
 		/* Select addressing mode */
         const uint16_t bit12 = !(LCDC_(BG_Win_Data) || (tileID & 0x80)) << 12;
-        tile = bit12 + (tileID << 4) + (py << 1);
+        tileRow = bit12 + (tileID << 4) + ((posY & 7) << 1);
 
-		/* fetch tile */
-		t1 = gb->vram[tile] >> px;
-		t2 = gb->vram[tile + 1] >> px;
-#endif
+		rowLSB = gb->vram[tileRow] >> px;
+		rowMSB = gb->vram[tileRow + 1] >> px;
+
 		for(; lineX != 0xFF; lineX--)
 		{
-			uint8_t c;
+			uint8_t palIndex;
 
-			if (px == 8 || lineX == DISPLAY_WIDTH - 1)
+			if(px == 8)
 			{
+				/* fetch next tile */
 				posX = lineX + gb->io[ScrollX];
-				px = (lineX == DISPLAY_WIDTH - 1) ? 7 - (posX & 7) : 0;
-				tileID = gb->vram[(BGTileMap & 0x1FFF) + (posX >> 3)];
+				tileID = gb->vram[(bg_map & 0x1FFF) + (posX >> 3)];
+				px = 0;
 
 		        /* Select addressing mode */
                 const uint16_t bit12 = !(LCDC_(BG_Win_Data) || (tileID & 0x80)) << 12;
-                tile = bit12 + (tileID << 4) + (py << 1);
+                tileRow = bit12 + (tileID << 4) + ((posY & 7) << 1);
 
-		        /* Fetch tile */
-				t1 = gb->vram[tile] >> px;
-				t2 = gb->vram[tile + 1] >> px;
+				rowLSB = gb->vram[tileRow];
+				rowMSB = gb->vram[tileRow + 1];
 			}
 
 			/* Get background color */
-			c = (t1 & 0x1) | ((t2 & 0x1) << 1);
-			pixels[lineX] = ((gb->io[BGPalette] >> (c << 1)) & 3);
+			palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
+			pixels[lineX] = ((gb->io[BGPalette] >> (palIndex << 1)) & 3);
 
-			t1 = t1 >> 1;
-			t2 = t2 >> 1;
+			rowLSB = rowLSB >> 1;
+			rowMSB = rowMSB >> 1;
 			px++;
 		}
 	}
 
 	/* draw window */
-	if(LCDC_(Window_Enable) && gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
+	if (!1 || (LCDC_(Window_Enable) && gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166))
 	{
 		uint8_t lineX, win_x, py, px, tileID, rowLSB, rowMSB, end;
 		uint16_t WinTileMap, tile;
