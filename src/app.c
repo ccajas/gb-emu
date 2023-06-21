@@ -313,13 +313,15 @@ void app_draw (struct App * app)
     const uint16_t w = app->gbData.frameBuffer.width  * app->scale;
     //const uint16_t h = app->gbData.frameBuffer.height * app->scale;
 
-    set_shader (&app->display, &app->display.fbufferShader);
+    set_shader  (&app->display, &app->display.fbufferShader);
     set_texture (&app->display, &app->display.fbufferTexture);
     draw_quad (app->window, &app->display, &app->gbData.frameBuffer, 0, 0, app->scale);
 
     if (app->debug)
     {
         debug_dump_tiles (&app->gb, app->gbData.tileMap.imgData);
+        render_text (font8x8_basic, "Hello World!", app->gbData.tileMap.imgData);
+
         set_shader (&app->display, &app->display.debugShader);
         set_texture (&app->display, &app->display.debugTexture);
         if (gb_rom_loaded(&app->gb))
@@ -350,7 +352,7 @@ void app_run (struct App * app)
 
             if ((current - lastUpdate) < FPS_LIMIT) continue;
 
-            printf("\rFPS: %f", 1.0 / (current - lastUpdate));
+            //printf("\rFPS: %f", 1.0 / (current - lastUpdate));
 
             glfwMakeContextCurrent (app->window);
             draw_begin (app->window, &app->display);
