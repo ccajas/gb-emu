@@ -70,6 +70,7 @@ static inline void draw_begin (GLFWwindow * window, Scene * const scene)
     glUseProgram(scene->debugShader.program);
 }
 
+/* Draw a textured quad on the display */
 static inline void draw_quad (GLFWwindow * window, Scene * const scene, 
     struct Texture * const pixels, 
     const int xpos, const int ypos, const float scale)
@@ -89,7 +90,7 @@ static inline void draw_quad (GLFWwindow * window, Scene * const scene,
     mat4x4_translate (model, xpos, height - (pixels->height * scale) - ypos, 0);
     mat4x4_scale_aniso (model, model, pixels->width * scale, pixels->height * scale, 1.0f);
 
-    glUniform2f (glGetUniformLocation(scene->activeShader->program, "screenSize"), (GLfloat) (width / scale), (GLfloat) (height / scale));
+    glUniform2f (glGetUniformLocation(scene->activeShader->program, "screenSize"), (GLfloat) pixels->width, (GLfloat) pixels->height);
     glUniformMatrix4fv (glGetUniformLocation(scene->activeShader->program, "model"),      1, GL_FALSE, (const GLfloat*) model);
     glUniformMatrix4fv (glGetUniformLocation(scene->activeShader->program, "projection"), 1, GL_FALSE, (const GLfloat*) projection);
 
