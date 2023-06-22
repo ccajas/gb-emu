@@ -30,6 +30,9 @@ struct App
     uint8_t draw, paused, step;
     uint8_t debug;
 
+    /* Used for KB input */
+    uint16_t GBkeys[8];
+
     /* Cosmetic options */
     uint8_t scale;
     uint8_t fullScreen : 1;

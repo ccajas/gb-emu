@@ -1,4 +1,5 @@
 #include <string.h>
+#include <sys/time.h>
 #include <time.h>
 #include "app.h"
 #include "palettes.h"
@@ -21,32 +22,21 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
 {
     struct App * app = glfwGetWindowUserPointer (window);
 
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-        glfwSetWindowShouldClose (window, GLFW_TRUE);
-
-    /* Setup game controls - buttons are assigned in this order: Right, left, Up, Down, A, B, Select, Start */
-    const uint16_t GBkeys[8] = { 
-        GLFW_KEY_D, GLFW_KEY_A, GLFW_KEY_W, GLFW_KEY_S, 
-        GLFW_KEY_J, GLFW_KEY_K, GLFW_KEY_L, GLFW_KEY_M
-    };
     uint8_t k;
     for (k = 0; k < 8; k++) {
-        if (key == GBkeys[k] && action == GLFW_PRESS)   app->gb.extData.joypad &= ~(1 << k);
-        if (key == GBkeys[k] && action == GLFW_RELEASE) app->gb.extData.joypad |= (1 << k);
+        if (key == app->GBkeys[k] && action == GLFW_PRESS)   app->gb.extData.joypad &= ~(1 << k);
+        if (key == app->GBkeys[k] && action == GLFW_RELEASE) app->gb.extData.joypad |= (1 << k);
     }
 
     /* Pause emulation */
     if (key == GLFW_KEY_P && action == GLFW_PRESS) 
         if (gb_rom_loaded(&app->gb)) app->paused = !app->paused;
 
-    /* Step one instruction */
-    if (key == GLFW_KEY_T && action == GLFW_PRESS) app->step = 1;
-
     /* Toggle debug */
     if (key == GLFW_KEY_B && action == GLFW_PRESS) 
     {
         app->debug = !app->debug;
-        app_resize_window (window, app->debug, 1);
+        app_resize_window (window, app->debug, app->scale);
     }
     
     /* Toggle window size (scale) */
@@ -58,13 +48,8 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
 
     const uint8_t totalPalettes = (sizeof(palettes) / sizeof(palettes[0]));
     /* Switch palettes */
-    if (key == GLFW_KEY_O && action == GLFW_PRESS) {
-        app->gbData.paletteBG  = (app->gbData.paletteBG  + 1) % totalPalettes;
-        app->gbData.paletteOBJ = (app->gbData.paletteOBJ + 1) % totalPalettes;
-    }
-
-    if (key == GLFW_KEY_I && action == GLFW_PRESS)
-        app->gbData.paletteOBJ = (app->gbData.paletteOBJ + 1) % totalPalettes;
+    if (key == GLFW_KEY_O && action == GLFW_PRESS)
+        app->gbData.paletteBG = (app->gbData.paletteBG  + 1) % totalPalettes;
 
     /* Reset game */
     if (key == GLFW_KEY_R && action == GLFW_PRESS)
@@ -75,9 +60,6 @@ void joystick_callback(int joystickID, int event)
 {
     if (event == GLFW_CONNECTED)
         LOG_("Joystick connected.\n");
-
-    else if (event == GLFW_DISCONNECTED)
-        LOG_("Joystick diconnected.\n");
 }
 
 void framebuffer_size_callback (GLFWwindow * window, int width, int height)
@@ -89,14 +71,12 @@ void framebuffer_size_callback (GLFWwindow * window, int width, int height)
 
 void app_resize_window (GLFWwindow * window, const uint8_t debug, const uint8_t scale)
 {
-    struct Texture newWindow;
-    glfwGetWindowSize (window, (int*) &newWindow.width, (int*) &newWindow.height);
-    LOG_("Window size: %d %d\n", newWindow.width, newWindow.height);
-
-    /* Resize accordingly if in debug mode */
-    uint16_t extraWidth = (debug) ? 480 : 0;
-    glfwSetWindowSize (window, 
-        newWindow.width * scale + extraWidth, newWindow.height * scale);
+    /* Resize accordingly if in debug mode. In non-debug it is always a 160x144 (scaled) window */
+    struct Texture newWindow = { 
+        .width = DISPLAY_WIDTH * scale + ((debug) ? 480 : 0), 
+        .height = DISPLAY_HEIGHT * scale 
+    };
+    glfwSetWindowSize (window, newWindow.width, newWindow.height);
 }
 
 void drop_callback(GLFWwindow * window, int count, const char** paths)
@@ -134,8 +114,14 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
     app->fullScreen = 0;
     app->paused = 1;
     app->debug = app->step = 0;
+    /* Setup game controls - buttons are assigned in this order: Right, left, Up, Down, A, B, Select, Start */
+    const uint16_t GBkeys[8] = { 
+        GLFW_KEY_D, GLFW_KEY_A, GLFW_KEY_W, GLFW_KEY_S, 
+        GLFW_KEY_J, GLFW_KEY_K, GLFW_KEY_L, GLFW_KEY_M
+    };
+    memcpy(&app->GBkeys, GBkeys, sizeof(uint16_t) * 8);
     /* Frameskip (for 30 FPS) */
-    app->gb.extData.frameSkip = 1;
+    app->gb.extData.frameSkip = 0;
 }
 
 void app_init (struct App * app)
@@ -149,22 +135,16 @@ void app_init (struct App * app)
         .paletteBG = 0,
         .paletteOBJ = 0,
         .pixelTint = 0,
-#ifdef USE_GLFW
         .tileMap = {
-            .width = 128,
-            .height = 192,
-            .imgData = calloc (128 * 192 * 3, sizeof(uint8_t))
+            .width = 240,
+            .height = 432,
+            .imgData = calloc (240 * 432 * 3, sizeof(uint8_t))
         },
         .frameBuffer = {
             .width = DISPLAY_WIDTH,
             .height = DISPLAY_HEIGHT,
             .imgData = calloc (DISPLAY_WIDTH * DISPLAY_HEIGHT * 3, sizeof(uint8_t))
         }
-#endif
-#ifdef USE_TIGR
-        .tileMap = tigrBitmap (128, 128),
-        .frameBuffer = tigrBitmap (DISPLAY_WIDTH, DISPLAY_HEIGHT)
-#endif
     };
 
     /* Handle file loading */
@@ -180,10 +160,7 @@ void app_init (struct App * app)
         }
         else app->defaultFile[0] = '\0';
     }
-#ifdef USE_TIGR
-    app->screen = tigrWindow(DISPLAY_WIDTH * app->scale, DISPLAY_HEIGHT * app->scale, "GB Emu", TIGR_FIXED);
-#endif
-#ifdef USE_GLFW
+
     /* Objects for drawing */
     Scene newDisplay = { .bgColor = { 173, 175, 186 }};
     app->display = newDisplay;
@@ -229,7 +206,6 @@ void app_init (struct App * app)
         graphics_init (&app->display);
         app->window = window;
     }
-#endif
 }
 
 uint8_t * app_load (struct GB * gb, const char * fileName)
@@ -239,13 +215,11 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
     FILE * f = fopen (fileName, "rb");
 
     uint8_t * rom = NULL;
-    if (!f)
-    {
+    if (!f) {
         LOG_("Failed to load file \"%s\"\n", fileName);
         return NULL;
     }
-    else
-    {
+    else {
         LOG_("Attempting to seek file \"%s\"\n", fileName);
         fseek (f, 0, SEEK_END);
         uint32_t size = ftell(f);
@@ -278,28 +252,6 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
     return rom;
 }
 
-#ifdef USE_GLFW
-void app_read_gamepad (struct App * app)
-{
-    GLFWgamepadstate state;
- 
-    if (glfwGetGamepadState(GLFW_JOYSTICK_1, &state))
-    {
-        LOG_("Gamepad State: ");
-        uint8_t i;
-        for (i = 0; i < sizeof(state.buttons); i++)
-            LOG_("%d ", state.buttons[i]);
-        LOG_("\n");
-
-        if (state.buttons[GLFW_GAMEPAD_BUTTON_A])
-        {
-            
-        }
-    }
-}
-
-#define LERP_(v0, v1, t)   ((1 - t) * v0 + t * v1)
-
 void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 {
     struct gb_data * const data = dataPtr;
@@ -312,9 +264,7 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 	{
         /* Get color and palette to use it with */
 		const uint8_t idx = (3 - *pixels++) & 3;
-        //const uint8_t pal = ((*pixels++ & 0xC) == 4) ? data->paletteBG : data->paletteOBJ;
         const uint8_t * pixel = palettes[data->paletteBG].colors[idx];
-        //const float lerp = (pal == 1) ? (float)data->pixelTint / 255 : 0;
 
         coloredPixels[x * 3]     = pixel[0];
         coloredPixels[x * 3 + 1] = pixel[1];
@@ -322,16 +272,21 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 	}
     memcpy (data->frameBuffer.imgData + yOffset, coloredPixels, DISPLAY_WIDTH * 3);
 }
+/*
+void app_display_perf()
+{
+    totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
+    frames++;
+    float totalSeconds = (float) frames / 60.0;
+    sprintf(app->debugString, "Perf: %0.2fx", totalSeconds / totalTime);
+}
+*/
 
 void app_draw (struct App * app)
 {
     /* Select image to display */
     app->image = &app->gbData.tileMap;
     const uint16_t w = app->gbData.frameBuffer.width  * app->scale;
-    //const uint16_t h = app->gbData.frameBuffer.height * app->scale;
-        render_text (font8x8_basic, 
-            app->debugString, app->gbData.frameBuffer.width, 
-            app->gbData.frameBuffer.imgData);
 
     set_shader  (&app->display, &app->display.fbufferShader);
     set_texture (&app->display, &app->display.fbufferTexture);
@@ -340,14 +295,15 @@ void app_draw (struct App * app)
     if (app->debug)
     {
         debug_dump_tiles (&app->gb, app->gbData.tileMap.imgData);
-
+        render_text (font8x8_basic, 
+            app->debugString, app->gbData.tileMap.width, 
+            app->gbData.tileMap.imgData);
         set_shader (&app->display, &app->display.debugShader);
         set_texture (&app->display, &app->display.debugTexture);
         if (gb_rom_loaded(&app->gb))
             draw_quad (app->window, &app->display, app->image, w, 0, 2);
     }
 }
-#endif
 
 void app_run (struct App * app)
 {
@@ -357,16 +313,13 @@ void app_run (struct App * app)
     uint32_t frames = 0;
 
     const int32_t totalFrames = 60;
-    float totalSeconds = (float) totalFrames / 60.0;
 
     if (app->draw)
     {
-#ifdef USE_GLFW
         double lastUpdate = 0;
         while (!glfwWindowShouldClose (app->window))
         {
             double current = glfwGetTime();
-            app_read_gamepad(app);
             glfwPollEvents();
 
             if ((current - lastUpdate) < FPS_LIMIT) continue;
@@ -383,7 +336,7 @@ void app_run (struct App * app)
                     gb_frame (&app->gb);
                     totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
                     frames++;
-                    totalSeconds = (float) frames / 60.0;
+                    double totalSeconds = (float) frames / 59.7275;
                     sprintf(app->debugString, "Perf: %0.2fx", totalSeconds / totalTime);
                 }
             }
@@ -391,7 +344,6 @@ void app_run (struct App * app)
             glfwSwapBuffers (app->window);
             lastUpdate = current;
         }
-#endif
     }
     else
     {
@@ -404,7 +356,7 @@ void app_run (struct App * app)
         }
     }
 
-    totalSeconds = (float) frames / 60.0;
+    float totalSeconds = (float) frames / 60.0;
 
     free (app->gb.cart.romData);
     free (app->gb.cart.ramData);
@@ -414,20 +366,10 @@ void app_run (struct App * app)
     LOG_("For each second, there is on average %.2f milliseconds free for overhead.\n",
         1000 - (1.0f / (totalSeconds / totalTime) * 1000));
 
-#ifdef USE_GLFW
     if (app->draw)
     {
         glfwDestroyWindow (app->window);
         glfwTerminate();
         exit (EXIT_SUCCESS);
     }
-#endif
-#ifdef USE_TIGR
-        while (!tigrClosed(app->screen))
-        {
-            tigrClear (app->screen, tigrRGB(0x80, 0x90, 0xa0));
-            app_draw (app);
-        }
-        tigrFree (app->screen);
-#endif
 }
