@@ -272,15 +272,6 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 	}
     memcpy (data->frameBuffer.imgData + yOffset, coloredPixels, DISPLAY_WIDTH * 3);
 }
-/*
-void app_display_perf()
-{
-    totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
-    frames++;
-    float totalSeconds = (float) frames / 60.0;
-    sprintf(app->debugString, "Perf: %0.2fx", totalSeconds / totalTime);
-}
-*/
 
 void app_draw (struct App * app)
 {
@@ -336,8 +327,8 @@ void app_run (struct App * app)
                     gb_frame (&app->gb);
                     totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
                     frames++;
-                    double totalSeconds = (float) frames / 59.7275;
-                    sprintf(app->debugString, "Perf: %0.2fx", totalSeconds / totalTime);
+                    if (frames % 30 == 29)
+                        sprintf(app->debugString, "Perf: %0.2fx", (double)(frames / 59.7275) / totalTime);
                 }
             }
             app_draw (app);
