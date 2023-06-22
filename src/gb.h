@@ -115,7 +115,7 @@ struct GB
     {
         /* Joypad button inputs */
         uint8_t joypad;
-        uint8_t frameSkip : 1;
+        uint8_t frameSkip;
         void * ptr;
     }
     extData;
@@ -242,7 +242,6 @@ static inline void gb_frame (struct GB * gb)
 
         if (lastClock > gb->frameClock) frameDone = 1;
     }
-    LOG_("\rCPU PC at: $%04X", gb->pc);
 
     /* Indicates odd or even frame */
     gb->frame = 1 - gb->frame;

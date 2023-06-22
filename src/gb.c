@@ -23,6 +23,17 @@ inline uint8_t gb_ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val
     return 0;
 }
 
+#define GB_PPU_RW \
+    if (!write) {\
+        if (addr >= 0xFE00) return (!gb->oamBlocked)  ? gb->oam[addr & 0x9F]    : 0xFF;\
+        else                return (!gb->vramBlocked) ? gb->vram[addr & 0x1FFF] : 0xFF;\
+    }\
+    else {\
+        if (addr >= 0xFE00 && !gb->oamBlocked) gb->oam[addr & 0x9F]    = val;\
+        else if             (!gb->vramBlocked) gb->vram[addr & 0x1FFF] = val;\
+    }\
+    return 0;\
+
 #define RISING_EDGE(before, after)   ((before & 1) < (after & 1))
 #define FALLING_EDGE(before, after)  ((before & 1) > (after & 1))
 
@@ -451,7 +462,7 @@ void gb_handle_timings (struct GB * gb)
 
 /*
  *****************  PPU functions  *****************
- ===================================================
+ *==================================================
 */
 
 /* Used for comparing and setting PPU mode timings */
@@ -635,10 +646,10 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
     assert (gb->io[LY] < DISPLAY_HEIGHT);
 
 	/* If background is enabled, draw it. */
-	if(LCDC_(BG_Win_Enable)) //->io[IO_LCDC] & LCDC_BG_ENABLE)
+	if (LCDC_(BG_Win_Enable))
 	{
 		uint8_t lineX, posX, tileID, px, rowLSB, rowMSB;
-		uint16_t bg_map, tileRow;
+		uint16_t BGTileMap, tileRow;
 
 		/* Calculate current background line to draw */
 		const uint8_t posY = gb->io[LY] + gb->io[ScrollY];
@@ -649,15 +660,16 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 
 		/* Get selected background map address for first tile
 		 * corresponding to current line  */
-		bg_map =
-			((LCDC_(BG_Area)) ? 0x9C00 : 0x9800)
-			+ (posY >> 3) * 0x20;
+		BGTileMap = ((LCDC_(BG_Area)) ? 0x9C00 : 0x9800);
+		BGTileMap += ((posY >> 3) << 5);
 
 		lineX = DISPLAY_WIDTH - 1;
+        if (LCDC_(Window_Enable) && gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
+            lineX = (gb->io[WindowX] < 7 ? 0 : gb->io[WindowX] - 7) - 1;
 
 		/* Fetch first tile */
 		posX = lineX + gb->io[ScrollX];
-		tileID = gb->vram[(bg_map & 0x1FFF) + (posX >> 3)];
+		tileID = gb->vram[(BGTileMap & 0x1FFF) + (posX >> 3)];
 		px = 7 - (posX & 7);
 
 		/* Select addressing mode */
@@ -675,15 +687,15 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 			{
 				/* fetch next tile */
 				posX = lineX + gb->io[ScrollX];
-				tileID = gb->vram[(bg_map & 0x1FFF) + (posX >> 3)];
+				tileID = gb->vram[(BGTileMap & 0x1FFF) + (posX >> 3)];
 				px = 0;
 
 		        /* Select addressing mode */
                 const uint16_t bit12 = !(LCDC_(BG_Win_Data) || (tileID & 0x80)) << 12;
                 tileRow = bit12 + (tileID << 4) + ((posY & 7) << 1);
 
-				rowLSB = gb->vram[tileRow];
-				rowMSB = gb->vram[tileRow + 1];
+				rowLSB = gb->vram[tileRow] >> px;
+				rowMSB = gb->vram[tileRow + 1] >> px;
 			}
 
 			/* Get background color */
@@ -697,14 +709,14 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 	}
 
 	/* draw window */
-	if (!1 || (LCDC_(Window_Enable) && gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166))
+	if (LCDC_(Window_Enable) && gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
 	{
 		uint8_t lineX, win_x, py, px, tileID, rowLSB, rowMSB, end;
 		uint16_t WinTileMap, tile;
 
 		/* Calculate Window Map Address. */
 		WinTileMap = (LCDC_(Window_Area)) ? 0x9C00 : 0x9800;
-		WinTileMap += (gb->windowLY >> 3) * 0x20;
+		WinTileMap += (gb->windowLY >> 3) << 5;
 
 		lineX = DISPLAY_WIDTH - 1;
 		py = gb->windowLY & 7;
@@ -766,9 +778,7 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 		/* Record number of sprites on the line being rendered, limited
 		 * to the maximum number sprites that the Game Boy is able to
 		 * render on each line (10 sprites). */
-		for (sprite = 0;
-				sprite < (sizeof (sprites_to_render) / sizeof (sprites_to_render[0]));
-				sprite++)
+		for (sprite = 0; sprite < (sizeof (sprites_to_render) / sizeof (sprites_to_render[0])); sprite++)
 		{
 			uint8_t objY = gb->oam[4 * sprite];
 			uint8_t objX = gb->oam[4 * sprite + 1];
@@ -788,9 +798,8 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 				sizeof(sprites_to_render[0]), compare_sprites);
 		if (totalSprites > MAX_SPRITES_LINE)
 			totalSprites = MAX_SPRITES_LINE;
-
-		/* Render each sprite, from low priority to high priority. */
-		/* Render the top ten prioritised sprites on this scanline. */
+        
+		/* Sprites are rendered from low priority to high priority */
 		for (sprite = totalSprites - 1; sprite != 0xFF; sprite--)
 		{
 			const uint8_t s = sprites_to_render[sprite].sprite_number << 2;
@@ -823,7 +832,7 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
                     (((rowMSB >> (relX & 7)) & 1) << 1);
 
 				/* Handle sprite priority */
-				if (palIndex && !(objFlags & 0x80 && !((pixels[lineX] & 0x3) == 0)))
+				if (palIndex && !(objFlags & 0x80 && !((pixels[lineX] & 0x3) == (gb->io[BGPalette] & 3))))
 				{
 					/* Set pixel based on palette */
 					pixels[lineX] = (objFlags & 0x10)
@@ -855,7 +864,8 @@ static inline void gb_transfer (struct GB * gb)
     if (IO_STAT_MODE != Stat_Transfer)
     {
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
-        if ((gb->frame && gb->extData.frameSkip) || !LCDC_(LCD_Enable)) return;
+        if (!LCDC_(LCD_Enable) || (gb->extData.frameSkip && 
+            (gb->totalFrames % gb->extData.frameSkip > 0))) return;
         /* Fetch line of pixels for the screen and draw them */
         uint8_t * pixels = gb_pixel_fetch (gb);
         gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
