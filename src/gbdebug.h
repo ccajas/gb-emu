@@ -149,18 +149,20 @@ static inline void debug_dump_tiles (const struct GB * gb, uint8_t * pixelData)
     const uint16_t NUM_TILES = 384;
     const uint16_t TILE_SIZE = 8;
 
+    const uint16_t DEBUG_TEX_WIDTH = 240;
+
     int t;
     for (t = 0; t < NUM_TILES; t++)
     {
         const uint16_t tileXoffset = (t % 16) * TILE_SIZE;
-        const uint16_t tileYoffset = (t >> 4) * 1024;
+        const uint16_t tileYoffset = (t >> 4) * DEBUG_TEX_WIDTH * 8;
 
         int y;
         for (y = 0; y < 8; y++)
         {
             const uint8_t row1 = *(data + (y * 2));
             const uint8_t row2 = *(data + (y * 2) + 1);
-            const uint16_t yOffset = y * 128;
+            const uint16_t yOffset = y * DEBUG_TEX_WIDTH;
 
             int x;
             for (x = 0; x < 8; x++)
