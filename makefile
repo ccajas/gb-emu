@@ -21,7 +21,7 @@ all: glfw
 
 .PHONY: clean
 
-LDFLAGS = `pkg-config --libs glfw3 freetype2`
+LDFLAGS = `pkg-config --libs glfw3`
 
 # main build	
 glfw: $(obj)
