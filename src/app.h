@@ -7,8 +7,6 @@
 #include "gbdebug.h"
 #include "gb.h"
 
-#define FPS_LIMIT   (1 / 60.0)
-
 #define GB_DEBUG
 
 #ifdef USE_GLFW

@@ -285,7 +285,8 @@ void app_draw (struct App * app)
 
     if (app->debug)
     {
-        debug_dump_tiles (&app->gb, app->gbData.tileMap.imgData);
+        //debug_dump_tiles (&app->gb, app->gbData.tileMap.imgData);
+        debug_dump_OAM (&app->gb, app->gbData.tileMap.imgData);
         render_text (font8x8_basic, 
             app->debugString, app->gbData.tileMap.width, 
             app->gbData.tileMap.imgData);
@@ -313,7 +314,7 @@ void app_run (struct App * app)
             double current = glfwGetTime();
             glfwPollEvents();
 
-            if ((current - lastUpdate) < FPS_LIMIT) continue;
+            if ((current - lastUpdate) < GB_FRAME_RATE) continue;
 
             //printf("\rFPS: %f", 1.0 / (current - lastUpdate));
             glfwMakeContextCurrent (app->window);

@@ -6,7 +6,8 @@
 #include "io.h"
 #include "ops.h"
 
-#define FRAME_CYCLES      70224
+#define CPU_FREQ_DMG      4194304.0
+#define FRAME_CYCLES      70224.0
 #define DIV_CYCLES        16384
 #define DISPLAY_WIDTH     160
 #define DISPLAY_HEIGHT    144
@@ -18,6 +19,8 @@
 #define OAM_SIZE      0xA0
 #define HRAM_SIZE     0x80
 #define IO_SIZE       0x80
+
+#define GB_FRAME_RATE    FRAME_CYCLES / CPU_FREQ_DMG
 
 /* Assign register pair as 16-bit union */
 
@@ -238,7 +241,7 @@ static inline void gb_frame (struct GB * gb)
         gb_step (gb);
         /* Check if a frame is done */
         const uint32_t lastClock = gb->frameClock;
-        gb->frameClock %= FRAME_CYCLES;
+        gb->frameClock %= (uint32_t)FRAME_CYCLES;
 
         if (lastClock > gb->frameClock) frameDone = 1;
     }
