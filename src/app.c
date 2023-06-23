@@ -287,9 +287,9 @@ void app_draw (struct App * app)
     {
         //debug_dump_tiles (&app->gb, app->gbData.tileMap.imgData);
         debug_dump_OAM (&app->gb, app->gbData.tileMap.imgData);
-        render_text (font8x8_basic, 
-            app->debugString, app->gbData.tileMap.width, 
-            app->gbData.tileMap.imgData);
+        //render_text (font8x8_basic, 
+        //    app->debugString, app->gbData.tileMap.width, 
+        //    app->gbData.tileMap.imgData);
         set_shader (&app->display, &app->display.debugShader);
         set_texture (&app->display, &app->display.debugTexture);
         if (gb_rom_loaded(&app->gb))

@@ -147,18 +147,21 @@ static inline void debug_dump_tiles (const struct GB * gb, uint8_t * pixelData)
     const uint8_t TILE_SIZE_BYTES = 16;
 
     const uint16_t NUM_TILES = 384;
-    const uint16_t TILE_SIZE = 8;
+    const uint8_t  NUM_COLS = 16;
+    const uint8_t  TILE_WIDTH = 8;
+    const uint8_t  TILE_HEIGHT = 8;
 
     const uint16_t DEBUG_TEX_WIDTH = 240;
 
     int t;
     for (t = 0; t < NUM_TILES; t++)
     {
-        const uint16_t tileXoffset = (t % 16) * TILE_SIZE;
-        const uint16_t tileYoffset = (t >> 4) * DEBUG_TEX_WIDTH * 8;
+        const uint16_t index = t;
+        const uint16_t tileXoffset = (index % NUM_COLS) * TILE_WIDTH;
+        const uint16_t tileYoffset = (index / NUM_COLS) * DEBUG_TEX_WIDTH * TILE_HEIGHT;
 
         int y;
-        for (y = 0; y < 8; y++)
+        for (y = 0; y < TILE_HEIGHT; y++)
         {
             const uint8_t row1 = *(data + (y * 2));
             const uint8_t row2 = *(data + (y * 2) + 1);
@@ -181,5 +184,52 @@ static inline void debug_dump_tiles (const struct GB * gb, uint8_t * pixelData)
         data += TILE_SIZE_BYTES;
     }
 }
+
+static inline void debug_dump_OAM (const struct GB * gb, uint8_t * pixelData)
+{
+    const uint8_t * data = gb->vram;
+    const uint8_t * oam  = gb->oam;
+
+    const uint16_t NUM_ITEMS = 40;
+    const uint8_t  NUM_COLS = 10;
+    const uint8_t  TILE_WIDTH = 8;
+    const uint8_t  TILE_HEIGHT = 16;
+
+    const uint16_t DEBUG_TEX_WIDTH = 240;
+
+    int t;
+    for (t = 0; t < NUM_ITEMS; t++)
+    {
+        uint8_t index = oam[t * 4 + 2];  /* Tile index of sprite        */
+        index &= 0xFE;                   /* Adjust index for 8x16 size */
+        const uint16_t tileXoffset = (t % NUM_COLS) * TILE_WIDTH;
+        const uint16_t tileYoffset = (t / NUM_COLS) * DEBUG_TEX_WIDTH * TILE_HEIGHT;
+        const uint16_t offset = data[index];
+
+        int y;
+        for (y = 0; y < TILE_HEIGHT; y++)
+        {
+            const uint8_t row1 = *(data + offset + (y * 2));
+            const uint8_t row2 = *(data + offset + (y * 2) + 1);
+            const uint16_t yOffset = y * DEBUG_TEX_WIDTH;
+
+            int x;
+            for (x = 0; x < 8; x++)
+            {
+                uint8_t col1 = row1 >> (7 - x);
+                uint8_t col2 = row2 >> (7 - x);
+                
+                const uint8_t  colorID = 3 - ((col1 & 1) + ((col2 & 1) << 1));
+                const uint32_t idx = (tileYoffset + yOffset + tileXoffset + x) * 3;
+
+                pixelData[idx] = colorID * 0x55;
+                pixelData[idx + 1] = colorID * 0x55;
+                pixelData[idx + 2] = colorID * 0x55;
+            }
+        }
+        //data += TILE_SIZE_BYTES;
+    }
+}
+
 
 #endif
