@@ -142,3 +142,42 @@ void graphics_init (Scene * const scene)
     glEnable(GL_MULTISAMPLE);
     glDepthFunc(GL_LEQUAL);
 }
+
+/* Draw a textured quad on the display */
+void draw_quad (GLFWwindow * window, Scene * const scene, 
+    struct Texture * const pixels, 
+    const int xpos, const int ypos, const float scale)
+{
+    int32_t width, height;
+    glfwGetFramebufferSize (window, &width, &height);
+
+    /* Setup matrix and send data to shader */
+    glUseProgram(scene->activeShader->program);
+    mat4x4 model;
+    mat4x4 projection;
+
+    mat4x4_ortho (projection, 0, width, 0, height, 0, 0.1f);
+    mat4x4_identity (model);
+
+    /* Translated as if the top left corner is x:0 y:0 */
+    mat4x4_translate (model, xpos, height - (pixels->height * scale) - ypos, 0);
+    mat4x4_scale_aniso (model, model, pixels->width * scale, pixels->height * scale, 1.0f);
+
+    glUniform2f (glGetUniformLocation(scene->activeShader->program, "screenSize"), (GLfloat) pixels->width, (GLfloat) pixels->height);
+    glUniformMatrix4fv (glGetUniformLocation(scene->activeShader->program, "model"),      1, GL_FALSE, (const GLfloat*) model);
+    glUniformMatrix4fv (glGetUniformLocation(scene->activeShader->program, "projection"), 1, GL_FALSE, (const GLfloat*) projection);
+
+    glActiveTexture (GL_TEXTURE0);
+
+    /* Draw quad */
+    glBindTexture (GL_TEXTURE_2D, scene->fbufferTexture);
+    glTexImage2D  (GL_TEXTURE_2D, 0, GL_RGBA, pixels->width, pixels->height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels->imgData);
+	draw_lazy_quad(1.0f, 1.0f, 0);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void draw_screen_quad (GLFWwindow * window, Scene * const scene, struct Texture * const pixels, const float scale)
+{
+    draw_quad (window, scene, pixels, 0, 0, scale);
+}

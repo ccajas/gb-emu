@@ -1,6 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
-#include "gl_gen.h"
+#include <stdlib.h>
 #include "shader.h"
 
 const char* defaultVertSource = "#version 330 core\n"
@@ -22,32 +22,6 @@ const char* defaultFragSource = "#version 330 core\n"
     "{\n"
     "   FragColor = vec4(vPos * 0.5f + 0.5f, 1.0f);\n"
     "}\n\0";
-
-Shader shader_init (const char *filenameVS, const char *filenameFS)
-{
-    assert (filenameVS && filenameFS);
-
-    int vertexShader = 0, fragmentShader = 0;
-    Shader shader = {0};
-    shader.program = 0;
-
-    if (!is_empty(filenameVS) && !is_empty(filenameFS))
-    {
-        const char * vertSource = read_file (filenameVS);
-	    const char * fragSource = read_file (filenameFS); 
-
-        vertexShader   = shader_build(vertSource, GL_VERTEX_SHADER,   shader.program);
-        fragmentShader = shader_build(fragSource, GL_FRAGMENT_SHADER, shader.program);      
-    }
-    else /* Load default shader */ 
-    {
-        vertexShader   = shader_build(defaultVertSource, GL_VERTEX_SHADER,   shader.program);
-        fragmentShader = shader_build(defaultFragSource, GL_FRAGMENT_SHADER, shader.program);      
-    }
-
-    shader.program = shader_link(vertexShader, fragmentShader);
-    return shader;
-}
 
 Shader shader_init_source (const char *codeVS, const char *codeFS)
 {
