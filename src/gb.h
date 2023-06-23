@@ -84,7 +84,8 @@ struct GB
     uint64_t clock_t, clock_m;
     uint16_t lineClock;
     uint32_t frameClock;
-    uint8_t  frame, totalFrames;
+    uint8_t  frame;
+    uint32_t totalFrames;
 
     /* Timer data */
     uint16_t divClock, lastDiv;

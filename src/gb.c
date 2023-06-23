@@ -767,7 +767,6 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
     #define MAX_SPRITES_LINE  10
     #define NUM_SPRITES       40
 
-	// draw sprites
 	if (LCDC_(OBJ_Enable))
 	{
 		uint8_t sprite;
@@ -792,17 +791,33 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 			totalSprites++;
 		}
 
+        uint8_t sprites[10];
+        memset(sprites, 0, 10);
+        totalSprites = 0;
+
+        /* Find available sprites that could be visible on this line */
+        uint8_t s;
+        for (s = 0; s < OAM_SIZE; s += 4)
+        {
+            if (gb->oam[s] == 0 && gb->oam[s] >= 160) continue;
+            if (gb->io[LY] >= gb->oam[s] - (LCDC_(2) ? 0 : 8) || 
+                gb->io[LY] < gb->oam[s] - 16) continue;
+            
+            sprites[totalSprites++] = s;
+            if (totalSprites == 10) break;
+        }
+
 		/* If maximum number of sprites reached, prioritise X
 		 * coordinate and object location in OAM. */
-		qsort (&sprites_to_render[0], totalSprites,
-				sizeof(sprites_to_render[0]), compare_sprites);
-		if (totalSprites > MAX_SPRITES_LINE)
-			totalSprites = MAX_SPRITES_LINE;
+		//qsort (&sprites_to_render[0], totalSprites,
+		//		sizeof(sprites_to_render[0]), compare_sprites);
+		//if (totalSprites > MAX_SPRITES_LINE)
+		//	totalSprites = MAX_SPRITES_LINE;
         
 		/* Sprites are rendered from low priority to high priority */
 		for (sprite = totalSprites - 1; sprite != 0xFF; sprite--)
 		{
-			const uint8_t s = sprites_to_render[sprite].sprite_number << 2;
+			const uint8_t s = sprites[sprite];//sprites_to_render[sprite].sprite_number << 2;
 
 			const uint8_t objY = gb->oam[s + 0], objX = gb->oam[s + 1];
 			const uint8_t objTile = gb->oam[s + 2] & (LCDC_(OBJ_Size) ? 0xFE : 0xFF);
