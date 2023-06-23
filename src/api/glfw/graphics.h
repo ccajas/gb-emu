@@ -11,9 +11,7 @@ struct Texture
     uint16_t height;
 
     /* Pixel data and pointer */
-    uint8_t 
-        * imgData,
-        * ptr;
+    uint8_t * imgData, * ptr;
 };
 
 typedef struct Scene_struct

@@ -8,6 +8,8 @@
 #include "gb.h"
 
 #define GB_DEBUG
+#define DEBUG_TEXTURE_W  320
+#define DEBUG_TEXTURE_H  432
 
 #ifdef USE_GLFW
     #include "api/glfw/graphics.h"

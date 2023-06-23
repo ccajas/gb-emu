@@ -73,7 +73,7 @@ void app_resize_window (GLFWwindow * window, const uint8_t debug, const uint8_t 
 {
     /* Resize accordingly if in debug mode. In non-debug it is always a 160x144 (scaled) window */
     struct Texture newWindow = { 
-        .width = DISPLAY_WIDTH * scale + ((debug) ? 480 : 0), 
+        .width = DISPLAY_WIDTH * scale + ((debug) ? DEBUG_TEXTURE_W * 2 : 0), 
         .height = DISPLAY_HEIGHT * scale 
     };
     glfwSetWindowSize (window, newWindow.width, newWindow.height);
@@ -136,9 +136,9 @@ void app_init (struct App * app)
         .paletteOBJ = 0,
         .pixelTint = 0,
         .tileMap = {
-            .width = 240,
-            .height = 432,
-            .imgData = calloc (240 * 432 * 3, sizeof(uint8_t))
+            .width = DEBUG_TEXTURE_W,
+            .height = DEBUG_TEXTURE_H,
+            .imgData = calloc (DEBUG_TEXTURE_W * DEBUG_TEXTURE_H * 3, sizeof(uint8_t))
         },
         .frameBuffer = {
             .width = DISPLAY_WIDTH,
@@ -273,6 +273,16 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
     memcpy (data->frameBuffer.imgData + yOffset, coloredPixels, DISPLAY_WIDTH * 3);
 }
 
+inline void app_imgPtr (struct Texture * texture, const uint32_t pos)
+{
+    texture->ptr = texture->imgData + pos;
+}
+
+inline void app_imgPtr_XY (struct Texture * texture, const uint16_t x, const uint16_t y)
+{
+    app_imgPtr (texture, (texture->width * y + x) * 3);
+}
+
 void app_draw (struct App * app)
 {
     /* Select image to display */
@@ -285,11 +295,33 @@ void app_draw (struct App * app)
 
     if (app->debug)
     {
-        //debug_dump_tiles (&app->gb, app->gbData.tileMap.imgData);
-        debug_dump_OAM (&app->gb, app->gbData.tileMap.imgData);
-        //render_text (font8x8_basic, 
+        debug_dump_tiles (&app->gb, 
+            app->gbData.tileMap.width, app->gbData.tileMap.imgData);
+        /* Print text at (128, 0) */
+        app_imgPtr_XY(&app->gbData.tileMap, 138, 1);
+        //render_text (font_zxpix, 
         //    app->debugString, app->gbData.tileMap.width, 
-        //    app->gbData.tileMap.imgData);
+        //    app->gbData.tileMap.ptr);
+        /* Print OAM data */
+        app_imgPtr_XY(&app->gbData.tileMap, 138, 9);
+        sprintf (app->debugString, "OBJ  X   Y   ID  attr");
+        render_text (font_zxpix, 
+            app->debugString, app->gbData.tileMap.width, 
+            app->gbData.tileMap.ptr);
+        int obj;
+        for (obj = 0; obj < 20; obj++)
+        {
+            sprintf (app->debugString, "%2d %3d %3d | $%02x $%02x", 
+                obj, 
+                app->gb.oam[obj * 4 + 1], app->gb.oam[obj * 4],
+                app->gb.oam[obj * 4 + 2], app->gb.oam[obj * 4 + 3]
+            );
+            app_imgPtr_XY(&app->gbData.tileMap, 130, 17 + obj * 8);
+            render_text (font_zxpix, 
+                app->debugString, app->gbData.tileMap.width, 
+                app->gbData.tileMap.ptr);
+        }
+
         set_shader (&app->display, &app->display.debugShader);
         set_texture (&app->display, &app->display.debugTexture);
         if (gb_rom_loaded(&app->gb))
