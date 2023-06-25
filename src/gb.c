@@ -118,7 +118,7 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
     gb->vramBlocked = gb->oamBlocked = 0;
 
     memset(gb->io, 0, sizeof (gb->io));
-    printf ("Memset done\n");
+    LOG_("GB: Memset done\n");
 
     if (bootRom != NULL)
         gb_reset (gb, bootRom);
@@ -131,13 +131,13 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
     gb->divClock = 0;
     gb->frame = 0;
     gb->pcInc = 1;
-    printf ("CPU state done\n");
+    LOG_("GB: CPU state done\n");
 }
 
 void gb_reset (struct GB * gb, uint8_t * bootROM)
 {
-    printf ("GB: Load Boot ROM\n");
-    printf ("GB: Set I/O\n");
+    LOG_("GB: Load Boot ROM\n");
+    LOG_("GB: Set I/O\n");
 
     gb->bootRom = bootROM;
     gb->extData.joypad = 0xFF;
@@ -640,6 +640,20 @@ int compare_sprites (const void *in1, const void *in2)
 	return (int)sd1->sprite_number - (int)sd2->sprite_number;
 }
 
+#define PPU_FETCH_TILE(pixelX, X) \
+    /* fetch next tile */\
+    posX = X;\
+    tileID = gb->vram[(tileMap & 0x1FFF) + (posX >> 3)];\
+    px = pixelX;\
+                \
+    /* Select addressing mode */\
+    const uint16_t bit12 = !(LCDC_(BG_Win_Data) || (tileID & 0x80)) << 12;\
+    tile = bit12 + (tileID << 4) + ((posY & 7) << 1);\
+                \
+    rowLSB = gb->vram[tile] >> px;\
+    rowMSB = gb->vram[tile + 1] >> px;\
+    /* End fetch tile macro */
+
 static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 {
     uint8_t * pixels = calloc(DISPLAY_WIDTH, sizeof(uint8_t));
@@ -649,7 +663,7 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 	if (LCDC_(BG_Win_Enable))
 	{
 		uint8_t lineX, posX, tileID, px, rowLSB, rowMSB;
-		uint16_t BGTileMap, tileRow;
+		uint16_t tileMap, tile;
 
 		/* Calculate current background line to draw */
 		const uint8_t posY = gb->io[LY] + gb->io[ScrollY];
@@ -660,46 +674,23 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 
 		/* Get selected background map address for first tile
 		 * corresponding to current line  */
-		BGTileMap = ((LCDC_(BG_Area)) ? 0x9C00 : 0x9800);
-		BGTileMap += ((posY >> 3) << 5);
+		tileMap = ((LCDC_(BG_Area)) ? 0x9C00 : 0x9800);
+		tileMap += ((posY >> 3) << 5);
 
 		lineX = DISPLAY_WIDTH - 1;
         if (LCDC_(Window_Enable) && gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
             lineX = (gb->io[WindowX] < 7 ? 0 : gb->io[WindowX] - 7) - 1;
 
-		/* Fetch first tile */
-		posX = lineX + gb->io[ScrollX];
-		tileID = gb->vram[(BGTileMap & 0x1FFF) + (posX >> 3)];
-		px = 7 - (posX & 7);
-
-		/* Select addressing mode */
-        const uint16_t bit12 = !(LCDC_(BG_Win_Data) || (tileID & 0x80)) << 12;
-        tileRow = bit12 + (tileID << 4) + ((posY & 7) << 1);
-
-		rowLSB = gb->vram[tileRow] >> px;
-		rowMSB = gb->vram[tileRow + 1] >> px;
+        PPU_FETCH_TILE (7 - (posX & 7), lineX + gb->io[ScrollX])
 
 		for(; lineX != 0xFF; lineX--)
 		{
-			uint8_t palIndex;
-
-			if (px == 8)
-			{
-				/* fetch next tile */
-				posX = lineX + gb->io[ScrollX];
-				tileID = gb->vram[(BGTileMap & 0x1FFF) + (posX >> 3)];
-				px = 0;
-
-		        /* Select addressing mode */
-                const uint16_t bit12 = !(LCDC_(BG_Win_Data) || (tileID & 0x80)) << 12;
-                tileRow = bit12 + (tileID << 4) + ((posY & 7) << 1);
-
-				rowLSB = gb->vram[tileRow] >> px;
-				rowMSB = gb->vram[tileRow + 1] >> px;
+			if (px % 8 == 0) {
+				PPU_FETCH_TILE (0, lineX + gb->io[ScrollX])
 			}
 
 			/* Get background color */
-			palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
+			uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
 			pixels[lineX] = ((gb->io[BGPalette] >> (palIndex << 1)) & 3);
 
 			rowLSB >>= 1;
@@ -711,50 +702,27 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 	/* draw window */
 	if (LCDC_(Window_Enable) && gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
 	{
-		uint8_t lineX, win_x, py, px, tileID, rowLSB, rowMSB, end;
-		uint16_t WinTileMap, tile;
+		uint8_t lineX, posX, px, tileID, rowLSB, rowMSB, end;
+		uint16_t tileMap, tile;
 
 		/* Calculate Window Map Address. */
-		WinTileMap = (LCDC_(Window_Area)) ? 0x9C00 : 0x9800;
-		WinTileMap += (gb->windowLY >> 3) << 5;
+		tileMap = (LCDC_(Window_Area)) ? 0x9C00 : 0x9800;
+		tileMap += (gb->windowLY >> 3) << 5;
 
 		lineX = DISPLAY_WIDTH - 1;
-		py = gb->windowLY & 7;
+		const uint8_t posY = gb->windowLY & 7;
 
-		win_x = lineX - gb->io[WindowX] + 7;
-		px = 7 - (win_x & 7);
-		tileID = gb->vram[(WinTileMap & 0x1FFF) + (win_x >> 3)];
-
-        /* Select addressing mode */
-        const uint16_t bit12 = !(LCDC_(BG_Win_Data) || (tileID & 0x80)) << 12;
-        tile = bit12 + (tileID << 4) + (py << 1);
-
-		/* fetch tile */
-		rowLSB = gb->vram[tile] >> px;
-		rowMSB = gb->vram[tile + 1] >> px;
+        PPU_FETCH_TILE (7 - (posX & 7), lineX - gb->io[WindowX] + 7)
 
 		end = (gb->io[WindowX] < 7 ? 0 : gb->io[WindowX] - 7) - 1;
 
 		for(; lineX != end; lineX--)
 		{
-			uint8_t palIndex;
-
-			if (px == 8)
-			{
-				win_x = lineX - gb->io[WindowX] + 7;
-				px = 0;
-				tileID = gb->vram[(WinTileMap & 0x1FFF) + (win_x >> 3)];
-
-		        /* Select addressing mode */
-                const uint16_t bit12 = !(LCDC_(BG_Win_Data) || (tileID & 0x80)) << 12;
-                tile = bit12 + (tileID << 4) + (py << 1);
-
-		        /* fetch tile */
-				rowLSB = gb->vram[tile] >> px;
-				rowMSB = gb->vram[tile + 1] >> px;
+			if (px % 8 == 0) {
+				PPU_FETCH_TILE (0, lineX - gb->io[WindowX] + 7)
 			}
 
-			palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
+			uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
 			pixels[lineX] = ((gb->io[BGPalette] >> (palIndex << 1)) & 3);
 
 			rowLSB >>= 1;
