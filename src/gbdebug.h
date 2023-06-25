@@ -439,7 +439,14 @@ static inline void render_text (
     }
 }
 
-/* Debug function for viewing tiles */
+#define TOTAL_OAM_TILES    256
+#define TOTAL_VRAM_TILES   384  
+
+/* Storage for active tiles in OAM */
+
+static uint8_t activeSpriteTiles[TOTAL_VRAM_TILES];
+
+/* Debug function for viewing all tiles in VRAM */
 
 static inline void debug_dump_tiles (
     const struct GB * gb,
@@ -449,17 +456,33 @@ static inline void debug_dump_tiles (
     const uint8_t * data = gb->vram;
     const uint8_t TILE_SIZE_BYTES = 16;
 
-    const uint16_t NUM_TILES = 384;
+    const uint16_t NUM_ITEMS = TOTAL_VRAM_TILES;
     const uint8_t  NUM_COLS = 16;
     const uint8_t  TILE_WIDTH = 8;
     const uint8_t  TILE_HEIGHT = 8;
 
+	/* Check which tiles are used by OAM */
+	memset (activeSpriteTiles, 0, TOTAL_OAM_TILES);
+	int s;
+	for (s = 0; s < 40; s++)
+	{
+		if (gb->oam[s * 4] == 0) continue; 
+		const uint8_t tileID = gb->oam[s * 4 + 2];
+		activeSpriteTiles[tileID] = 1;
+		/* Make 8x16 OBJ bottom tiles active */
+		if (gb->io[LCDControl] & 4)
+			activeSpriteTiles[tileID + 1] = 1;
+	}
+
     int t;
-    for (t = 0; t < NUM_TILES; t++)
+    for (t = 0; t < NUM_ITEMS; t++)
     {
         const uint16_t index = t;
         const uint16_t tileXoffset = (index % NUM_COLS) * TILE_WIDTH;
         const uint16_t tileYoffset = (index / NUM_COLS) * txWidth * TILE_HEIGHT;
+
+		/* Tint active OAM sprite tiles */
+		const uint8_t tintOAM = 0x55 - (activeSpriteTiles[index] * 0x44);
 
         int y;
         for (y = 0; y < TILE_HEIGHT; y++)
@@ -478,13 +501,15 @@ static inline void debug_dump_tiles (
                 const uint32_t idx = (tileYoffset + yOffset + tileXoffset + x) * 3;
 
                 pixelData[idx] = colorID * 0x55;
-                pixelData[idx + 1] = colorID * 0x55;
+                pixelData[idx + 1] = colorID * tintOAM;
                 pixelData[idx + 2] = colorID * 0x55;
             }
         }
         data += TILE_SIZE_BYTES;
     }
 }
+
+/* Debug function for viewing OAM tiles */
 
 static inline void debug_dump_OAM (
     const struct GB * gb,
@@ -502,8 +527,8 @@ static inline void debug_dump_OAM (
     int t;
     for (t = 0; t < NUM_ITEMS; t++)
     {
-        uint8_t index = oam[t * 4 + 2];  /* Tile index of sprite        */
-        //index &= 0xFE;                   /* Adjust index for 8x16 size */
+        uint8_t index = oam[t * 4 + 2];    /* Tile index of sprite        */
+        /* index &= 0xFE;               */ /* Adjust index for 8x16 size  */
         const uint16_t tileXoffset = (t % NUM_COLS) * TILE_WIDTH;
         const uint16_t tileYoffset = (t / NUM_COLS) * txWidth * TILE_HEIGHT;
         const uint16_t offset = data[index];

@@ -305,7 +305,7 @@ void app_draw (struct App * app)
         for (obj = 0; obj < 20; obj++)
         {
             sprintf (app->debugString, " %2d %3d %3d | $%02x $%02x ", 
-                obj, 
+                obj,
                 app->gb.oam[obj * 4 + 1], app->gb.oam[obj * 4],
                 app->gb.oam[obj * 4 + 2], app->gb.oam[obj * 4 + 3]
             );
