@@ -83,14 +83,14 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
     #define DIRECT_RW(b)  if (write) { *b = val; } return *b;
     struct Cartridge * cart = &gb->cart;
 
-    if (addr < 0x0100 && gb->io[BootROM] == 0)                     /* Run boot ROM if needed */
+    if (addr < 0x0100 && gb->io[BootROM] == 0)                    /* Run boot ROM if needed */
         { if (!write) { return gb->bootRom[addr]; } else { return 0; }}
     if (addr < 0x8000)  return cart->rw (cart, addr, val, write);       /* ROM from MBC     */
-    if (addr < 0xA000)  return gb_ppu_rw (gb, addr, val, write);        /* Video RAM        */
+    if (addr < 0xA000)  { GB_PPU_RW }                                   /* Video RAM        */
     if (addr < 0xC000)  return cart->rw (cart, addr, val, write);       /* External RAM     */
     if (addr < 0xE000)  { b = &gb->ram[addr % 0x2000]; DIRECT_RW(b); }  /* Work RAM         */
-    if (addr < 0xFE00)  return 0xFF;                                    /* Echo RAM         */
-    if (addr < 0xFEA0)  return gb_ppu_rw (gb, addr, val, write);        /* OAM              */
+    if (addr < 0xFE00)  { b = &gb->ram[addr % 0x2000]; DIRECT_RW(b); }  /* Echo RAM         */
+    if (addr < 0xFEA0)  { GB_PPU_RW }                                   /* OAM              */
     if (addr < 0xFF00)  return 0xFF;                                    /* Not usable       */
     if (addr == 0xFF00) return gb_joypad (gb, val, write);              /* Joypad           */
     if (addr < 0xFF80)  return gb_io_rw (gb, addr, val, write);         /* I/O registers    */                      
@@ -626,7 +626,7 @@ struct sprite_data
     uint8_t x;
 };
 
-static int compare_sprites (const void *in1, const void *in2)
+int compare_sprites (const void *in1, const void *in2)
 {
 	const struct sprite_data *sd1, *sd2;
 	int x_res;
@@ -683,7 +683,7 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 		{
 			uint8_t palIndex;
 
-			if(px == 8)
+			if (px == 8)
 			{
 				/* fetch next tile */
 				posX = lineX + gb->io[ScrollX];
@@ -702,8 +702,8 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 			palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
 			pixels[lineX] = ((gb->io[BGPalette] >> (palIndex << 1)) & 3);
 
-			rowLSB = rowLSB >> 1;
-			rowMSB = rowMSB >> 1;
+			rowLSB >>= 1;
+			rowMSB >>= 1;
 			px++;
 		}
 	}
@@ -737,7 +737,7 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 
 		for(; lineX != end; lineX--)
 		{
-			uint8_t c;
+			uint8_t palIndex;
 
 			if (px == 8)
 			{
@@ -754,11 +754,11 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 				rowMSB = gb->vram[tile + 1] >> px;
 			}
 
-			c = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
-			pixels[lineX] = ((gb->io[BGPalette] >> (c << 1)) & 3);
+			palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
+			pixels[lineX] = ((gb->io[BGPalette] >> (palIndex << 1)) & 3);
 
-			rowLSB = rowLSB >> 1;
-			rowMSB = rowMSB >> 1;
+			rowLSB >>= 1;
+			rowMSB >>= 1;
 			px++;
 		}
         gb->windowLY++;
@@ -942,6 +942,8 @@ static inline void gb_vblank (struct GB * const gb)
 
 void gb_render (struct GB * const gb)
 {
+    gb->rt = gb->rm * 4;
+
     gb->lineClock  += gb->rt;
     gb->frameClock += gb->rt;
 

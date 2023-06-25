@@ -165,10 +165,9 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
 {
     if (!write)
     {
-        if (!(gb->io[Joypad] & 0x10))   /* Direction buttons */
-            gb->io[Joypad] |= (gb->extData.joypad & 0xF);
-        else                            /* Action buttons    */
-            gb->io[Joypad] |= (gb->extData.joypad >> 4);
+        gb->io[Joypad] |= (!(gb->io[Joypad] & 0x10)) ?
+            (gb->extData.joypad & 0xF) :  /* Direction buttons */
+            (gb->extData.joypad >> 4);    /* Action buttons    */
 
         if (!(gb->io[Joypad] & 0xF))
             LOG_("GB: Joypad reset detected!\n");
@@ -225,12 +224,11 @@ static inline void gb_step (struct GB * gb)
     int m = 0;
     while (m++ < gb->rm)
         gb_handle_timings (gb);
-        
-    gb->rt = gb->rm * 4;
-    gb->clock_m += gb->rm;
-    gb->clock_t += gb->rm * 4;
 
     gb_render (gb);
+
+    gb->clock_m += gb->rm;
+    gb->clock_t += gb->rm * 4;
 }
 
 static inline void gb_frame (struct GB * gb)
