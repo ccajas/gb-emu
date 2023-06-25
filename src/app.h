@@ -38,7 +38,7 @@ struct App
     uint8_t fullScreen : 1;
 
     char defaultFile[256];
-    char debugString[64];
+    char debugString[64], fpsString[32];
 
     /* Container for GB emulation data */
     struct gb_data
@@ -79,5 +79,16 @@ void app_run    (struct App *);
 
 /* Functions that reference frontend app data from emulator */
 void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line);
+
+/* Drawing functions */
+static inline void app_imgPtr (struct Texture * texture, const uint32_t pos)
+{
+    texture->ptr = texture->imgData + pos;
+}
+
+static inline void app_imgPtr_XY (struct Texture * texture, const uint16_t x, const uint16_t y)
+{
+    app_imgPtr (texture, (texture->width * y + x) * 3);
+}
 
 #endif

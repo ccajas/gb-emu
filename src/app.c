@@ -273,16 +273,6 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
     memcpy (data->frameBuffer.imgData + yOffset, coloredPixels, DISPLAY_WIDTH * 3);
 }
 
-inline void app_imgPtr (struct Texture * texture, const uint32_t pos)
-{
-    texture->ptr = texture->imgData + pos;
-}
-
-inline void app_imgPtr_XY (struct Texture * texture, const uint16_t x, const uint16_t y)
-{
-    app_imgPtr (texture, (texture->width * y + x) * 3);
-}
-
 void app_draw (struct App * app)
 {
     /* Select image to display */
@@ -295,31 +285,35 @@ void app_draw (struct App * app)
 
     if (app->debug)
     {
+        const unsigned char (*font)[6] = font_zxpix;
+        /* Draw debug tiles at (176, 9) */
+        app_imgPtr_XY (&app->gbData.tileMap, 176, 9);
         debug_dump_tiles (&app->gb, 
-            app->gbData.tileMap.width, app->gbData.tileMap.imgData);
-        /* Print text at (128, 0) */
-        app_imgPtr_XY(&app->gbData.tileMap, 138, 1);
-        //render_text (font_zxpix, 
-        //    app->debugString, app->gbData.tileMap.width, 
-        //    app->gbData.tileMap.ptr);
+            app->gbData.tileMap.width, app->gbData.tileMap.ptr);
+        /* Print text at (8, 0) */
+        app_imgPtr_XY (&app->gbData.tileMap, 8, 1);
+        const uint32_t color = 0xE6E6FA, bgColor = 0x333333;
+        render_text (font, 
+            app->fpsString, app->gbData.tileMap.width, 
+            0x40c0FF, 0, app->gbData.tileMap.ptr);
         /* Print OAM data */
-        app_imgPtr_XY(&app->gbData.tileMap, 138, 9);
-        sprintf (app->debugString, "OBJ  X   Y   ID  attr");
-        render_text (font_zxpix, 
+        app_imgPtr_XY(&app->gbData.tileMap, 8, 9);
+        sprintf (app->debugString, "OBJ   X   Y   ID  attr");
+        render_text (font, 
             app->debugString, app->gbData.tileMap.width, 
-            app->gbData.tileMap.ptr);
+            color, bgColor, app->gbData.tileMap.ptr);
         int obj;
         for (obj = 0; obj < 20; obj++)
         {
-            sprintf (app->debugString, "%2d %3d %3d | $%02x $%02x", 
+            sprintf (app->debugString, " %2d %3d %3d | $%02x $%02x ", 
                 obj, 
                 app->gb.oam[obj * 4 + 1], app->gb.oam[obj * 4],
                 app->gb.oam[obj * 4 + 2], app->gb.oam[obj * 4 + 3]
             );
-            app_imgPtr_XY(&app->gbData.tileMap, 130, 17 + obj * 8);
-            render_text (font_zxpix, 
+            app_imgPtr_XY(&app->gbData.tileMap, 8, 17 + (obj % 20) * 8);
+            render_text (font, ww
                 app->debugString, app->gbData.tileMap.width, 
-                app->gbData.tileMap.ptr);
+                0xB5B5B5, 0x0A100F, app->gbData.tileMap.ptr);
         }
 
         set_shader (&app->display, &app->display.debugShader);
@@ -348,7 +342,7 @@ void app_run (struct App * app)
 
             if ((current - lastUpdate) < GB_FRAME_RATE) continue;
 
-            //printf("\rFPS: %f", 1.0 / (current - lastUpdate));
+            const float fps = 1.0 / (current - lastUpdate);
             glfwMakeContextCurrent (app->window);
             draw_begin (app->window, &app->display);
 
@@ -361,7 +355,8 @@ void app_run (struct App * app)
                     totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
                     frames++;
                     if (frames % 30 == 29)
-                        sprintf(app->debugString, "Perf: %0.2fx", (double)(frames / 59.7275) / totalTime);
+                        sprintf(app->fpsString, "FPS: %0.2f | Perf: %0.2fx", 
+                        fps, (double)(frames / 59.7275) / totalTime);
                 }
             }
             app_draw (app);
