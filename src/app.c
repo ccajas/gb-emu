@@ -187,6 +187,8 @@ void app_init (struct App * app)
             app->gbData.frameBuffer.width * app->scale,
             app->gbData.frameBuffer.height * app->scale,
             "GB Emu", NULL, NULL);
+
+        LOG_("Set up window\n");
         
         if (!window)
         {
@@ -233,17 +235,18 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
         /* End with null character */
         rom[size] = 0;
     }
-
+    uint8_t * boot = NULL;
+#define USE_BOOT_ROM_
+#ifdef  USE_BOOT_ROM
     /* Load boot file if present */
-/*    FILE * fb = fopen ("test/dmg_boot.bin", "rb");
+    FILE * fb = fopen ("test/dmg_boot.bin", "rb");
     
-    uint8_t * boot = calloc(BOOT_ROM_SIZE, sizeof (uint8_t));
+    boot = calloc(BOOT_ROM_SIZE, sizeof (uint8_t));
     if (!fread (boot, BOOT_ROM_SIZE, 1, f))
         boot = NULL;
     else
         fclose (fb);
-*/
-    uint8_t * boot = NULL;
+#endif
     /* Copy ROM to cart */
     LOG_("GB: \"%s\"\n", fileName);
     gb->cart.romData = rom;
@@ -286,10 +289,6 @@ void app_draw (struct App * app)
     if (app->debug)
     {
         const unsigned char (*font)[6] = font_zxpix;
-        /* Draw debug tiles at (176, 9) */
-        app_imgPtr_XY (&app->gbData.tileMap, 176, 9);
-        debug_dump_tiles (&app->gb, 
-            app->gbData.tileMap.width, app->gbData.tileMap.ptr);
         /* Print text at (8, 0) */
         app_imgPtr_XY (&app->gbData.tileMap, 8, 1);
         const uint32_t color = 0xE6E6FA, bgColor = 0x333333;
@@ -311,10 +310,15 @@ void app_draw (struct App * app)
                 app->gb.oam[obj * 4 + 2], app->gb.oam[obj * 4 + 3]
             );
             app_imgPtr_XY(&app->gbData.tileMap, 8, 17 + (obj % 20) * 8);
-            render_text (font, ww
+            render_text (font,
                 app->debugString, app->gbData.tileMap.width, 
                 0xB5B5B5, 0x0A100F, app->gbData.tileMap.ptr);
         }
+
+        /* Draw debug tiles at (176, 9) */
+        app_imgPtr_XY (&app->gbData.tileMap, 176, 9);
+        debug_dump_tiles (&app->gb, 
+            app->gbData.tileMap.width, app->gbData.tileMap.ptr);
 
         set_shader (&app->display, &app->display.debugShader);
         set_texture (&app->display, &app->display.debugTexture);
@@ -355,7 +359,7 @@ void app_run (struct App * app)
                     totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
                     frames++;
                     if (frames % 30 == 29)
-                        sprintf(app->fpsString, "FPS: %0.2f | Perf: %0.2fx", 
+                        sprintf(app->fpsString, "FPS: %0.2f | Perf: %0.2fx ", 
                         fps, (double)(frames / 59.7275) / totalTime);
                 }
             }
@@ -380,7 +384,7 @@ void app_run (struct App * app)
     free (app->gb.cart.romData);
     free (app->gb.cart.ramData);
 
-    LOG_("\nThe emulation took %f seconds for %d frames.\nGB performance is %f times as fast.\n",
+    LOG_("The emulation took %f seconds for %d frames.\nGB performance is %f times as fast.\n",
         totalTime, frames, totalSeconds / totalTime);
     LOG_("For each second, there is on average %.2f milliseconds free for overhead.\n",
         1000 - (1.0f / (totalSeconds / totalTime) * 1000));
