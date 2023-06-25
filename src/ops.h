@@ -357,5 +357,5 @@
 
 /* Misc instructions */
 
-#define PREFIX    OP(PREFIX)   /*{ uint8_t cb = CPU_RB (gb->pc++); gb_exec_cb (gb, cb); }*/
+#define PREFIX    OP(PREFIX)
 #define INVALID   OP(INVALID); gb->invalid = 1;
