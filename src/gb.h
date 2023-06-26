@@ -83,14 +83,14 @@ struct GB
     uint16_t pc, sp;
     uint64_t clock_t, clock_m;
     uint16_t lineClock;
-    uint8_t  frame, frameDone;
+    uint32_t frameClock;
+    uint8_t  frame;
     uint32_t totalFrames;
 
     /* Timer data */
     uint16_t divClock, lastDiv;
-    uint16_t timAClock;
     uint8_t  timAOverflow, nextTimA_IRQ, newTimALoaded;
-    uint16_t rt, rm; /* Tracks individual step clocks */
+    uint8_t  rt, rm; /* Tracks individual step clocks */
 
     /* HALT and STOP status, PC increment toggle */
     uint8_t stop : 1, halted : 1, pcInc : 1;
@@ -158,7 +158,7 @@ static inline void gb_boot_register (struct GB * const gb, const uint8_t val)
 
 /*
  ********  General emulator input/update  **********
- ===================================================
+ *
 */
 
 static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_t write)
@@ -205,7 +205,7 @@ static inline void gb_step (struct GB * gb)
         if (gb->io[IntrEnabled] & gb->io[IntrFlags] & IF_Any)
             gb->halted = 0;
 
-        if (gb->ime && gb->io[IntrEnabled] & gb->io[IntrFlags])
+        if (gb->ime)
             gb_handle_interrupts (gb);
 
         gb->rm++;
@@ -217,7 +217,7 @@ static inline void gb_step (struct GB * gb)
         LOG_CPU_STATE (gb);
     }
 
-    if (gb->ime && gb->io[IntrEnabled] & gb->io[IntrFlags])
+    if (gb->ime)
         gb_handle_interrupts (gb);
 
     /* Update timers for every remaining m-cycle */
@@ -231,46 +231,19 @@ static inline void gb_step (struct GB * gb)
     gb->clock_t += gb->rm * 4;
 }
 
-static inline void gb_step_test (struct GB * gb)
-{
-    /* Handle interrupts as long as halted OR any interrupt flags match */
-    while (gb->halted || (gb->ime && gb->io[IntrEnabled] & gb->io[IntrFlags]))
-    {
-        gb->halted = 0;
-        if (!gb->ime) break;
-        gb_handle_interrupts (gb);
-    }
-
-    /* Load next op and execute */
-    const uint8_t op = CPU_RB (gb->pc++);
-    gb_cpu_exec (gb, op);
-    LOG_CPU_STATE (gb);
-
-    /* Other updates to do as long as halted AND no interrupt flags match */
-    do {
-        /* Update DIV and TimA counters  */
-        gb_handle_timings (gb);
-        /* Continue if LCD is off */
-        if (!LCDC_(LCD_Enable))
-			continue;
-        /* Update LCD counter and render */
-        gb_render (gb);
-    }
-    while (gb->halted && (gb->io[IntrFlags] & gb->io[IntrEnabled]) == 0);
-}
-
-#define CPU_STEP_TEST
-
 static inline void gb_frame (struct GB * gb)
 {
-    gb->frameDone = 0;
+    uint8_t frameDone = 0;
     /* Returns when frame is completed */
-    while (!gb->frameDone)
-#ifdef CPU_STEP_TEST
-        gb_step_test (gb);
-#else
+    while (!frameDone) 
+    {
         gb_step (gb);
-#endif
+        /* Check if a frame is done */
+        const uint32_t lastClock = gb->frameClock;
+        gb->frameClock %= (uint32_t)FRAME_CYCLES;
+
+        if (lastClock > gb->frameClock) frameDone = 1;
+    }
 
     /* Indicates odd or even frame */
     gb->frame = 1 - gb->frame;

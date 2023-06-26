@@ -7,7 +7,7 @@
 
 /*
  **********  Memory/bus read and write  ************
- ===================================================
+ *
 */
 
 inline uint8_t gb_ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
@@ -45,12 +45,6 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
     {
         switch (addr % 0x80)
         {
-#ifdef CPU_STEP_TEST
-            case Divider:    /* DIV reset  */
-                gb->io[Divider] = 0;
-#else
-            case Divider:    /* DIV reset  */
-                gb_timer_update (gb, 0); return 0;
             case TimA:
                 if (!gb->newTimALoaded) gb->io[TimA] = val;    /* Update TIMA if new value wasn't loaded last cycle    */
                 if (gb->nextTimA_IRQ)   gb->nextTimA_IRQ = 0;  /* Cancel any pending IRQ when accessing TIMA           */
@@ -58,27 +52,16 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
             case TMA:                                          /* Update TIMA also if TMA is written in the same cycle */
                 if (gb->newTimALoaded) gb->io[TimA] = val;
                 break;
-            case TimerCtrl: /* Todo: TIMA should increase right here if last bit was 1 and current is 0     */
+            case TimerCtrl: /* Todo: TIMA should increase right here if last bit was 1 and current is 0 */
                 gb->io[TimerCtrl] = val | 0xF8; return 0;
-#endif
-            case IntrFlags:                                    /* Mask unused bits for IE and IF            */
+            case IntrFlags:                                    /* Mask unused bits for IE and IF        */
             case IntrEnabled:
                 gb->io[addr % 0x80] = val | 0xE0; return 0;
-            case BootROM:                          /* Boot ROM register should be unwritable at some point? */
+            case BootROM:                 /* Boot ROM register should be unwritable at some point? */
                 break;
-            case LCDControl:
-                gb->io[LCDControl] = val;
-                /* Check if LCD is being switched off */
-                if (LCDC_(LCD_Enable) && !(val & (1 << LCD_Enable)))
-                {
-                    gb->io[LCDStatus] = IO_STAT_CLEAR; /* Hblank */
-                    gb->io[LY] = 0;
-                    gb->lineClock = 0;
-                }
-                return 0;
-            case LCDStatus:   /* LCD Status update   */
-                gb->io[LCDStatus] = (val & 0xF8) | (gb->io[LCDStatus] & 0x3); return 0;
-            case DMA:         /* OAM DMA transfer    */
+            case Divider:
+                gb_timer_update (gb, 0); return 0;             /* DIV reset                             */
+            case DMA:                                          /* OAM DMA transfer                      */
                 gb->io[DMA] = val; int i = 0; /* Todo: Make it write across 160 cycles */
                 const uint16_t src = val << 8;
                 while (i < OAM_SIZE) { gb->oam[i] = CPU_RB (src + i); i++; } return 0;
@@ -120,7 +103,7 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
 
 /*
  **********  Console startup functions  ************
- ===================================================
+ *
 */
 
 void gb_init (struct GB * gb, uint8_t * bootRom)
@@ -132,6 +115,7 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
     memset (gb->ram,  0, WRAM_SIZE);
     memset (gb->vram, 0, VRAM_SIZE);
     memset (gb->hram, 0, HRAM_SIZE);
+    memset (gb->oam,  0, OAM_SIZE);
     gb->vramBlocked = gb->oamBlocked = 0;
 
     memset(gb->io, 0, sizeof (gb->io));
@@ -143,9 +127,9 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
         gb_boot_reset (gb);
 
     LOG_CPU_STATE (gb);
-    gb->lineClock = gb->frameDone = 0;
+    gb->lineClock = gb->frameClock = 0;
     gb->clock_t = gb->clock_m = 0;
-    gb->divClock = gb->timAClock = 0;
+    gb->divClock = 0;
     gb->frame = 0;
     gb->pcInc = 1;
     LOG_("GB: CPU state done\n");
@@ -159,7 +143,6 @@ void gb_reset (struct GB * gb, uint8_t * bootROM)
     gb->bootRom = bootROM;
     gb->extData.joypad = 0xFF;
     gb->io[Joypad]     = 0xCF;
-    gb->io[LCDStatus]  = 0x84;
     gb_boot_register (gb, 0);
 
     gb->pc = 0;
@@ -201,7 +184,7 @@ void gb_boot_reset (struct GB * gb)
     gb->io[IntrFlags]  = 0xE1;
     gb->io[LCDControl] = 0x91;
     gb->io[LCDStatus]  = 0x85;
-    gb->io[LY]         = 0x00;
+    gb->io[LY]         = 0x0;
     gb->io[BGPalette]  = 0xFC;
     gb->io[DMA]        = 0xFF;
     gb_boot_register (gb, 1);
@@ -230,8 +213,6 @@ const int8_t opTicks[256] = {
 	3,3,2,1,0,4,2,4,3,2,4,1,0,0,2,4
 };
 
-const uint_fast16_t TAC_INTERVALS[4] = {1024, 16, 64, 256};
-
 /*
  *****************  CPU functions  *****************
  ===================================================
@@ -239,8 +220,6 @@ const uint_fast16_t TAC_INTERVALS[4] = {1024, 16, 64, 256};
 
 void gb_cpu_exec (struct GB * gb, const uint8_t op)
 {
-    gb->rt = 0;
-    gb->rm = 0;
     /* Copied value for operands (can be overridden for other opcodes) */
     uint8_t tmp = REG_A;
 
@@ -288,61 +267,6 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         /* HALT */
         case 0x76: 
             OP(HALT);
-
-#ifdef CPU_STEP_TEST
-        /* Skip increment if IME disabled and any interrupt flags match */
-        if (!gb->ime) {
-            if (gb->io[IntrEnabled] && gb->io[IntrFlags] & IF_Any) 
-                gb->pcInc = 0; 
-            else 
-                gb->halted = 1;
-        }
-        else
-            gb->halted = 1;
-
-		int16_t haltCycles = 32767;
-        
-		if (gb->io[IntrEnabled] == 0)
-		{
-			/* Return program counter where this halt forever state started. */
-            LOG_("GB: Unreachable!\n");
-		}
-
-		if (gb->io[TimerCtrl] & 0x4)
-		{
-			int tacCycles = TAC_INTERVALS [gb->io[TimerCtrl] & 0x3] - gb->timAClock;
-
-			if (tacCycles < haltCycles)
-				haltCycles = tacCycles;
-		}
-
-		if (LCDC_(LCD_Enable))
-		{
-			int lcdCycles;
-			/* Calculate the number of cycles until the end of HBlank 
-             * and the start of mode 2 or mode 1 */
-			if (IO_STAT_MODE == Stat_HBlank)
-				lcdCycles = TICKS_OAM_READ - gb->lineClock;
-
-			else if (IO_STAT_MODE == Stat_OAM_Search)
-				lcdCycles = TICKS_TRANSFER - gb->lineClock;
-
-			else if (IO_STAT_MODE == Stat_Transfer)
-				lcdCycles = TICKS_HBLANK - gb->lineClock;
-
-			else  /* VBlank */
-				lcdCycles = TICKS_VBLANK - gb->lineClock;
-
-			if (lcdCycles < haltCycles)
-				haltCycles = lcdCycles;
-		}
-
-		/* Keep from underflowing */
-		if (haltCycles <= 0) haltCycles = 4;
-
-        gb->rt = (uint16_t) haltCycles;
-		break;
-#else
             if (!gb->ime) {
                 if (gb->io[IntrEnabled] && gb->io[IntrFlags] & IF_Any) 
                     gb->pcInc = 0; 
@@ -351,7 +275,6 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
             } else {
                 gb->halted = 1;
             }
-#endif
         break;
         /* 8-bit arithmetic */
         OP_r8_hl (0x80, ADD, 0)
@@ -403,9 +326,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         default: INVALID;
     }
 
-    //gb->rt += (gb->rm + opTicks[op]) * 4;
     gb->rm += opTicks[op];
-    gb->rt += (gb->rm * 4);
 
     /* Handle effects of STOP instruction */
     if (op == 0x10 && gb->stop)
@@ -415,7 +336,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         gb->divClock = 0;
     }
 
-    assert (gb->rt >= opTicks[op] * 4);  
+    assert (gb->rm >= opTicks[op]);  
 }
 
 void gb_exec_cb (struct GB * gb, const uint8_t op)
@@ -465,8 +386,8 @@ void gb_handle_interrupts (struct GB * gb)
     const uint8_t io_IF = gb->io[IntrFlags];
 
     /* Run if CPU ran HALT instruction or IME enabled w/flags */
-    //if (io_IE & io_IF & IF_Any)
-    //{
+    if (io_IE & io_IF & IF_Any)
+    {
         gb->ime = 0;
         /* Check all 5 IE and IF bits for flag confirmations 
            This loop also services interrupts by priority (0 = highest) */
@@ -493,7 +414,7 @@ void gb_handle_interrupts (struct GB * gb)
                 break;
             }
         }
-    //}
+    }
 }
 
 void gb_timer_update (struct GB * gb, const uint8_t change)
@@ -523,32 +444,6 @@ void gb_timer_update (struct GB * gb, const uint8_t change)
 
 void gb_handle_timings (struct GB * gb)
 {
-#ifdef CPU_STEP_TEST
-    /* Update Divider clock */
-    gb->divClock += gb->rt;
-    while (gb->divClock >= 256)// DIV_CYCLES)
-    {
-        gb->io[Divider]++;
-        gb->divClock -= 256;//DIV_CYCLES;
-    }
-
-    /* Update TimA clock */
-    if (gb->io[TimerCtrl] & 0x4)
-    {
-        gb->timAClock += gb->rt;
-        while (gb->timAClock >= TAC_INTERVALS[gb->io[TimerCtrl] & 0x3])
-        {
-            gb->timAClock -= TAC_INTERVALS[gb->io[TimerCtrl] & 0x3];
-
-            if (++gb->io[TimA] == 0)
-            {                
-                /* Update flag and TimA on overflow */
-                gb->io[IntrFlags] |= IF_Timer;
-                gb->io[TimA] = gb->io[TMA];
-            }
-        }
-    }
-#else
     gb->newTimALoaded = 0;
 
     if (gb->nextTimA_IRQ) 
@@ -562,14 +457,31 @@ void gb_handle_timings (struct GB * gb)
             gb->newTimALoaded = 1;
         }
     }
+
     gb_timer_update (gb, 1);
-#endif
 }
 
 /*
  *****************  PPU functions  *****************
- *==================================================
+ *
 */
+
+/* Used for comparing and setting PPU mode timings */
+enum {
+    Stat_HBlank = 0,
+    Stat_VBlank,
+    Stat_OAM_Search,
+    Stat_Transfer
+}
+modes;
+
+enum {
+    TICKS_OAM_READ    = 80,
+    TICKS_TRANSFER    = 252,
+    TICKS_HBLANK      = 456,
+    TICKS_VBLANK      = 456
+}
+modeTicks;
 
 /* Custom pixel palette values for the frontend */
 
@@ -578,136 +490,6 @@ enum {
     PIXEL_OBJ1 = 8,
     PIXEL_OBJ2 = 12
 };
-
-static inline uint8_t * gb_old_pixel_fetch (const struct GB * gb)
-{
-    uint8_t * pixels = calloc(DISPLAY_WIDTH, sizeof(uint8_t));
-    assert (gb->io[LY] < DISPLAY_HEIGHT);
-
-    const uint8_t lineY = gb->io[LY];
-    uint8_t sprites[10];
-    uint8_t visibleSprites = 0;
-    memset(sprites, 0, 10);
-
-    /* Find available sprites that could be visible on this line */
-    uint8_t s;
-    for (s = 0; s < OAM_SIZE; s += 4)
-    {
-        if (gb->oam[s] == 0 && gb->oam[s] >= 160) continue;
-        if (lineY >= gb->oam[s] - (LCDC_(2) ? 0 : 8) || 
-            lineY < gb->oam[s] - 16) continue;
-        
-        sprites[visibleSprites++] = s;
-        if (visibleSprites == 10) break;
-    }
-
-	/* Check if background is enabled */
-	if (LCDC_(LCD_Enable) && LCDC_(BG_Win_Enable))
-	{
-        /* Get minimum starting address depends on LCDC bits 3 and 6 are set.
-        Starts at 0x1800 as this is the VRAM index minus 0x8000 */
-        uint16_t BGTileMap  = (LCDC_(BG_Area))     ? 0x9C00 : 0x9800;
-        uint16_t winTileMap = (LCDC_(Window_Area)) ? 0x9C00 : 0x9800;
-
-        /* X position counter */
-        uint8_t lineX = 0;
-
-        /* For storing pixel bytes */
-        uint8_t byteLo = 0;
-        uint8_t byteHi = 0;
-
-        /* Run for the entire 160 pixel length */
-        for (lineX = 0; lineX < DISPLAY_WIDTH; lineX++)
-        {
-            /* BG tile fetcher gets tile ID. Bits 0-4 define X loction, bits 5-9 define Y location
-            All related calculations following are found here:
-            https://github.com/ISSOtm/pandocs/blob/rendering-internals/src/Rendering_Internals.md */
-
-            /* Stop BG rendering if window is found here */
-            const uint8_t isWindow = (LCDC_(Window_Enable) && lineX >= gb->io[WindowX] - 7 && lineY >= gb->io[WindowY]);
-
-            const uint8_t posX = (isWindow) ? lineX : lineX + gb->io[ScrollX];
-            const uint8_t posY = (isWindow) ? gb->windowLY - gb->io[WindowY] : lineY + gb->io[ScrollY];
-            uint8_t relX = (isWindow) ? (lineX - gb->io[WindowX] + 7) % 8 : posX % 8;
-
-            /* Get next tile to be drawn */
-            if (lineX == 0 || relX == 0)
-            {
-                const uint16_t tileAddr = ((isWindow) ? winTileMap : BGTileMap) + 
-                    ((posY >> 3) << 5) +  /* Bits 5-9, Y location */
-                    (posX >> 3);          /* Bits 0-4, X location */
-                const uint16_t tileID = gb->vram[tileAddr & 0x1FFF];
-
-                /* Tilemap location depends on LCDC 4 set, which are different rules for BG and Window tiles */
-                /* Fetcher gets low byte and high byte for tile */
-                const uint16_t bit12 = !(LCDC_(4) || (tileID & 0x80)) << 12;
-                const uint16_t tileRow = bit12 + (tileID << 4) + ((posY & 7) << 1);
-
-                /* Finally get the pixel bytes from these addresses */
-                byteLo = gb->vram[tileRow];
-                byteHi = gb->vram[tileRow + 1];
-            }
-
-            /* Produce pixel data from the combined bytes*/
-            const uint8_t bitLo = (byteLo >> (7 - relX)) & 1;
-            const uint8_t bitHi = (byteHi >> (7 - relX)) & 1;
-            const uint8_t bgIndex = (bitHi << 1) + bitLo;
-            /* Add 4 (set bit 2) to denote background pixel */
-            pixels[lineX] = ((gb->io[BGPalette] >> (bgIndex << 1)) & 3);// | ((isWindow) ? 0 : PIXEL_BG);
-        }
-
-        /* Draw sprites */
-        if (LCDC_(OBJ_Enable) && visibleSprites > 0)
-        {
-            int8_t obj;
-            for (obj = visibleSprites - 1; obj >= 0; obj--) 
-            {
-                const uint8_t s = sprites[obj];
-                const uint8_t spriteX = gb->oam[s + 1], spriteY = gb->oam[s];
-
-                if (lineY - (LCDC_(OBJ_Size) ? 0 : 8) >= spriteY || lineY < spriteY - 16) continue;
-                if (spriteX == 0 || spriteX >= DISPLAY_WIDTH + 8) continue;
-
-                const uint8_t sLeft = (spriteX - 8 < 0) ? 0 : spriteX - 8;
-                const uint8_t sRight = (spriteX  >= DISPLAY_WIDTH) ? DISPLAY_WIDTH : spriteX;
-                const uint8_t posY = (lineY - gb->oam[s]) & 7;
-
-                /* Get tile ID depending on sprite size */
-                uint16_t tileID = gb->oam[s + 2] & (LCDC_(2) ? 0xFE : 0xFF);
-                if (LCDC_(OBJ_Size) && spriteY - lineY <= 8) tileID = gb->oam[s + 2] | 1;
-
-                /* Flip Y if necessary */
-                const uint8_t relY = (gb->oam[s + 3] & 0x40) ? (LCDC_(OBJ_Size) ? 15 : 7) : 0;
-                const uint16_t tileRow = (tileID << 4) + ((posY ^ relY) << 1);
-
-                /* Get the pixel bytes from these addresses */
-                byteLo = gb->vram[tileRow];
-                byteHi = gb->vram[tileRow + 1];
-
-                for (lineX = sLeft; lineX < sRight; lineX++)
-                {
-                    /* Flip X if necessary */
-                    const uint8_t relX = (gb->oam[s + 3] & 0x20) ? lineX - spriteX : 7 - (lineX - spriteX);
-
-                    /* Produce pixel data from the combined bytes*/
-                    const uint8_t bitLo = (byteLo >> (relX & 7)) & 1;
-                    const uint8_t bitHi = (byteHi >> (relX & 7)) & 1;
-                    const uint8_t palIndex = (bitHi << 1) + bitLo;
-
-                    if (palIndex == 0) continue;
-                    if ((gb->oam[s + 3] & 0x80) && (pixels[lineX] & 0x3) > 0) continue;
-
-                    const uint8_t palette = OBJPalette0 + ((gb->oam[s + 3] & 0x10) ? 1 : 0);
-                    pixels[lineX] = ((gb->io[palette] >> (palIndex * 2)) & 3) | PIXEL_OBJ1;
-                }
-            }
-        }
-    }
-
-    gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
-
-    return pixels;
-}
 
 struct sprite_data 
 {
@@ -731,7 +513,7 @@ int compare_sprites (const void *in1, const void *in2)
 
 #define PPU_FETCH_TILE(pixelX, X) \
     /* fetch next tile */\
-    posX = lineX + X;\
+    posX = X;\
     tileID = gb->vram[(tileMap & 0x1FFF) + (posX >> 3)];\
     px = pixelX;\
                 \
@@ -756,31 +538,30 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 
 		/* Calculate current background line to draw */
 		const uint8_t posY = gb->io[LY] + gb->io[ScrollY];
-		const uint8_t end = 0xFF;
-		lineX = DISPLAY_WIDTH - 1;
-
-        if (LCDC_(Window_Enable) && gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
-            lineX = (gb->io[WindowX] < 7 ? 0 : gb->io[WindowX] - 7) - 1;
 
         /* BG tile fetcher gets tile ID. Bits 0-4 define X loction, bits 5-9 define Y location
          * All related calculations following are found here:
          * https://github.com/ISSOtm/pandocs/blob/rendering-internals/src/Rendering_Internals.md */
 
 		/* Get selected background map address for first tile
-		 * corresponding to current line */
+		 * corresponding to current line  */
 		tileMap = ((LCDC_(BG_Area)) ? 0x9C00 : 0x9800);
 		tileMap += ((posY >> 3) << 5);
 
-        PPU_FETCH_TILE (7 - (posX & 7), gb->io[ScrollX])
+		lineX = DISPLAY_WIDTH - 1;
+        if (LCDC_(Window_Enable) && gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
+            lineX = (gb->io[WindowX] < 7 ? 0 : gb->io[WindowX] - 7) - 1;
 
-		for(; lineX != end; lineX--)
+        PPU_FETCH_TILE (7 - (posX & 7), lineX + gb->io[ScrollX])
+
+		for(; lineX != 0xFF; lineX--)
 		{
-			if (!(px & 7)) {
-				PPU_FETCH_TILE (0, gb->io[ScrollX])
+			if (px % 8 == 0) {
+				PPU_FETCH_TILE (0, lineX + gb->io[ScrollX])
 			}
 
 			/* Get background color */
-			const uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
+			uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
 			pixels[lineX] = ((gb->io[BGPalette] >> (palIndex << 1)) & 3);
 
 			rowLSB >>= 1;
@@ -790,30 +571,29 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 	}
 
 	/* draw window */
-	if ((LCDC_(BG_Win_Enable) && LCDC_(Window_Enable)) &&
-        gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
+	if (LCDC_(Window_Enable) && gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
 	{
-		uint8_t lineX, posX, px, tileID, rowLSB, rowMSB;
+		uint8_t lineX, posX, px, tileID, rowLSB, rowMSB, end;
 		uint16_t tileMap, tile;
 
-        const uint8_t posY = gb->windowLY & 7;
-		const uint8_t end = (gb->io[WindowX] >= 7 ? gb->io[WindowX] - 7 : 0) - 1;
-		lineX = DISPLAY_WIDTH - 1;
-
-		/* Get selected background map address for first tile
-		 * corresponding to current line */
+		/* Calculate Window Map Address. */
 		tileMap = (LCDC_(Window_Area)) ? 0x9C00 : 0x9800;
 		tileMap += (gb->windowLY >> 3) << 5;
 
-        PPU_FETCH_TILE (7 - (posX & 7), -gb->io[WindowX] + 7)
+		lineX = DISPLAY_WIDTH - 1;
+		const uint8_t posY = gb->windowLY & 7;
+
+        PPU_FETCH_TILE (7 - (posX & 7), lineX - gb->io[WindowX] + 7)
+
+		end = (gb->io[WindowX] < 7 ? 0 : gb->io[WindowX] - 7) - 1;
 
 		for(; lineX != end; lineX--)
 		{
-			if (!(px & 7)) {
-				PPU_FETCH_TILE (0, -gb->io[WindowX] + 7)
+			if (px % 8 == 0) {
+				PPU_FETCH_TILE (0, lineX - gb->io[WindowX] + 7)
 			}
 
-			const uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
+			uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
 			pixels[lineX] = ((gb->io[BGPalette] >> (palIndex << 1)) & 3);
 
 			rowLSB >>= 1;
@@ -979,9 +759,8 @@ static inline void gb_vblank (struct GB * const gb)
         /* Mode 1 - V-blank */
         if (IO_STAT_MODE != Stat_VBlank)
         {
-            gb->frameDone = 1;
             /* Enter Vblank and indicate that a frame is completed */
-            //if (LCDC_(LCD_Enable)) 
+            if (LCDC_(LCD_Enable)) 
             {
                 gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
                 gb->io[IntrFlags] |= IF_VBlank;
@@ -1002,84 +781,10 @@ static inline void gb_vblank (struct GB * const gb)
 
 void gb_render (struct GB * const gb)
 {
-#ifdef CPU_STEP_TEST
-    gb->lineClock += gb->rt;
-
-    /* New scanline */
-    if (gb->lineClock >= TICKS_VBLANK)
-    {
-        gb->lineClock -= TICKS_VBLANK;
-
-        /* Next line */
-        gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
-
-        /* LYC Update */
-        if(gb->io[LY] == gb->io[LYC])
-        {
-            gb->io[LCDStatus] |= (1 << LYC_LY);
-            if (STAT_(IR_LYC)) gb->io[IntrFlags] |= IF_LCD_STAT;
-        }
-        else
-            gb->io[LCDStatus] &= 0xFB;
-
-        /* Vblank start */
-        if(gb->io[LY] == DISPLAY_HEIGHT)
-        {
-            gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
-            gb->io[IntrFlags] |= IF_VBlank;
-
-            if (STAT_(IR_VBlank))
-                gb->io[IntrFlags] |= IF_LCD_STAT;
-
-            gb->frameDone = 1;
-        }
-        /* Normal Line */
-        else if(gb->io[LY] < DISPLAY_HEIGHT)
-        {
-            if(gb->io[LY] == 0)
-            {
-                //gb->windowLY = gb->io[WindowY];
-                gb->windowLY = 0;
-            }
-
-            gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;
-
-            if (STAT_(IR_HBlank))
-                gb->io[IntrFlags] |= IF_LCD_STAT;
-
-            /* Jump to next mode on halt */
-            if(gb->lineClock < TICKS_OAM_READ)
-                gb->rt = TICKS_OAM_READ - gb->lineClock;
-        }
-    }
-    /* OAM access */
-    else if (IO_STAT_MODE == Stat_HBlank && gb->lineClock >= TICKS_OAM_READ)
-    {
-        gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_OAM_Search;
-
-        if (STAT_(IR_OAM))
-            gb->io[IntrFlags] |= IF_LCD_STAT;
-
-        /* Jump to next mode on halt */
-        if (gb->lineClock < TICKS_TRANSFER)
-            gb->rt = TICKS_TRANSFER - gb->lineClock;
-    }
-    /* Update pixels */
-    else if (IO_STAT_MODE == Stat_OAM_Search && gb->lineClock >= TICKS_TRANSFER)
-    {
-        gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
-        /* Fetch line of pixels for the screen and draw them */
-        uint8_t * pixels = gb_pixel_fetch (gb);
-        gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
-
-        /* Jump to next mode on halt */
-        if (gb->lineClock < TICKS_HBLANK)
-            gb->rt = TICKS_HBLANK - gb->lineClock;
-    }
-
-#else
     gb->rt = gb->rm * 4;
-    gb->lineClock += gb->rt;
+
+    gb->lineClock  += gb->rt;
+    gb->frameClock += gb->rt;
 
     /* Todo: continuously fetch pixels clock by clock for LCD data transfer.
        Similarly do clock-based processing for the other actions. */
@@ -1099,5 +804,4 @@ void gb_render (struct GB * const gb)
     else /* Outside of screen Y bounds */
         gb_vblank (gb);
     /* ...and DMA transfer to OMA, if needed */
-#endif
 }
