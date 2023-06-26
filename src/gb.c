@@ -45,6 +45,12 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
     {
         switch (addr % 0x80)
         {
+#ifdef CPU_STEP_TEST
+            case Divider:    /* DIV reset  */
+                gb->io[Divider] = 0;
+#else
+            case Divider:    /* DIV reset  */
+                gb_timer_update (gb, 0); return 0;
             case TimA:
                 if (!gb->newTimALoaded) gb->io[TimA] = val;    /* Update TIMA if new value wasn't loaded last cycle    */
                 if (gb->nextTimA_IRQ)   gb->nextTimA_IRQ = 0;  /* Cancel any pending IRQ when accessing TIMA           */
@@ -52,16 +58,27 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
             case TMA:                                          /* Update TIMA also if TMA is written in the same cycle */
                 if (gb->newTimALoaded) gb->io[TimA] = val;
                 break;
-            case TimerCtrl: /* Todo: TIMA should increase right here if last bit was 1 and current is 0 */
+            case TimerCtrl: /* Todo: TIMA should increase right here if last bit was 1 and current is 0     */
                 gb->io[TimerCtrl] = val | 0xF8; return 0;
-            case IntrFlags:                                    /* Mask unused bits for IE and IF        */
+#endif
+            case IntrFlags:                                    /* Mask unused bits for IE and IF            */
             case IntrEnabled:
                 gb->io[addr % 0x80] = val | 0xE0; return 0;
-            case BootROM:                 /* Boot ROM register should be unwritable at some point? */
+            case BootROM:                          /* Boot ROM register should be unwritable at some point? */
                 break;
-            case Divider:
-                gb_timer_update (gb, 0); return 0;             /* DIV reset                             */
-            case DMA:                                          /* OAM DMA transfer                      */
+            case LCDControl:
+                gb->io[LCDControl] = val;
+                /* Check if LCD is being switched off */
+                if (LCDC_(LCD_Enable) && !(val & (1 << LCD_Enable)))
+                {
+                    gb->io[LCDStatus] = IO_STAT_CLEAR; /* Hblank */
+                    gb->io[LY] = 0;
+                    gb->lineClock = 0;
+                }
+                return 0;
+            case LCDStatus:   /* LCD Status update   */
+                gb->io[LCDStatus] = (val & 0xF8) | (gb->io[LCDStatus] & 0x3); return 0;
+            case DMA:         /* OAM DMA transfer    */
                 gb->io[DMA] = val; int i = 0; /* Todo: Make it write across 160 cycles */
                 const uint16_t src = val << 8;
                 while (i < OAM_SIZE) { gb->oam[i] = CPU_RB (src + i); i++; } return 0;
@@ -128,7 +145,7 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
     LOG_CPU_STATE (gb);
     gb->lineClock = gb->frameDone = 0;
     gb->clock_t = gb->clock_m = 0;
-    gb->divClock = 0;
+    gb->divClock = gb->timAClock = 0;
     gb->frame = 0;
     gb->pcInc = 1;
     LOG_("GB: CPU state done\n");
@@ -142,6 +159,7 @@ void gb_reset (struct GB * gb, uint8_t * bootROM)
     gb->bootRom = bootROM;
     gb->extData.joypad = 0xFF;
     gb->io[Joypad]     = 0xCF;
+    gb->io[LCDStatus]  = 0x84;
     gb_boot_register (gb, 0);
 
     gb->pc = 0;
@@ -178,12 +196,12 @@ void gb_boot_reset (struct GB * gb)
     memset(gb->io, 0, sizeof (gb->io));  
     gb->io[Joypad]     = 0xCF;
     gb->io[SerialCtrl] = 0x7E;
-    gb->io[Divider]    = 0x18;
+    gb->io[Divider]    = 0xAB;
     gb->io[TimerCtrl]  = 0xF8;
     gb->io[IntrFlags]  = 0xE1;
     gb->io[LCDControl] = 0x91;
-    gb->io[LCDStatus]  = 0x81;
-    gb->io[LY]         = 0x90;
+    gb->io[LCDStatus]  = 0x85;
+    gb->io[LY]         = 0x00;
     gb->io[BGPalette]  = 0xFC;
     gb->io[DMA]        = 0xFF;
     gb_boot_register (gb, 1);
@@ -212,6 +230,8 @@ const int8_t opTicks[256] = {
 	3,3,2,1,0,4,2,4,3,2,4,1,0,0,2,4
 };
 
+const uint_fast16_t TAC_INTERVALS[4] = {1024, 16, 64, 256};
+
 /*
  *****************  CPU functions  *****************
  ===================================================
@@ -219,6 +239,8 @@ const int8_t opTicks[256] = {
 
 void gb_cpu_exec (struct GB * gb, const uint8_t op)
 {
+    gb->rt = 0;
+    gb->rm = 0;
     /* Copied value for operands (can be overridden for other opcodes) */
     uint8_t tmp = REG_A;
 
@@ -266,6 +288,61 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         /* HALT */
         case 0x76: 
             OP(HALT);
+
+#ifdef CPU_STEP_TEST
+        /* Skip increment if IME disabled and any interrupt flags match */
+        if (!gb->ime) {
+            if (gb->io[IntrEnabled] && gb->io[IntrFlags] & IF_Any) 
+                gb->pcInc = 0; 
+            else 
+                gb->halted = 1;
+        }
+        else
+            gb->halted = 1;
+
+		int16_t haltCycles = 32767;
+        
+		if (gb->io[IntrEnabled] == 0)
+		{
+			/* Return program counter where this halt forever state started. */
+            LOG_("GB: Unreachable!\n");
+		}
+
+		if (gb->io[TimerCtrl] & 0x4)
+		{
+			int tacCycles = TAC_INTERVALS [gb->io[TimerCtrl] & 0x3] - gb->timAClock;
+
+			if (tacCycles < haltCycles)
+				haltCycles = tacCycles;
+		}
+
+		if (LCDC_(LCD_Enable))
+		{
+			int lcdCycles;
+			/* Calculate the number of cycles until the end of HBlank 
+             * and the start of mode 2 or mode 1 */
+			if (IO_STAT_MODE == Stat_HBlank)
+				lcdCycles = TICKS_OAM_READ - gb->lineClock;
+
+			else if (IO_STAT_MODE == Stat_OAM_Search)
+				lcdCycles = TICKS_TRANSFER - gb->lineClock;
+
+			else if (IO_STAT_MODE == Stat_Transfer)
+				lcdCycles = TICKS_HBLANK - gb->lineClock;
+
+			else  /* VBlank */
+				lcdCycles = TICKS_VBLANK - gb->lineClock;
+
+			if (lcdCycles < haltCycles)
+				haltCycles = lcdCycles;
+		}
+
+		/* Keep from underflowing */
+		if (haltCycles <= 0) haltCycles = 4;
+
+        gb->rt = (uint16_t) haltCycles;
+		break;
+#else
             if (!gb->ime) {
                 if (gb->io[IntrEnabled] && gb->io[IntrFlags] & IF_Any) 
                     gb->pcInc = 0; 
@@ -274,6 +351,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
             } else {
                 gb->halted = 1;
             }
+#endif
         break;
         /* 8-bit arithmetic */
         OP_r8_hl (0x80, ADD, 0)
@@ -325,7 +403,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         default: INVALID;
     }
 
-    gb->rm += opTicks[op];
+    gb->rt += (gb->rm + opTicks[op]) * 4;
 
     /* Handle effects of STOP instruction */
     if (op == 0x10 && gb->stop)
@@ -335,7 +413,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         gb->divClock = 0;
     }
 
-    assert (gb->rm >= opTicks[op]);  
+    assert (gb->rt >= opTicks[op] * 4);  
 }
 
 void gb_exec_cb (struct GB * gb, const uint8_t op)
@@ -385,8 +463,8 @@ void gb_handle_interrupts (struct GB * gb)
     const uint8_t io_IF = gb->io[IntrFlags];
 
     /* Run if CPU ran HALT instruction or IME enabled w/flags */
-    if (io_IE & io_IF & IF_Any)
-    {
+    //if (io_IE & io_IF & IF_Any)
+    //{
         gb->ime = 0;
         /* Check all 5 IE and IF bits for flag confirmations 
            This loop also services interrupts by priority (0 = highest) */
@@ -413,7 +491,7 @@ void gb_handle_interrupts (struct GB * gb)
                 break;
             }
         }
-    }
+    //}
 }
 
 void gb_timer_update (struct GB * gb, const uint8_t change)
@@ -443,6 +521,32 @@ void gb_timer_update (struct GB * gb, const uint8_t change)
 
 void gb_handle_timings (struct GB * gb)
 {
+#ifdef CPU_STEP_TEST
+    /* Update Divider clock */
+    gb->divClock += gb->rt;
+    while (gb->divClock >= 256)// DIV_CYCLES)
+    {
+        gb->io[Divider]++;
+        gb->divClock -= 256;//DIV_CYCLES;
+    }
+
+    /* Update TimA clock */
+    if (gb->io[TimerCtrl] & 0x4)
+    {
+        gb->timAClock += gb->rt;
+        while (gb->timAClock >= TAC_INTERVALS[gb->io[TimerCtrl] & 0x3])
+        {
+            gb->timAClock -= TAC_INTERVALS[gb->io[TimerCtrl] & 0x3];
+
+            if (++gb->io[TimA] == 0)
+            {                
+                /* Update flag and TimA on overflow */
+                gb->io[IntrFlags] |= IF_Timer;
+                gb->io[TimA] = gb->io[TMA];
+            }
+        }
+    }
+#else
     gb->newTimALoaded = 0;
 
     if (gb->nextTimA_IRQ) 
@@ -456,31 +560,14 @@ void gb_handle_timings (struct GB * gb)
             gb->newTimALoaded = 1;
         }
     }
-
     gb_timer_update (gb, 1);
+#endif
 }
 
 /*
  *****************  PPU functions  *****************
  *==================================================
 */
-
-/* Used for comparing and setting PPU mode timings */
-enum {
-    Stat_HBlank = 0,
-    Stat_VBlank,
-    Stat_OAM_Search,
-    Stat_Transfer
-}
-modes;
-
-enum {
-    TICKS_OAM_READ    = 80,
-    TICKS_TRANSFER    = 252,
-    TICKS_HBLANK      = 456,
-    TICKS_VBLANK      = 456
-}
-modeTicks;
 
 /* Custom pixel palette values for the frontend */
 
@@ -897,7 +984,7 @@ static inline void gb_vblank (struct GB * const gb)
                 gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
                 gb->io[IntrFlags] |= IF_VBlank;
                 /* Mode 1 interrupt */
-                if STAT_(IR_VBLank) gb->io[IntrFlags] |= IF_LCD_STAT;
+                if STAT_(IR_VBlank) gb->io[IntrFlags] |= IF_LCD_STAT;
             }
         }
     }
@@ -913,9 +1000,85 @@ static inline void gb_vblank (struct GB * const gb)
 
 void gb_render (struct GB * const gb)
 {
-    gb->rt = gb->rm * 4;
+#ifdef CPU_STEP_TEST
+    gb->lineClock += gb->rt;
+    gb->rm = gb->rt / 4;
 
-    gb->lineClock  += gb->rt;
+    /* New scanline */
+    if (gb->lineClock >= TICKS_VBLANK)
+    {
+        gb->lineClock -= TICKS_VBLANK;
+
+        /* Next line */
+        gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
+
+        /* LYC Update */
+        if(gb->io[LY] == gb->io[LYC])
+        {
+            gb->io[LCDStatus] |= (1 << LYC_LY);
+            if (STAT_(IR_LYC)) gb->io[IntrFlags] |= IF_LCD_STAT;
+        }
+        else
+            gb->io[LCDStatus] &= 0xFB;
+
+        /* Vblank start */
+        if(gb->io[LY] == DISPLAY_HEIGHT)
+        {
+            gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
+            gb->io[IntrFlags] |= IF_VBlank;
+
+            if (STAT_(IR_VBlank))
+                gb->io[IntrFlags] |= IF_LCD_STAT;
+
+            gb->frameDone = 1;
+        }
+        /* Normal Line */
+        else if(gb->io[LY] < DISPLAY_HEIGHT)
+        {
+            if(gb->io[LY] == 0)
+            {
+                //gb->windowLY = gb->io[WindowY];
+                gb->windowLY = 0;
+            }
+
+            gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;
+
+            if (STAT_(IR_HBlank))
+                gb->io[IntrFlags] |= IF_LCD_STAT;
+
+            /* Jump to next mode on halt */
+            if(gb->lineClock < TICKS_OAM_READ)
+                gb->rt = TICKS_OAM_READ - gb->lineClock;
+        }
+    }
+    /* OAM access */
+    else if (IO_STAT_MODE == Stat_HBlank && gb->lineClock >= TICKS_OAM_READ)
+    {
+        gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_OAM_Search;
+
+        if (STAT_(IR_OAM))
+            gb->io[IntrFlags] |= IF_LCD_STAT;
+
+        /* Jump to next mode on halt */
+        if (gb->lineClock < TICKS_TRANSFER)
+            gb->rt = TICKS_TRANSFER - gb->lineClock;
+    }
+    /* Update pixels */
+    else if (IO_STAT_MODE == Stat_OAM_Search && gb->lineClock >= TICKS_TRANSFER)
+    {
+        gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
+        /* Fetch line of pixels for the screen and draw them */
+        uint8_t * pixels = gb_pixel_fetch (gb);
+        gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
+
+        /* Jump to next mode on halt */
+        if (gb->lineClock < TICKS_HBLANK)
+            gb->rt = TICKS_HBLANK - gb->lineClock;
+    }
+
+#else
+    gb->rt = gb->rm * 4;
+    gb->lineClock += gb->rt;
 
     /* Todo: continuously fetch pixels clock by clock for LCD data transfer.
        Similarly do clock-based processing for the other actions. */
@@ -935,4 +1098,5 @@ void gb_render (struct GB * const gb)
     else /* Outside of screen Y bounds */
         gb_vblank (gb);
     /* ...and DMA transfer to OMA, if needed */
+#endif
 }
