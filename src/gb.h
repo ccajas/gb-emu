@@ -83,8 +83,7 @@ struct GB
     uint16_t pc, sp;
     uint64_t clock_t, clock_m;
     uint16_t lineClock;
-    uint32_t frameClock;
-    uint8_t  frame;
+    uint8_t  frame, frameDone;
     uint32_t totalFrames;
 
     /* Timer data */
@@ -233,17 +232,10 @@ static inline void gb_step (struct GB * gb)
 
 static inline void gb_frame (struct GB * gb)
 {
-    uint8_t frameDone = 0;
+    gb->frameDone = 0;
     /* Returns when frame is completed */
-    while (!frameDone) 
-    {
+    while (!gb->frameDone) 
         gb_step (gb);
-        /* Check if a frame is done */
-        const uint32_t lastClock = gb->frameClock;
-        gb->frameClock %= (uint32_t)FRAME_CYCLES;
-
-        if (lastClock > gb->frameClock) frameDone = 1;
-    }
 
     /* Indicates odd or even frame */
     gb->frame = 1 - gb->frame;

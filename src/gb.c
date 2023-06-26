@@ -126,7 +126,7 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
         gb_boot_reset (gb);
 
     LOG_CPU_STATE (gb);
-    gb->lineClock = gb->frameClock = 0;
+    gb->lineClock = gb->frameDone = 0;
     gb->clock_t = gb->clock_m = 0;
     gb->divClock = 0;
     gb->frame = 0;
@@ -642,7 +642,7 @@ int compare_sprites (const void *in1, const void *in2)
 
 #define PPU_FETCH_TILE(pixelX, X) \
     /* fetch next tile */\
-    posX = X;\
+    posX = lineX + X;\
     tileID = gb->vram[(tileMap & 0x1FFF) + (posX >> 3)];\
     px = pixelX;\
                 \
@@ -667,30 +667,31 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 
 		/* Calculate current background line to draw */
 		const uint8_t posY = gb->io[LY] + gb->io[ScrollY];
+		const uint8_t end = 0xFF;
+		lineX = DISPLAY_WIDTH - 1;
+
+        if (LCDC_(Window_Enable) && gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
+            lineX = (gb->io[WindowX] < 7 ? 0 : gb->io[WindowX] - 7) - 1;
 
         /* BG tile fetcher gets tile ID. Bits 0-4 define X loction, bits 5-9 define Y location
          * All related calculations following are found here:
          * https://github.com/ISSOtm/pandocs/blob/rendering-internals/src/Rendering_Internals.md */
 
 		/* Get selected background map address for first tile
-		 * corresponding to current line  */
+		 * corresponding to current line */
 		tileMap = ((LCDC_(BG_Area)) ? 0x9C00 : 0x9800);
 		tileMap += ((posY >> 3) << 5);
 
-		lineX = DISPLAY_WIDTH - 1;
-        if (LCDC_(Window_Enable) && gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
-            lineX = (gb->io[WindowX] < 7 ? 0 : gb->io[WindowX] - 7) - 1;
+        PPU_FETCH_TILE (7 - (posX & 7), gb->io[ScrollX])
 
-        PPU_FETCH_TILE (7 - (posX & 7), lineX + gb->io[ScrollX])
-
-		for(; lineX != 0xFF; lineX--)
+		for(; lineX != end; lineX--)
 		{
-			if (px % 8 == 0) {
-				PPU_FETCH_TILE (0, lineX + gb->io[ScrollX])
+			if (!(px & 7)) {
+				PPU_FETCH_TILE (0, gb->io[ScrollX])
 			}
 
 			/* Get background color */
-			uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
+			const uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
 			pixels[lineX] = ((gb->io[BGPalette] >> (palIndex << 1)) & 3);
 
 			rowLSB >>= 1;
@@ -700,29 +701,30 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 	}
 
 	/* draw window */
-	if (LCDC_(Window_Enable) && gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
+	if ((LCDC_(BG_Win_Enable) && LCDC_(Window_Enable)) &&
+        gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
 	{
-		uint8_t lineX, posX, px, tileID, rowLSB, rowMSB, end;
+		uint8_t lineX, posX, px, tileID, rowLSB, rowMSB;
 		uint16_t tileMap, tile;
 
-		/* Calculate Window Map Address. */
+        const uint8_t posY = gb->windowLY & 7;
+		const uint8_t end = (gb->io[WindowX] >= 7 ? gb->io[WindowX] - 7 : 0) - 1;
+		lineX = DISPLAY_WIDTH - 1;
+
+		/* Get selected background map address for first tile
+		 * corresponding to current line */
 		tileMap = (LCDC_(Window_Area)) ? 0x9C00 : 0x9800;
 		tileMap += (gb->windowLY >> 3) << 5;
 
-		lineX = DISPLAY_WIDTH - 1;
-		const uint8_t posY = gb->windowLY & 7;
-
-        PPU_FETCH_TILE (7 - (posX & 7), lineX - gb->io[WindowX] + 7)
-
-		end = (gb->io[WindowX] < 7 ? 0 : gb->io[WindowX] - 7) - 1;
+        PPU_FETCH_TILE (7 - (posX & 7), -gb->io[WindowX] + 7)
 
 		for(; lineX != end; lineX--)
 		{
-			if (px % 8 == 0) {
-				PPU_FETCH_TILE (0, lineX - gb->io[WindowX] + 7)
+			if (!(px & 7)) {
+				PPU_FETCH_TILE (0, -gb->io[WindowX] + 7)
 			}
 
-			uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
+			const uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
 			pixels[lineX] = ((gb->io[BGPalette] >> (palIndex << 1)) & 3);
 
 			rowLSB >>= 1;
@@ -888,8 +890,9 @@ static inline void gb_vblank (struct GB * const gb)
         /* Mode 1 - V-blank */
         if (IO_STAT_MODE != Stat_VBlank)
         {
+            gb->frameDone = 1;
             /* Enter Vblank and indicate that a frame is completed */
-            if (LCDC_(LCD_Enable)) 
+            //if (LCDC_(LCD_Enable)) 
             {
                 gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
                 gb->io[IntrFlags] |= IF_VBlank;
@@ -913,7 +916,6 @@ void gb_render (struct GB * const gb)
     gb->rt = gb->rm * 4;
 
     gb->lineClock  += gb->rt;
-    gb->frameClock += gb->rt;
 
     /* Todo: continuously fetch pixels clock by clock for LCD data transfer.
        Similarly do clock-based processing for the other actions. */
