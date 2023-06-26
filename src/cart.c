@@ -141,11 +141,20 @@ uint8_t mbc5_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
     return 0;
 }
 
-/* Array to select the read/write functions from */
+/* Array to select the MBC read/write functions from */
 
 uint8_t (* cart_rw[])(struct Cartridge *, const uint16_t, const uint8_t, const uint8_t) =
 {
     none_rw, mbc1_rw, mbc2_rw, mbc3_rw, NULL, mbc5_rw
+};
+
+/* Array to select whether or not the cart has a battery */
+
+const uint8_t cartBattery[0x100] = 
+{
+    [3] = 1, [6] = 1, [9] = 1, [0xD] = 1, [0xF] = 1,
+    [0x10] = 1, [0x13] = 1, [0x1B] = 1, [0x1E] = 1,
+    [0x22] = 1, [0xFF] = 1
 };
 
 /* Read cart and load metadata and MBC info */
@@ -177,7 +186,7 @@ void cart_identify (struct Cartridge * cart)
         case 0x5  ... 0x6:  cart->mbc = 2; break;
         case 0xF  ... 0x13: cart->mbc = 3; break;
         case 0x19 ... 0x1E: cart->mbc = 5; break;
-        default: 
+        default:
             LOG_("GB: MBC not supported.\n"); return;
     }
     cart->rw = cart_rw[cart->mbc];
@@ -190,19 +199,20 @@ void cart_identify (struct Cartridge * cart)
     cart->romSizeKB = 32 * (1 << header[0x48]);
     /* MBC2 has built-in RAM */
     cart->ramSizeKB = (cart->mbc == 2) ? 1 : ramBanks[header[0x49]];
-    cart->usingRAM = 0;
+    cart->ram     = (cart->ramSizeKB > 0);
+    cart->battery = cartBattery[cartType];
+    cart->romMask = (1 << (header[0x48] + 1)) - 1;
 
     printf ("GB: RAM file size (KiB): %d\n", cart->ramSizeKB);
     printf ("GB: Cart type: %02X Mapper type: %d\n", header[0x47], cart->mbc);
     printf ("GB: This is a %s cart\n", (header[0x43] & 0x80) ? "CGB" : "DMG");
+    printf ("GB: Cart has battery: %s\n", cart->battery ? "Yes" : "No");
 
     if (cart->ramSizeKB) {
         cart->ramData = calloc(cart->ramSizeKB * 1024, sizeof (uint8_t));
         cart->bkRamData = cart->ramData;
     }
 
-    cart->ram = (cart->ramSizeKB > 0);
-    cart->romMask = (1 << (header[0x48] + 1)) - 1;
     cart->usingRAM = 0;
     cart->bank1st = 0;
     cart->bank2nd = 0;
