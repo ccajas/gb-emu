@@ -403,7 +403,9 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         default: INVALID;
     }
 
-    gb->rt += (gb->rm + opTicks[op]) * 4;
+    //gb->rt += (gb->rm + opTicks[op]) * 4;
+    gb->rm += opTicks[op];
+    gb->rt += (gb->rm * 4);
 
     /* Handle effects of STOP instruction */
     if (op == 0x10 && gb->stop)
@@ -1002,7 +1004,6 @@ void gb_render (struct GB * const gb)
 {
 #ifdef CPU_STEP_TEST
     gb->lineClock += gb->rt;
-    gb->rm = gb->rt / 4;
 
     /* New scanline */
     if (gb->lineClock >= TICKS_VBLANK)

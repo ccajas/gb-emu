@@ -205,7 +205,7 @@ static inline void gb_step (struct GB * gb)
         if (gb->io[IntrEnabled] & gb->io[IntrFlags] & IF_Any)
             gb->halted = 0;
 
-        if (gb->ime)
+        if (gb->ime && gb->io[IntrEnabled] & gb->io[IntrFlags])
             gb_handle_interrupts (gb);
 
         gb->rm++;
@@ -217,7 +217,7 @@ static inline void gb_step (struct GB * gb)
         LOG_CPU_STATE (gb);
     }
 
-    if (gb->ime)
+    if (gb->ime && gb->io[IntrEnabled] & gb->io[IntrFlags])
         gb_handle_interrupts (gb);
 
     /* Update timers for every remaining m-cycle */
