@@ -73,23 +73,6 @@ static const enum
 }
 LCD_Control_Flags;
 
-/* Used for comparing and setting PPU mode timings */
-static const enum {
-    Stat_HBlank = 0,
-    Stat_VBlank,
-    Stat_OAM_Search,
-    Stat_Transfer
-}
-modes;
-
-static const enum {
-    TICKS_OAM_READ    = 80,
-    TICKS_TRANSFER    = 252,
-    TICKS_HBLANK      = 456,
-    TICKS_VBLANK      = 456
-}
-modeTicks;
-
 #define IO_STAT_CLEAR   (gb->io[LCDStatus] & 0xFC)
 #define IO_STAT_MODE    (gb->io[LCDStatus] & 3)
 

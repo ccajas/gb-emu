@@ -696,7 +696,6 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 			}
 		}
 	}
-
     return pixels;
 }
 
@@ -726,17 +725,6 @@ static inline void gb_transfer (struct GB * gb)
     }
 }
 
-static inline void gb_hblank (struct GB * gb)
-{ 
-    /* Mode 0 - H-blank */
-    if (IO_STAT_MODE != Stat_HBlank)
-    {
-        gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;
-        /* Mode 0 interrupt */
-        if STAT_(IR_HBlank) gb->io[IntrFlags] |= IF_LCD_STAT;
-    }
-}
-
 /* Evaluate LY==LYC */
 
 static inline void gb_eval_LYC (struct GB * const gb)
@@ -749,34 +737,7 @@ static inline void gb_eval_LYC (struct GB * const gb)
         if (STAT_(IR_LYC)) gb->io[IntrFlags] |= IF_LCD_STAT;
     }
     else /* Unset the flag */
-        gb->io[LCDStatus] &= 0xFB;// &= ~(1 << LYC_LY);
-}
-
-static inline void gb_vblank (struct GB * const gb) 
-{
-    if (gb->lineClock < TICKS_VBLANK)
-    {
-        /* Mode 1 - V-blank */
-        if (IO_STAT_MODE != Stat_VBlank)
-        {
-            /* Enter Vblank and indicate that a frame is completed */
-            if (LCDC_(LCD_Enable)) 
-            {
-                gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
-                gb->io[IntrFlags] |= IF_VBlank;
-                /* Mode 1 interrupt */
-                if STAT_(IR_VBlank) gb->io[IntrFlags] |= IF_LCD_STAT;
-            }
-        }
-    }
-    else
-    {
-        /* Starting new line */
-        gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
-        gb->lineClock -= TICKS_VBLANK;
-        if (gb->io[LY] > DISPLAY_HEIGHT) gb->windowLY = 0; /* Reset window Y counter if line is 0 */
-        gb_eval_LYC (gb);
-    }
+        gb->io[LCDStatus] &= 0xFB;
 }
 
 void gb_render (struct GB * const gb)
@@ -793,7 +754,15 @@ void gb_render (struct GB * const gb)
         /* Visible line, within screen bounds */
         if      (gb->lineClock < TICKS_OAM_READ) gb_oam_read (gb);
         else if (gb->lineClock < TICKS_TRANSFER) gb_transfer (gb);
-        else if (gb->lineClock < TICKS_HBLANK)   gb_hblank (gb);
+        else if (gb->lineClock < TICKS_HBLANK)
+        {   /* Mode 0 - H-blank */
+            if (IO_STAT_MODE != Stat_HBlank)
+            {
+                gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;
+                /* Mode 0 interrupt */
+                if STAT_(IR_HBlank) gb->io[IntrFlags] |= IF_LCD_STAT;
+            }
+        }
         else
         {   /* Starting new line */
             gb->lineClock -= TICKS_HBLANK;
@@ -802,6 +771,28 @@ void gb_render (struct GB * const gb)
         }
     }
     else /* Outside of screen Y bounds */
-        gb_vblank (gb);
+    {
+        if (gb->lineClock < TICKS_VBLANK)
+        {
+            if (IO_STAT_MODE != Stat_VBlank)
+            {
+                /* Enter Vblank and indicate that a frame is completed */
+                if (LCDC_(LCD_Enable)) 
+                {
+                    gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
+                    gb->io[IntrFlags] |= IF_VBlank;
+                    /* Mode 1 interrupt */
+                    if STAT_(IR_VBlank) gb->io[IntrFlags] |= IF_LCD_STAT;
+                }
+            }
+        }
+        else
+        {   /* Starting new line */
+            gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
+            gb->lineClock -= TICKS_VBLANK;
+            if (gb->io[LY] > DISPLAY_HEIGHT) gb->windowLY = 0; /* Reset window Y counter if line is 0 */
+            gb_eval_LYC (gb);
+        }
+    }
     /* ...and DMA transfer to OMA, if needed */
 }
