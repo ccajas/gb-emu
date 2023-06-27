@@ -23,16 +23,19 @@ all: glfw
 
 LDFLAGS = `pkg-config --libs glfw3`
 
-# main build	
+# main builds
 glfw: $(obj)
-	$(CC) $(CFLAGS) -DUSE_GLFW $(src_min) $(srcGL) -o $(target) -I../_include -lm -lglfw3 -lgdi32
+	$(CC) $(CFLAGS) -DUSE_GLFW $(src_min) $(srcGL) -o $(target) -lm -lglfw3 -lgdi32
 
 glfw-l: $(obj)
 	gcc $(CFLAGS_LIN) -DUSE_GLFW $(src_min) $(srcGL) -o $(target_linux) -lm -ldl -lpthread $(LDFLAGS)
 
 # no GLFW build
 tigr: $(obj)
-	$(CC) $(CFLAGS) -DUSE_TIGR $(src_min) $(srcTIGR) -o $(target) -I../_include -lm -lopengl32 -lgdi32
+	$(CC) $(CFLAGS) -DUSE_TIGR $(src_min) $(srcTIGR) -o $(target) -lm -lopengl32 -lgdi32
+
+minifb: $(obj)
+	$(CC) $(CFLAGS) src/main.c src/app.c src/gb.c src/cart.c -o $(target) -lgdi32
 
 core: $(obj)
 	$(CC) $(CFLAGS) $(src_min) -o $(target) -I../_include -lm -lgdi32
