@@ -39,11 +39,8 @@ inline uint8_t gb_ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val
         return gb->oam[addr & 0x9F];\
     }\
     else {\
-        gb->oam[addr & 0x9F] = val;\
+        gb->oam[addr - 0xFE00] = val;\
     }\
-        /*if (val > 0 && addr % 4 == 2)
-            LOG_("Frame: XX LY: %d - Writing tile 0x%x to OAM entry 0x%x\n",
-                gb->io[LY], val, (addr & 0x9F) / 4); */
 
 #define RISING_EDGE(before, after)   ((before & 1) < (after & 1))
 #define FALLING_EDGE(before, after)  ((before & 1) > (after & 1))
@@ -58,6 +55,7 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
         {
             case Divider:
                 gb_timer_update (gb, 0); return 0;             /* DIV reset                             */
+#ifndef TIMER_SIMPLE
             case TimA:
                 if (!gb->newTimALoaded) gb->io[TimA] = val;    /* Update TIMA if new value wasn't loaded last cycle    */
                 if (gb->nextTimA_IRQ)   gb->nextTimA_IRQ = 0;  /* Cancel any pending IRQ when accessing TIMA           */
@@ -65,14 +63,20 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
             case TMA:                                          /* Update TIMA also if TMA is written in the same cycle */
                 if (gb->newTimALoaded) gb->io[TimA] = val;
                 break;
-            case TimerCtrl: /* Todo: TIMA should increase right here if last bit was 1 and current is 0 */
+#endif
+            case TimerCtrl: /* Todo: TIMA should increase right here if last bit was 1 and current is 0  */
                 gb->io[TimerCtrl] = val | 0xF8; return 0;
-            case IntrFlags:                                    /* Mask unused bits for IE and IF        */
+            case IntrFlags:                                    /* Mask unused bits for IE and IF         */
             case IntrEnabled:
                 gb->io[addr % 0x80] = val | 0xE0; return 0;
-            case BootROM:                 /* Boot ROM register should be unwritable at some point? */
+            case LCDControl: {
+                uint8_t lcdEnabled = (LCDC_(LCD_Enable));  /* Check whether LCD will be turned on or off */
+                //if (lcdEnabled && !(val & (1 << LCD_Enable))) 
+                //    LOG_("GB: Turning off LCD!\n");
+                break; }
+            case BootROM:     /* Boot ROM register should be unwritable at some point? */
                 break;
-            case DMA:                                          /* OAM DMA transfer                      */
+            case DMA:                                          /* OAM DMA transfer     */
                 gb->io[DMA] = val; int i = 0; /* Todo: Make it write across 160 cycles */
                 const uint16_t src = val << 8;
                 while (i < OAM_SIZE) { gb->oam[i] = CPU_RB (src + i); i++; } return 0;
