@@ -334,7 +334,8 @@ void app_run (struct App * app)
     double totalTime = 0;
     uint32_t frames = 0;
 
-    const int32_t totalFrames = 60;
+    const int32_t totalFrames = 10;
+    //app->draw = 0;
 
     if (app->draw)
     {
@@ -344,7 +345,7 @@ void app_run (struct App * app)
             double current = glfwGetTime();
             glfwPollEvents();
 
-            if ((current - lastUpdate) < GB_FRAME_RATE) continue;
+            if ((current - lastUpdate) < 1.0 / GB_FRAME_RATE) continue;
 
             const float fps = 1.0 / (current - lastUpdate);
             glfwMakeContextCurrent (app->window);
@@ -360,7 +361,7 @@ void app_run (struct App * app)
                     frames++;
                     if (frames % 30 == 29)
                         sprintf(app->fpsString, "FPS: %0.2f | Perf: %0.2fx ", 
-                        fps, (double)(frames / 59.7275) / totalTime);
+                        fps, (double)(frames / GB_FRAME_RATE) / totalTime);
                 }
             }
             app_draw (app);

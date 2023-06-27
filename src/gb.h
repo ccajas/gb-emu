@@ -20,7 +20,7 @@
 #define HRAM_SIZE     0x80
 #define IO_SIZE       0x80
 
-#define GB_FRAME_RATE    FRAME_CYCLES / CPU_FREQ_DMG
+#define GB_FRAME_RATE    CPU_FREQ_DMG / FRAME_CYCLES
 
 /* Assign register pair as 16-bit union */
 
@@ -178,7 +178,6 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
     
     return 0;
 }
-#define CPU_LOG_INSTRS
 
 #ifndef CPU_LOG_INSTRS
     #define LOG_CPU_STATE(gb)
@@ -240,7 +239,6 @@ static inline void gb_frame (struct GB * gb)
         gb_step (gb);
         /* Keep track of cycles in frame */
         gb->frameClock %= (uint32_t)FRAME_CYCLES;
-        //if (lastClock > gb->frameClock) frameDone = 1;
     }
 
     /* Indicates odd or even frame */
