@@ -223,8 +223,10 @@ static inline void gb_step (struct GB * gb)
     int m = 0;
     while (m++ < gb->rm)
         gb_handle_timings (gb);
-
-    gb_render (gb);
+    
+    /* Update PPU if LCD is turned on */
+    if (LCDC_(LCD_Enable))
+        gb_render (gb);
 
     gb->clock_m += gb->rm;
     gb->clock_t += gb->rm * 4;
