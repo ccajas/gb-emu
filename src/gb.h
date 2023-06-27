@@ -84,7 +84,7 @@ struct GB
     uint64_t clock_t, clock_m;
     uint16_t lineClock;
     uint32_t frameClock;
-    uint8_t  frame;
+    uint8_t  frame, frameDone;
     uint32_t totalFrames;
 
     /* Timer data */
@@ -158,7 +158,6 @@ static inline void gb_boot_register (struct GB * const gb, const uint8_t val)
 
 /*
  ********  General emulator input/update  **********
- *
 */
 
 static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_t write)
@@ -179,19 +178,20 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
     
     return 0;
 }
+#define CPU_LOG_INSTRS
 
-#define LOG_CPU_STATE(gb)
-
-#ifdef CPU_INSTRS_TESTING
-#define LOG_CPU_STATE(gb) {\
-    const uint16_t pc = gb->pc;\
-    #define cpu_read(X)   gb_mem_access (gb, X, 0, 0)\
-    LOG_("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X "\
-        "SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",\
-        REG_A, gb->flags, REG_B, REG_C, REG_D, REG_E, REG_H, REG_L, \
-        gb->sp, pc, cpu_read (pc), cpu_read (pc+1), cpu_read (pc+2), cpu_read (pc+3)\
-    );\
-}
+#ifndef CPU_LOG_INSTRS
+    #define LOG_CPU_STATE(gb)
+#else
+    #define cpu_read(X)   gb_mem_access (gb, X, 0, 0)
+    #define LOG_CPU_STATE(gb) {\
+        const uint16_t pc = gb->pc;\
+        LOG_("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X "\
+            "SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",\
+            REG_A, gb->flags, REG_B, REG_C, REG_D, REG_E, REG_H, REG_L, \
+            gb->sp, pc, cpu_read (pc), cpu_read (pc+1), cpu_read (pc+2), cpu_read (pc+3)\
+        );\
+    }
 #endif
 
 static inline void gb_step (struct GB * gb)
@@ -233,16 +233,14 @@ static inline void gb_step (struct GB * gb)
 
 static inline void gb_frame (struct GB * gb)
 {
-    uint8_t frameDone = 0;
+    gb->frameDone = 0;
     /* Returns when frame is completed */
-    while (!frameDone) 
+    while (!gb->frameDone) 
     {
         gb_step (gb);
-        /* Check if a frame is done */
-        const uint32_t lastClock = gb->frameClock;
+        /* Keep track of cycles in frame */
         gb->frameClock %= (uint32_t)FRAME_CYCLES;
-
-        if (lastClock > gb->frameClock) frameDone = 1;
+        //if (lastClock > gb->frameClock) frameDone = 1;
     }
 
     /* Indicates odd or even frame */
