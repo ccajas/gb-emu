@@ -34,6 +34,17 @@ inline uint8_t gb_ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val
     }\
     return 0;\
 
+#define GB_OAM_RW \
+    if (!write) {\
+        return gb->oam[addr & 0x9F];\
+    }\
+    else {\
+        gb->oam[addr & 0x9F] = val;\
+    }\
+        /*if (val > 0 && addr % 4 == 2)
+            LOG_("Frame: XX LY: %d - Writing tile 0x%x to OAM entry 0x%x\n",
+                gb->io[LY], val, (addr & 0x9F) / 4); */
+
 #define RISING_EDGE(before, after)   ((before & 1) < (after & 1))
 #define FALLING_EDGE(before, after)  ((before & 1) > (after & 1))
 
@@ -45,6 +56,8 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
     {
         switch (addr % 0x80)
         {
+            case Divider:
+                gb_timer_update (gb, 0); return 0;             /* DIV reset                             */
             case TimA:
                 if (!gb->newTimALoaded) gb->io[TimA] = val;    /* Update TIMA if new value wasn't loaded last cycle    */
                 if (gb->nextTimA_IRQ)   gb->nextTimA_IRQ = 0;  /* Cancel any pending IRQ when accessing TIMA           */
@@ -59,8 +72,6 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
                 gb->io[addr % 0x80] = val | 0xE0; return 0;
             case BootROM:                 /* Boot ROM register should be unwritable at some point? */
                 break;
-            case Divider:
-                gb_timer_update (gb, 0); return 0;             /* DIV reset                             */
             case DMA:                                          /* OAM DMA transfer                      */
                 gb->io[DMA] = val; int i = 0; /* Todo: Make it write across 160 cycles */
                 const uint16_t src = val << 8;
@@ -90,7 +101,7 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
     if (addr < 0xC000)  return cart->rw (cart, addr, val, write);       /* External RAM     */
     if (addr < 0xE000)  { b = &gb->ram[addr % 0x2000]; DIRECT_RW(b); }  /* Work RAM         */
     if (addr < 0xFE00)  { b = &gb->ram[addr % 0x2000]; DIRECT_RW(b); }  /* Echo RAM         */
-    if (addr < 0xFEA0)  { GB_PPU_RW }                                   /* OAM              */
+    if (addr < 0xFEA0)  { GB_OAM_RW }                                   /* OAM              */
     if (addr < 0xFF00)  return 0xFF;                                    /* Not usable       */
     if (addr == 0xFF00) return gb_joypad (gb, val, write);              /* Joypad           */
     if (addr < 0xFF80)  return gb_io_rw (gb, addr, val, write);         /* I/O registers    */                      
@@ -109,7 +120,7 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
 void gb_init (struct GB * gb, uint8_t * bootRom)
 {
     cart_identify (&gb->cart);
-    printf ("GB: ROM mask: %d\n", gb->cart.romMask);
+    LOG_("GB: ROM mask: %d\n", gb->cart.romMask);
 
     /* Initialize RAM and settings */
     memset (gb->ram,  0, WRAM_SIZE);
@@ -172,8 +183,8 @@ void gb_boot_reset (struct GB * gb)
     gb->invalid = 0;
     gb->halted = 0;
 
-    printf ("GB: Launch without boot ROM\n");
-    printf ("GB: Set I/O\n");
+    LOG_("GB: Launch without boot ROM\n");
+    LOG_("GB: Set I/O\n");
 
     /* Initalize I/O registers (DMG) */
     memset(gb->io, 0, sizeof (gb->io));  
@@ -463,7 +474,6 @@ void gb_handle_timings (struct GB * gb)
 
 /*
  *****************  PPU functions  *****************
- *
 */
 
 /* Used for comparing and setting PPU mode timings */
@@ -776,8 +786,10 @@ void gb_render (struct GB * const gb)
         {
             if (IO_STAT_MODE != Stat_VBlank)
             {
+    			//LOG_("VBlank start\n");
+                gb->frameDone = 1;
                 /* Enter Vblank and indicate that a frame is completed */
-                if (LCDC_(LCD_Enable)) 
+                //if (LCDC_(LCD_Enable)) 
                 {
                     gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
                     gb->io[IntrFlags] |= IF_VBlank;
