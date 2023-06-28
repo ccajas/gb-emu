@@ -10,36 +10,23 @@
  *
 */
 
-inline uint8_t gb_ppu_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
-{
-    if (!write) {
-        if (addr >= 0xFE00) return (!gb->oamBlocked)  ? gb->oam[addr & 0x9F]    : 0xFF;
-        else                return (!gb->vramBlocked) ? gb->vram[addr & 0x1FFF] : 0xFF;
-    }
-    else {
-        if (addr >= 0xFE00 && !gb->oamBlocked) gb->oam[addr & 0x9F]    = val;
-        else if             (!gb->vramBlocked) gb->vram[addr & 0x1FFF] = val;
-    }
-    return 0;
-}
-
-#define GB_PPU_RW \
+#define GB_VRAM_RW \
+    if (gb->vramBlocked) return 0xFF;\
     if (!write) {\
-        if (addr >= 0xFE00) return (!gb->oamBlocked)  ? gb->oam[addr & 0x9F]    : 0xFF;\
-        else                return (!gb->vramBlocked) ? gb->vram[addr & 0x1FFF] : 0xFF;\
+        return gb->vram[addr & 0x1FFF];\
     }\
     else {\
-        if (addr >= 0xFE00 && !gb->oamBlocked) gb->oam[addr & 0x9F]    = val;\
-        else if             (!gb->vramBlocked) gb->vram[addr & 0x1FFF] = val;\
+        gb->vram[addr & 0x1FFF] = val;\
     }\
     return 0;\
 
 #define GB_OAM_RW \
+    if (gb->oamBlocked) return 0xFF;\
     if (!write) {\
-        return gb->oam[addr & 0x9F];\
+        return gb->oam[(addr - 0xFE00) & 0x9F];\
     }\
     else {\
-        gb->oam[addr - 0xFE00] = val;\
+        gb->oam[(addr - 0xFE00) & 0x9F] = val;\
     }\
 
 #define RISING_EDGE(before, after)   ((before & 1) < (after & 1))
@@ -98,19 +85,19 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
     #define DIRECT_RW(b)  if (write) { *b = val; } return *b;
     struct Cartridge * cart = &gb->cart;
 
-    if (addr < 0x0100 && gb->io[BootROM] == 0)                    /* Run boot ROM if needed */
+    if (addr < 0x0100 && gb->io[BootROM] == 0)                         /* Run boot ROM if needed */
         { if (!write) { return gb->bootRom[addr]; } else { return 0; }}
-    if (addr < 0x8000)  return cart->rw (cart, addr, val, write);       /* ROM from MBC     */
-    if (addr < 0xA000)  { GB_PPU_RW }                                   /* Video RAM        */
-    if (addr < 0xC000)  return cart->rw (cart, addr, val, write);       /* External RAM     */
-    if (addr < 0xE000)  { b = &gb->ram[addr % 0x2000]; DIRECT_RW(b); }  /* Work RAM         */
-    if (addr < 0xFE00)  { b = &gb->ram[addr % 0x2000]; DIRECT_RW(b); }  /* Echo RAM         */
-    if (addr < 0xFEA0)  { GB_OAM_RW }                                   /* OAM              */
-    if (addr < 0xFF00)  return 0xFF;                                    /* Not usable       */
-    if (addr == 0xFF00) return gb_joypad (gb, val, write);              /* Joypad           */
-    if (addr < 0xFF80)  return gb_io_rw (gb, addr, val, write);         /* I/O registers    */                      
-    if (addr < 0xFFFF)  { b = &gb->hram[addr % 0x80]; DIRECT_RW(b); }   /* High RAM         */  
-    if (addr == 0xFFFF) { b = &gb->io[addr % 0x80];   DIRECT_RW(b); }   /* Interrupt enable */
+    if (addr < 0x8000)  return cart->rw (cart, addr, val, write);            /* ROM from MBC     */
+    if (addr < 0xA000)  { GB_VRAM_RW }                                       /* Video RAM        */
+    if (addr < 0xC000)  return cart->rw (cart, addr, val, write);            /* External RAM     */
+    if (addr < 0xE000)  { b = &gb->ram[addr % WRAM_SIZE]; DIRECT_RW(b); }    /* Work RAM         */
+    if (addr < 0xFE00)  { b = &gb->ram[addr % WRAM_SIZE]; DIRECT_RW(b); }    /* Echo RAM         */
+    if (addr < 0xFEA0)  { GB_OAM_RW }                                        /* OAM              */
+    if (addr < 0xFF00)  return 0xFF;                                         /* Not usable       */
+    if (addr == 0xFF00) return gb_joypad (gb, val, write);                   /* Joypad           */
+    if (addr < 0xFF80)  return gb_io_rw (gb, addr, val, write);              /* I/O registers    */                      
+    if (addr < 0xFFFF)  { b = &gb->hram[addr % HRAM_SIZE]; DIRECT_RW(b); }   /* High RAM         */  
+    if (addr == 0xFFFF) { b = &gb->io[addr % IO_SIZE];     DIRECT_RW(b); }   /* Interrupt enable */
 
     #undef DIRECT_RW
     return 0;
