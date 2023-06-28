@@ -334,7 +334,7 @@ void app_run (struct App * app)
     double totalTime = 0;
     uint32_t frames = 0;
 
-    const int32_t totalFrames = 10;
+    const int32_t totalFrames = 5;
     //app->draw = 0;
 
     if (app->draw)
@@ -361,7 +361,7 @@ void app_run (struct App * app)
                     frames++;
                     if (frames % 30 == 29)
                         sprintf(app->fpsString, "FPS: %0.2f | Perf: %0.2fx ", 
-                        fps, (double)(frames / GB_FRAME_RATE) / totalTime);
+                        fps, (double)(frames / (GB_FRAME_RATE)) / totalTime);
                 }
             }
             app_draw (app);
