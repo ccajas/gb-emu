@@ -88,7 +88,7 @@ struct GB
     uint32_t totalFrames;
 
     /* Timer data */
-    uint16_t divClock, lastDiv;
+    uint16_t divClock, lastDiv, timAClock;
     uint8_t  timAOverflow, nextTimA_IRQ, newTimALoaded;
     uint8_t  rt, rm; /* Tracks individual step clocks */
 
@@ -141,9 +141,10 @@ void    gb_boot_reset (struct GB *);
 /* Other update-specific functions */
 
 void gb_handle_interrupts (struct GB *);
-void gb_handle_timings    (struct GB *);
+void gb_handle_timers     (struct GB *);
 void gb_timer_update      (struct GB *, const uint8_t);
-void gb_ppu_step          (struct GB *);
+void gb_update_div        (struct GB *);
+void gb_update_timer      (struct GB *);
 void gb_render            (struct GB *);
 
 static inline uint8_t gb_rom_loaded (struct GB * gb)
@@ -193,6 +194,8 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
     }
 #endif
 
+#define USE_TIMER_SIMPLE
+
 static inline void gb_step (struct GB * gb)
 {
     gb->rt = 0;
@@ -220,16 +223,21 @@ static inline void gb_step (struct GB * gb)
         gb_handle_interrupts (gb);
 
     /* Update timers for every remaining m-cycle */
+#ifdef USE_TIMER_SIMPLE
+    gb_update_div (gb);
+    gb_update_timer (gb);
+#else
     int m = 0;
     while (m++ < gb->rm)
-        gb_handle_timings (gb);
-    
+        gb_handle_timers (gb);
+#endif
     /* Update PPU if LCD is turned on */
     if (LCDC_(LCD_Enable))
         gb_render (gb);
 
     gb->clock_m += gb->rm;
     gb->clock_t += gb->rm * 4;
+    gb->frameClock += gb->rm * 4;
 }
 
 static inline void gb_frame (struct GB * gb)

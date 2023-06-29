@@ -23,14 +23,16 @@
 #define GB_OAM_RW \
     if (gb->oamBlocked) return 0xFF;\
     if (!write) {\
-        return gb->oam[(addr - 0xFE00) & 0x9F];\
+        return gb->oam[addr - 0xFE00];\
     }\
     else {\
-        gb->oam[(addr - 0xFE00) & 0x9F] = val;\
+        gb->oam[addr - 0xFE00] = val;\
     }\
 
 #define RISING_EDGE(before, after)   ((before & 1) < (after & 1))
 #define FALLING_EDGE(before, after)  ((before & 1) > (after & 1))
+
+const uint16_t TAC_INTERVALS[4] = { 1024, 16, 64, 256 };
 
 inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
@@ -40,16 +42,19 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
     {
         switch (addr % 0x80)
         {
+#ifdef USE_TIMER_SIMPLE
+            case Divider:
+                gb->io[Divider] = 0; return 0;
+#else
             case Divider:
                 gb_timer_update (gb, 0); return 0;             /* DIV reset                             */
-#ifndef TIMER_SIMPLE
             case TimA:
                 if (!gb->newTimALoaded) gb->io[TimA] = val;    /* Update TIMA if new value wasn't loaded last cycle    */
                 if (gb->nextTimA_IRQ)   gb->nextTimA_IRQ = 0;  /* Cancel any pending IRQ when accessing TIMA           */
                 return 0;
             case TMA:                                          /* Update TIMA also if TMA is written in the same cycle */
                 if (gb->newTimALoaded) gb->io[TimA] = val;
-                break;
+                return 0;
 #endif
             case TimerCtrl: /* Todo: TIMA should increase right here if last bit was 1 and current is 0  */
                 gb->io[TimerCtrl] = val | 0xF8; return 0;
@@ -57,12 +62,15 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
             case IntrEnabled:
                 gb->io[addr % 0x80] = val | 0xE0; return 0;
             case LCDControl: {
+                //LOG_("Writing value %x to LCDC (%d:%d)\n", val, gb->totalFrames, gb->io[LY]);
                 uint8_t lcdEnabled = (LCDC_(LCD_Enable));  /* Check whether LCD will be turned on or off */
-                //if (lcdEnabled && !(val & (1 << LCD_Enable))) 
-                //    LOG_("GB: Turning off LCD!\n");
+                if (lcdEnabled && !(val & (1 << LCD_Enable))) 
+                    LOG_("GB: %c LCD turn off (%d:%d)\n", 176, gb->totalFrames, gb->io[LY]);
+                else if (!lcdEnabled && (val & (1 << LCD_Enable))) 
+                    LOG_("GB: %c LCD turn on  (%d:%d)\n", 219, gb->totalFrames, gb->io[LY]);
                 break; }
-            case BootROM:     /* Boot ROM register should be unwritable at some point? */
-                break;
+            case LY:                                           /* Writing to LY resets line counter      */
+                return 0;
             case DMA:                                          /* OAM DMA transfer     */
                 gb->io[DMA] = val; int i = 0; /* Todo: Make it write across 160 cycles */
                 const uint16_t src = val << 8;
@@ -130,9 +138,9 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
 
     LOG_CPU_STATE (gb);
     gb->lineClock = gb->frameClock = 0;
-    gb->clock_t = gb->clock_m = 0;
-    gb->divClock = 0;
-    gb->frame = 0;
+    gb->clock_t  = gb->clock_m = 0;
+    gb->divClock = gb->timAClock = 0;
+    gb->frame    = gb->totalFrames = 0;
     gb->pcInc = 1;
     LOG_("GB: CPU state done\n");
 }
@@ -403,16 +411,13 @@ void gb_handle_interrupts (struct GB * gb)
 
             if ((io_IE & flag) && (io_IF & flag))
             {
-                gb->clock_t += 8;
                 gb->sp -= 2;
-
                 CPU_WW (gb->sp, gb->pc);
-                gb->clock_t += 8;
                 gb->pc = requestAddress;
-                gb->clock_t += 4;
 
                 /* Clear flag bit */
                 gb->io[IntrFlags] = io_IF & ~flag;
+                gb->rm += 5;
                 break;
             }
         }
@@ -436,15 +441,46 @@ void gb_timer_update (struct GB * gb, const uint8_t change)
 
     if (FALLING_EDGE (gb->lastDiv >> cBit, gb->divClock >> cBit))
     {
-        uint8_t timA = gb->io[TimA];
         /* Request timer interrupt if pending */
-        if (++timA == 0) gb->nextTimA_IRQ = 1;
-        gb->io[TimA] = timA;
+        if (++gb->io[TimA] == 0) gb->nextTimA_IRQ = 1;
     }
     gb->lastDiv = gb->divClock;
 }
 
-void gb_handle_timings (struct GB * gb)
+/* Update DIV register */
+
+void gb_update_div (struct GB * gb)
+{
+    gb->divClock += (gb->rm * 4);
+    while (gb->divClock >= 256)
+    {
+        gb->io[Divider]++;
+        gb->divClock -= 256;
+    }  
+}
+
+/* Update TIMA register */
+
+void gb_update_timer (struct GB * gb)
+{
+    if (gb->io[TimerCtrl] & 4)
+    {
+        gb->timAClock += (gb->rm * 4);
+
+        while (gb->timAClock >= TAC_INTERVALS[gb->io[TimerCtrl] & 3])
+        {
+            gb->timAClock -= TAC_INTERVALS[gb->io[TimerCtrl] & 3];
+            /* Request interrupt on overflow */
+            if (++gb->io[TimA] == 0)
+            {
+                gb->io[IntrFlags] |= IF_Timer;
+                gb->io[TimA] = gb->io[TMA];
+            }
+        }
+    }
+}
+
+void gb_handle_timers (struct GB * gb)
 {
     gb->newTimALoaded = 0;
 
@@ -743,10 +779,7 @@ static inline void gb_eval_LYC (struct GB * const gb)
 
 void gb_render (struct GB * const gb)
 {
-    gb->rt = gb->rm * 4;
-
-    gb->lineClock  += gb->rt;
-    gb->frameClock += gb->rt;
+    gb->lineClock  += gb->rm * 4;
 
     /* Todo: continuously fetch pixels clock by clock for LCD data transfer.
        Similarly do clock-based processing for the other actions. */
@@ -777,16 +810,14 @@ void gb_render (struct GB * const gb)
         {
             if (IO_STAT_MODE != Stat_VBlank)
             {
-    			//LOG_("VBlank start\n");
-                gb->frameDone = 1;
                 /* Enter Vblank and indicate that a frame is completed */
-                //if (LCDC_(LCD_Enable)) 
-                {
-                    gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
-                    gb->io[IntrFlags] |= IF_VBlank;
-                    /* Mode 1 interrupt */
-                    if STAT_(IR_VBlank) gb->io[IntrFlags] |= IF_LCD_STAT;
-                }
+                gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
+                gb->io[IntrFlags] |= IF_VBlank;
+                /* Mode 1 interrupt */
+                if STAT_(IR_VBlank) 
+                    gb->io[IntrFlags] |= IF_LCD_STAT;
+
+                gb->frameDone = 1;
             }
         }
         else
