@@ -64,8 +64,11 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
             case LCDControl: {
                 //LOG_("Writing value %x to LCDC (%d:%d)\n", val, gb->totalFrames, gb->io[LY]);
                 uint8_t lcdEnabled = (LCDC_(LCD_Enable));  /* Check whether LCD will be turned on or off */
-                if (lcdEnabled && !(val & (1 << LCD_Enable))) 
+                if (lcdEnabled && !(val & (1 << LCD_Enable))) {
                     LOG_("GB: %c LCD turn off (%d:%d)\n", 176, gb->totalFrames, gb->io[LY]);
+                    gb->io[LCDStatus] = IO_STAT_CLEAR;     /* Clear STAT mode when turning off LCD       */
+                    gb->io[LY] = 0;
+                }
                 else if (!lcdEnabled && (val & (1 << LCD_Enable))) 
                     LOG_("GB: %c LCD turn on  (%d:%d)\n", 219, gb->totalFrames, gb->io[LY]);
                 break; }
