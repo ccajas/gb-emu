@@ -23,10 +23,10 @@
 #define GB_OAM_RW \
     if (gb->oamBlocked) return 0xFF;\
     if (!write) {\
-        return gb->oam[(addr - 0xFE00) & 0x9F];\
+        return gb->oam[addr - 0xFE00];\
     }\
     else {\
-        gb->oam[(addr - 0xFE00) & 0x9F] = val;\
+        gb->oam[addr - 0xFE00] = val;\
     }\
 
 #define RISING_EDGE(before, after)   ((before & 1) < (after & 1))
