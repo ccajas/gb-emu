@@ -239,7 +239,7 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
 #define USE_BOOT_ROM_
 #ifdef  USE_BOOT_ROM
     /* Load boot file if present */
-    FILE * fb = fopen ("test/dmg_boot.bin", "rb");
+    FILE * fb = fopen ("test/mgb_bootix.bin", "rb");
     
     boot = calloc(BOOT_ROM_SIZE, sizeof (uint8_t));
     if (!fread (boot, BOOT_ROM_SIZE, 1, f))
