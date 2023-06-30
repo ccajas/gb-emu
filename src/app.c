@@ -46,6 +46,21 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
         app_resize_window (window, app->debug, app->scale);
     }
 
+    /* Toggle fullscren */
+    if (key == GLFW_KEY_F11 && action == GLFW_PRESS)
+    {
+        app->fullScreen = !app->fullScreen;
+        GLFWmonitor * pMonitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode * mode = glfwGetVideoMode(pMonitor);
+        const uint16_t winPos = (!app->fullScreen) ? mode->height / 4 : 0;
+
+        glfwSetWindowMonitor(window, (app->fullScreen) ? pMonitor : NULL, winPos, winPos,
+            mode->width, mode->height, GLFW_DONT_CARE);
+        /* Resize back if exiting fullscreen mode */
+        if (!app->fullScreen)
+            app_resize_window (window, app->debug, app->scale);
+    }
+
     const uint8_t totalPalettes = (sizeof(palettes) / sizeof(palettes[0]));
     /* Switch palettes */
     if (key == GLFW_KEY_O && action == GLFW_PRESS)
@@ -166,7 +181,8 @@ void app_init (struct App * app)
     app->display = newDisplay;
 
     /* Assign functions to be used by emulator */
-    app->gb.draw_line = app_draw_line;
+    app->gb.draw_line     = app_draw_line;
+    app->gb.debug_cpu_log = NULL;//debug_cpu_log;
 
     /* Select image to display */
     app->image = &app->gbData.tileMap;
@@ -345,7 +361,7 @@ void app_run (struct App * app)
             double current = glfwGetTime();
             glfwPollEvents();
 
-            if ((current - lastUpdate) < 1.0 / GB_FRAME_RATE) continue;
+            if ((current - lastUpdate) < 1.0 / (GB_FRAME_RATE)) continue;
 
             const float fps = 1.0 / (current - lastUpdate);
             glfwMakeContextCurrent (app->window);
