@@ -179,5 +179,10 @@ void draw_quad (GLFWwindow * window, Scene * const scene,
 
 void draw_screen_quad (GLFWwindow * window, Scene * const scene, struct Texture * const pixels, const float scale)
 {
-    draw_quad (window, scene, pixels, 0, 0, scale);
+    int32_t xpos, ypos;
+    glfwGetFramebufferSize (window, &xpos, &ypos);
+    /* Center the screen quad */
+    xpos = (xpos - pixels->width * scale) / 2;
+    ypos = (ypos - pixels->height * scale) / 2;
+    draw_quad (window, scene, pixels, xpos, ypos, scale);
 }

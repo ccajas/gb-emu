@@ -36,14 +36,16 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
     if (key == GLFW_KEY_B && action == GLFW_PRESS) 
     {
         app->debug = !app->debug;
-        app_resize_window (window, app->debug, app->scale);
+        if (!app->fullScreen)
+            app_resize_window (window, app->debug, app->scale);
     }
     
     /* Toggle window size (scale) */
     if (key == GLFW_KEY_G && action == GLFW_PRESS)
     {
         app->scale += (app->scale == 6) ? -5 : 1;
-        app_resize_window (window, app->debug, app->scale);
+        if (!app->fullScreen)
+            app_resize_window (window, app->debug, app->scale);
     }
 
     /* Toggle fullscren */
@@ -177,7 +179,7 @@ void app_init (struct App * app)
     }
 
     /* Objects for drawing */
-    Scene newDisplay = { .bgColor = { 173, 175, 186 }};
+    Scene newDisplay = { .bgColor = { 17, 18, 19 }};
     app->display = newDisplay;
 
     /* Assign functions to be used by emulator */
@@ -300,7 +302,7 @@ void app_draw (struct App * app)
 
     set_shader  (&app->display, &app->display.fbufferShader);
     set_texture (&app->display, &app->display.fbufferTexture);
-    draw_quad (app->window, &app->display, &app->gbData.frameBuffer, 0, 0, app->scale);
+    draw_screen_quad (app->window, &app->display, &app->gbData.frameBuffer, app->scale);
 
     if (app->debug)
     {
