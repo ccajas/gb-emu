@@ -25,8 +25,8 @@ const char * ppu_fs_source =
 "uniform float rr = 0.640000;\n"
 "uniform float rg = 0.660000;\n"
 "uniform float rb = 0.720000;\n"
-"uniform float colorP = 1.2;\n"
-"uniform float brightness = 1.8;\n"
+"uniform float colorP = 1.0;\n"
+"uniform float brightness = 1.4;\n"
 
 "vec3 dotMatrix(vec3 color, vec3 tint)\n"
 "{\n"
@@ -60,7 +60,7 @@ const char * ppu_fs_source =
 "    vec3 tint = vec3(0.37, 0.84, 0.87);\n"
 "    vec3 tint2 = vec3(0.61, 0.74, 0.03);\n"
 "    vec3 sampled = texture2D(indexed, TexCoords).rgb;\n"
-"    gl_FragColor = vec4(dotMatrix(sampled, tint2), 1.0);\n"
+"    gl_FragColor = vec4(lcdSimple(sampled, tint2), 1.0);\n"
 "}\n";
 
 const char * ppu_vs_source =
