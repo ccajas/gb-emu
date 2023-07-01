@@ -81,7 +81,7 @@ struct GB
     
     /* Other CPU registers / general timekeeping */
     uint16_t pc, sp;
-    uint64_t clock_t, clock_m;
+    uint64_t clock_t;
     uint16_t lineClock;
     uint32_t frameClock;
     uint8_t  frame, frameDone;
@@ -90,7 +90,7 @@ struct GB
     /* Timer data */
     uint16_t divClock, lastDiv, timAClock;
     uint8_t  timAOverflow, nextTimA_IRQ, newTimALoaded;
-    uint8_t  rt, rm; /* Tracks individual step clocks */
+    uint8_t  rt; /* Tracks individual step cycles */
 
     /* HALT and STOP status, PC increment toggle */
     uint8_t stop : 1, halted : 1, pcInc : 1;
@@ -125,7 +125,8 @@ struct GB
     extData;
 
     /* Functions that rely on external data */
-    void (*draw_line)(void *, const uint8_t * pixels, const uint8_t line);
+    void (*draw_line)    (void *, const uint8_t * pixels, const uint8_t line);
+    void (*debug_cpu_log)(void *, const uint8_t);
 };
 
 uint8_t gb_ppu_rw     (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
@@ -134,7 +135,7 @@ uint8_t gb_mem_access (struct GB *, const uint16_t addr, const uint8_t val, cons
 
 void    gb_init       (struct GB *, uint8_t *);
 void    gb_cpu_exec   (struct GB *, const uint8_t op);
-void    gb_exec_cb    (struct GB *, const uint8_t op);
+uint8_t gb_exec_cb    (struct GB *, const uint8_t op);
 void    gb_reset      (struct GB *, uint8_t *);
 void    gb_boot_reset (struct GB *);
 
@@ -192,6 +193,7 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
             gb->sp, pc, cpu_read (pc), cpu_read (pc+1), cpu_read (pc+2), cpu_read (pc+3)\
         );\
     }
+    //#define LOG_CPU_STATE   gb->debug_cpu_log(gb);
 #endif
 
 #define USE_TIMER_SIMPLE
@@ -199,7 +201,6 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
 static inline void gb_step (struct GB * gb)
 {
     gb->rt = 0;
-    gb->rm = 0;
 
     if (gb->halted)
     {
@@ -210,7 +211,7 @@ static inline void gb_step (struct GB * gb)
         if (gb->ime)
             gb_handle_interrupts (gb);
 
-        gb->rm++;
+        gb->rt += 4;
     }
     else
     {   /* Load next op and execute */
@@ -223,21 +224,22 @@ static inline void gb_step (struct GB * gb)
         gb_handle_interrupts (gb);
 
     /* Update timers for every remaining m-cycle */
+    int t = 0;
+    while (t++ < gb->rt)
+    {
 #ifdef USE_TIMER_SIMPLE
-    gb_update_div (gb);
-    gb_update_timer (gb);
+        gb_update_div (gb);
+        gb_update_timer (gb);
 #else
-    int m = 0;
-    while (m++ < gb->rm)
         gb_handle_timers (gb);
 #endif
+    }
     /* Update PPU if LCD is turned on */
     if (LCDC_(LCD_Enable))
         gb_render (gb);
 
-    gb->clock_m += gb->rm;
-    gb->clock_t += gb->rm * 4;
-    gb->frameClock += gb->rm * 4;
+    gb->clock_t += gb->rt;
+    gb->frameClock += gb->rt;
 }
 
 static inline void gb_frame (struct GB * gb)

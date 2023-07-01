@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include <assert.h>
 #include <omp.h>
 #include "gb.h"
@@ -56,7 +57,11 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
                 if (gb->newTimALoaded) gb->io[TimA] = val;
                 return 0;
 #endif
+            case TimA:
+                LOG_("%"PRIu64" | GB: TIMA update (%d, A: $%02x)\n", gb->clock_t, (int8_t)val, REG_A);
+                break;
             case TimerCtrl: /* Todo: TIMA should increase right here if last bit was 1 and current is 0  */
+                LOG_("%"PRIu64" | GB: Init timer (TAC $%02x, A: $%02x)\n", gb->clock_t, val, REG_A);
                 gb->io[TimerCtrl] = val | 0xF8; return 0;
             case IntrFlags:                                    /* Mask unused bits for IE and IF         */
             case IntrEnabled:
@@ -64,12 +69,12 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
             case LCDControl: {                             /* Check whether LCD will be turned on or off */
                 const uint8_t lcdEnabled = (LCDC_(LCD_Enable));
                 if (lcdEnabled && !(val & (1 << LCD_Enable))) {
-                    LOG_("GB: %c LCD turn off (%d:%d)\n", 176, gb->totalFrames, gb->io[LY]);
+                    LOG_("%"PRIu64" | GB: %c LCD turn off (%d:%d)\n", gb->clock_t, 176, gb->totalFrames, gb->io[LY]);
                     gb->io[LCDStatus] = IO_STAT_CLEAR;     /* Clear STAT mode when turning off LCD       */
                     gb->io[LY] = 0;
                 }
                 else if (!lcdEnabled && (val & (1 << LCD_Enable))) 
-                    LOG_("GB: %c LCD turn on  (%d:%d)\n", 219, gb->totalFrames, gb->io[LY]);
+                    LOG_("%"PRIu64" | GB: %c LCD turn on  (%d:%d)\n", gb->clock_t, 219, gb->totalFrames, gb->io[LY]);
                 break; }
             case LY:                                           /* Writing to LY resets line counter      */
                 return 0;
@@ -140,7 +145,7 @@ void gb_init (struct GB * gb, uint8_t * bootRom)
 
     LOG_CPU_STATE (gb);
     gb->lineClock = gb->frameClock = 0;
-    gb->clock_t  = gb->clock_m = 0;
+    gb->clock_t = 0;
     gb->divClock = gb->timAClock = 0;
     gb->frame    = gb->totalFrames = 0;
     gb->pcInc = 1;
@@ -214,15 +219,15 @@ const int8_t opTicks[256] = {
 	1,  1,  1,  1,  1,  1,  2,  1,  1,  1,  1,  1,  1,  1,  2,  1,
 	2,  2,  2,  2,  2,  2,  0,  2,  1,  1,  1,  1,  1,  1,  2,  1,
 
-	1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1, /* 8x */
-	1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,
-	1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,
-	1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,
+	1,  1,  1,  1,  1,  1,  2,  1,  1,  1,  1,  1,  1,  1,  2,  1, /* 8x */
+	1,  1,  1,  1,  1,  1,  2,  1,  1,  1,  1,  1,  1,  1,  2,  1,
+	1,  1,  1,  1,  1,  1,  2,  1,  1,  1,  1,  1,  1,  1,  2,  1,
+	1,  1,  1,  1,  1,  1,  2,  1,  1,  1,  1,  1,  1,  1,  2,  1,
 
-	2,3,3,4,3,4,2,4,2,4,3,0,3,6,2,4, /* Cx */
-	2,3,3,0,3,4,2,4,2,4,3,0,3,0,2,4,
-	3,3,2,0,0,4,2,4,4,1,4,0,0,0,2,4,
-	3,3,2,1,0,4,2,4,3,2,4,1,0,0,2,4
+	2,  3,  3,  4,  3,  4,  2,  4,  2,  4,  3,  0,  3,  6,  2,  4, /* Cx */
+	2,  3,  3,  0,  3,  4,  2,  4,  2,  4,  3,  0,  3,  0,  2,  4,
+	3,  3,  2,  0,  0,  4,  2,  4,  4,  1,  4,  0,  0,  0,  2,  4,
+	3,  3,  2,  1,  0,  4,  2,  4,  3,  2,  4,  1,  0,  0,  2,  4
 };
 
 /*
@@ -234,6 +239,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
 {
     /* Copied value for operands (can be overridden for other opcodes) */
     uint8_t tmp = REG_A;
+    int16_t mCycles = 0;
 
     /* HALT bug skips PC increment, essentially rollback one byte */
     if (!gb->pcInc) {
@@ -333,12 +339,12 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         OP_r16_g3 (0xC5, PUSHrr)
         /* CB prefix ops */
         case 0xCB:   
-            gb_exec_cb (gb, CPU_RB (gb->pc++));
+            mCycles += gb_exec_cb (gb, CPU_RB (gb->pc++));
         break;
         default: INVALID;
     }
 
-    gb->rm += opTicks[op];
+    mCycles += opTicks[op];
 
     /* Handle effects of STOP instruction */
     if (op == 0x10 && gb->stop)
@@ -348,12 +354,13 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         gb->divClock = 0;
     }
 
-    assert (gb->rm >= opTicks[op]);  
+    assert (mCycles >= opTicks[op]);
+    gb->rt = mCycles * 4;
 }
 
-void gb_exec_cb (struct GB * gb, const uint8_t op)
+uint8_t gb_exec_cb (struct GB * gb, const uint8_t op)
 {
-    gb->rm = 3;
+    uint8_t mCycles = 3;
 
     const uint8_t opL  = op & 0xf;
     const uint8_t opHh = op >> 3; /* Octal divisions */
@@ -389,6 +396,8 @@ void gb_exec_cb (struct GB * gb, const uint8_t op)
     /* Write back to (HL) for most (HL) operations except BIT */
     if ((op & 7) == 6 && (opHh < 8 || opHh > 0xF))
         CPU_WB (REG_HL, hl);
+
+    return mCycles;
 }
 
 void gb_handle_interrupts (struct GB * gb)
@@ -419,7 +428,7 @@ void gb_handle_interrupts (struct GB * gb)
 
                 /* Clear flag bit */
                 gb->io[IntrFlags] = io_IF & ~flag;
-                gb->rm += 5;
+                gb->rt += 20;
                 break;
             }
         }
@@ -453,7 +462,7 @@ void gb_timer_update (struct GB * gb, const uint8_t change)
 
 void gb_update_div (struct GB * gb)
 {
-    gb->divClock += (gb->rm * 4);
+    gb->divClock++;
     while (gb->divClock >= 256)
     {
         gb->io[Divider]++;
@@ -470,20 +479,16 @@ void gb_update_timer (struct GB * gb)
     
     const uint16_t clockRate = TAC_INTERVALS[gb->io[TimerCtrl] & 3];
 
-    gb->timAClock += (gb->rm * 4);  /* Exit when clock didn't pass interval */
+    gb->timAClock++;  /* Exit when clock didn't pass interval */
     if (gb->timAClock < clockRate)
         return;
 
-    /* Clock passed interval, so incremet TIMA */
-    gb->io[TimA]++;
-    //LOG_("TIMA increased to %d (clock rate %d)\n", gb->io[TimA], clockRate);
-
-    /* Request interrupt on TIMA overflow */
-    if (gb->io[TimA] == 0)
+    /* Increment TIMA and request interrupt on TIMA overflow */
+    if (++gb->io[TimA] == 0)
     {
         gb->io[IntrFlags] |= IF_Timer;
         gb->io[TimA] = gb->io[TMA];
-        //LOG_("** TIMA reset to %d (%d Hz)\n", gb->io[TMA], 4096 * 1024 / clockRate);
+        //LOG_("%"PRIu64" | ** TIMA reset to %d (%d Hz)\n", gb->clock_t, gb->io[TMA], 4096 * 1024 / clockRate);
     }
     /* Reset clock */
     gb->timAClock -= clockRate;
@@ -788,7 +793,7 @@ static inline void gb_eval_LYC (struct GB * const gb)
 
 void gb_render (struct GB * const gb)
 {
-    gb->lineClock  += gb->rm * 4;
+    gb->lineClock  += gb->rt;
 
     /* Todo: continuously fetch pixels clock by clock for LCD data transfer.
        Similarly do clock-based processing for the other actions. */

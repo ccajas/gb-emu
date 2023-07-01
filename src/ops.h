@@ -243,18 +243,18 @@
     /* Conditional function templates */
     #define JP_IF(X) \
         uint16_t mm = CPU_RW (gb->pc); gb->pc += 2;\
-        if (X) { gb->pc = mm; gb->rm++; }\
+        if (X) { gb->pc = mm; mCycles++; }\
 
     #define JR_IF(X) \
         int8_t e = (int8_t) CPU_RB (gb->pc++);\
-        if (X) { gb->pc += e; gb->rm++; }\
+        if (X) { gb->pc += e; mCycles++; }\
 
     #define CALL_IF(X) \
         uint16_t mm = CPU_RW (gb->pc); gb->pc += 2;\
         if (X) { PUSH_(gb->pc >> 8, gb->pc & 0xFF);\
-            gb->pc = mm; gb->rm += 3; }\
+            gb->pc = mm; mCycles += 3; }\
 
-    #define RET_IF(X) if (X) { RET__; gb->rm += 3; }
+    #define RET_IF(X) if (X) { RET__; mCycles += 3; }
 
 /* Conditional jump, relative jump, return, call */
 
@@ -347,13 +347,13 @@
 }
 
 #define BIT     OP(BIT);   SET_FLAGS(16, (*reg1 & (1 << r_bit)), 0, 1, 0);
-#define BITHL   OP(BITHL); SET_FLAGS(16, (hl & (1 << r_bit)), 0, 1, 0); gb->rm += 1;
+#define BITHL   OP(BITHL); SET_FLAGS(16, (hl & (1 << r_bit)), 0, 1, 0); mCycles += 1;
 
 #define RES     OP(RES);   *reg1 &= (0xFE << r_bit) | (0xFF >> (8 - r_bit));
-#define RESHL   OP(RESHL); hl &= (0xFE << r_bit) | (0xFF >> (8 - r_bit)); gb->rm += 2;
+#define RESHL   OP(RESHL); hl &= (0xFE << r_bit) | (0xFF >> (8 - r_bit)); mCycles += 2;
 
 #define SET     OP(SET);   *reg1 |= (1 << r_bit); 
-#define SETHL   OP(SET);   hl |= (1 << r_bit); gb->rm += 2;
+#define SETHL   OP(SET);   hl |= (1 << r_bit); mCycles += 2;
 
 /* Misc instructions */
 
