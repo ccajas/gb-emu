@@ -61,9 +61,8 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
             case IntrFlags:                                    /* Mask unused bits for IE and IF         */
             case IntrEnabled:
                 gb->io[addr % 0x80] = val | 0xE0; return 0;
-            case LCDControl: {
-                //LOG_("Writing value %x to LCDC (%d:%d)\n", val, gb->totalFrames, gb->io[LY]);
-                uint8_t lcdEnabled = (LCDC_(LCD_Enable));  /* Check whether LCD will be turned on or off */
+            case LCDControl: {                             /* Check whether LCD will be turned on or off */
+                const uint8_t lcdEnabled = (LCDC_(LCD_Enable));
                 if (lcdEnabled && !(val & (1 << LCD_Enable))) {
                     LOG_("GB: %c LCD turn off (%d:%d)\n", 176, gb->totalFrames, gb->io[LY]);
                     gb->io[LCDStatus] = IO_STAT_CLEAR;     /* Clear STAT mode when turning off LCD       */
@@ -466,21 +465,28 @@ void gb_update_div (struct GB * gb)
 
 void gb_update_timer (struct GB * gb)
 {
-    if (gb->io[TimerCtrl] & 4)
-    {
-        gb->timAClock += (gb->rm * 4);
+    if (!(gb->io[TimerCtrl] & 4))   /* TAC clock disabled */
+        return;
+    
+    const uint16_t clockRate = TAC_INTERVALS[gb->io[TimerCtrl] & 3];
 
-        while (gb->timAClock >= TAC_INTERVALS[gb->io[TimerCtrl] & 3])
-        {
-            gb->timAClock -= TAC_INTERVALS[gb->io[TimerCtrl] & 3];
-            /* Request interrupt on overflow */
-            if (++gb->io[TimA] == 0)
-            {
-                gb->io[IntrFlags] |= IF_Timer;
-                gb->io[TimA] = gb->io[TMA];
-            }
-        }
+    gb->timAClock += (gb->rm * 4);  /* Exit when clock didn't pass interval */
+    if (gb->timAClock < clockRate)
+        return;
+
+    /* Clock passed interval, so incremet TIMA */
+    gb->io[TimA]++;
+    //LOG_("TIMA increased to %d (clock rate %d)\n", gb->io[TimA], clockRate);
+
+    /* Request interrupt on TIMA overflow */
+    if (gb->io[TimA] == 0)
+    {
+        gb->io[IntrFlags] |= IF_Timer;
+        gb->io[TimA] = gb->io[TMA];
+        //LOG_("** TIMA reset to %d (%d Hz)\n", gb->io[TMA], 4096 * 1024 / clockRate);
     }
+    /* Reset clock */
+    gb->timAClock -= clockRate;
 }
 
 void gb_handle_timers (struct GB * gb)
