@@ -470,8 +470,7 @@ static inline void debug_dump_tiles (
 		const uint8_t tileID = gb->oam[s * 4 + 2];
 		activeSpriteTiles[tileID] = 1;
 		/* Make 8x16 OBJ bottom tiles active */
-		if (gb->io[LCDControl] & 4)
-			activeSpriteTiles[tileID + 1] = 1;
+		activeSpriteTiles[tileID + 1] = (gb->io[LCDControl] & 4) >> 2;
 	}
 
     int t;
@@ -557,6 +556,5 @@ static inline void debug_dump_OAM (
         //data += TILE_SIZE_BYTES;
     }
 }
-
 
 #endif
