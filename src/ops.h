@@ -107,10 +107,10 @@
 
 #define LDmSP           OP(LDmSP)   CPU_WW (CPU_RW (gb->pc), gb->sp); gb->pc += 2;
 #define LDSP            OP(LDSP)    gb->sp = CPU_RW (gb->pc); gb->pc += 2;
-#define LDSPHL          OP(LDSPHL)  gb->sp = REG_HL;
+#define LDSPHL          OP(LDSPHL)  gb->sp = REG_HL; mCycles++;
 #define LDrr(r16)       OP(LDrr)    r16 = CPU_RW (gb->pc); gb->pc += 2;
 
-#define PUSH_(X, Y)     gb->sp--; CPU_WB (gb->sp, X); gb->sp--; CPU_WB (gb->sp, Y);
+#define PUSH_(X, Y)     gb->sp--; CPU_WB (gb->sp, X); gb->sp--; CPU_WB (gb->sp, Y); mCycles++;
 
 #define PUSHrr(op_, R16_1, R16_2)  OP(PUSHrr); PUSH_(R16_1, R16_2);
 #define POPrr(op_, R16_1, R16_2)   OP(POPrr);\
@@ -202,40 +202,40 @@
     #define FLAGS_SPm   gb->flags = 0; gb->f_h = ((gb->sp & 0xF) + (i & 0xF) > 0xF); gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);
 
 #define ADHLrr(r16)   OP(ADHLrr); {\
-    uint16_t tmp = REG_HL + r16; FLAGS_ADHL; REG_HL = tmp;\
+    uint16_t tmp = REG_HL + r16; FLAGS_ADHL; REG_HL = tmp; mCycles++;\
 }
 
-#define ADDSPm   OP(ADDSPm)   { int8_t i = (int8_t) CPU_RB_PC; FLAGS_SPm; gb->sp += i; }
-#define LDHLSP   OP(LDHLSP)   { int8_t i = (int8_t) CPU_RB_PC;\
+#define ADDSPm   OP(ADDSPm)   { int8_t i = (int8_t) CPU_RB_PC; mCycles += 2; FLAGS_SPm; gb->sp += i; }
+#define LDHLSP   OP(LDHLSP)   { int8_t i = (int8_t) CPU_RB_PC; mCycles++;\
     REG_H = ((gb->sp + i) >> 8); REG_L = (gb->sp + i) & 0xFF;\
     gb->flags = 0;\
     gb->f_h = ((gb->sp & 0xF) + (i & 0xF) > 0xF);\
     gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);\
 }
 
-#define INCrr(r16)    OP(INCrr); r16++;
-#define DECrr(r16)    OP(DECrr); r16--;
+#define INCrr(r16)    OP(INCrr); r16++; mCycles++;
+#define DECrr(r16)    OP(DECrr); r16--; mCycles++;
 
 /** CPU control instructions **/
 
-#define STOP    OP(STOP)  gb->stop = 1; /* STOP is handled after switch/case */
-#define NOP     OP(NOP) 
+#define STOP    OP(STOP)  gb->stop = 1; mCycles++; /* STOP is handled after switch/case */
+#define NOP     OP(NOP)   
 #define DI      OP(DI)    gb->ime = 0; 
 #define EI      OP(EI)    gb->ime = 1; 
 
 /** Jump and call instructions **/
 
 /* Jump to | relative jump */
-#define JPNN    OP(JPNN)  gb->pc = CPU_RW (gb->pc);
+#define JPNN    OP(JPNN)  gb->pc = CPU_RW (gb->pc); mCycles++;
 #define JPHL    OP(JPHL)  gb->pc = REG_HL; 
-#define JRm     OP(JRm)   gb->pc += (int8_t) CPU_RB (gb->pc); gb->pc++;
+#define JRm     OP(JRm)   gb->pc += (int8_t) CPU_RB (gb->pc); gb->pc++; mCycles++;
 
 /* Calls */
-#define CALLm   OP(CALLm);  {\
+#define CALLm   OP(CALLm);  { mCycles++;\
     uint16_t tmp = CPU_RW (gb->pc); gb->pc += 2; gb->sp -= 2; CPU_WW(gb->sp, gb->pc); gb->pc = tmp; }\
 
     /* Return function template */
-    #define RET__     gb->pc = CPU_RW (gb->sp); gb->sp += 2;
+    #define RET__     gb->pc = CPU_RW (gb->sp); gb->sp += 2; mCycles++;
 
 #define RET     OP(RET)    RET__;
 #define RETI    OP(RETI)   RET__; gb->ime = 1;
@@ -254,7 +254,7 @@
         if (X) { PUSH_(gb->pc >> 8, gb->pc & 0xFF);\
             gb->pc = mm; mCycles += 3; }\
 
-    #define RET_IF(X) if (X) { RET__; mCycles += 3; }
+    #define RET_IF(X) mCycles++; if (X) { RET__; mCycles += 3; }
 
 /* Conditional jump, relative jump, return, call */
 
@@ -268,7 +268,7 @@
 #define JP_(C)    OP(JP_)     { JP_IF   (COND_(C)); }
 #define CALL_(C)  OP(CALL_)   { CALL_IF (COND_(C)); }
 
-#define RST            OP(RST)    gb->sp -= 2; CPU_WW (gb->sp, gb->pc); gb->pc = op & 0x38;
+#define RST            OP(RST)    gb->sp -= 2; CPU_WW (gb->sp, gb->pc); gb->pc = op & 0x38; mCycles++;
 
 /* Rotate and shift instructions */
 
@@ -347,13 +347,13 @@
 }
 
 #define BIT     OP(BIT);   SET_FLAGS(16, (*reg1 & (1 << r_bit)), 0, 1, 0);
-#define BITHL   OP(BITHL); SET_FLAGS(16, (hl & (1 << r_bit)), 0, 1, 0); mCycles += 1;
+#define BITHL   OP(BITHL); SET_FLAGS(16, (hl & (1 << r_bit)), 0, 1, 0);// mCycles += 1;
 
 #define RES     OP(RES);   *reg1 &= (0xFE << r_bit) | (0xFF >> (8 - r_bit));
-#define RESHL   OP(RESHL); hl &= (0xFE << r_bit) | (0xFF >> (8 - r_bit)); mCycles += 2;
+#define RESHL   OP(RESHL); hl &= (0xFE << r_bit) | (0xFF >> (8 - r_bit));// mCycles += 2;
 
 #define SET     OP(SET);   *reg1 |= (1 << r_bit); 
-#define SETHL   OP(SET);   hl |= (1 << r_bit); mCycles += 2;
+#define SETHL   OP(SET);   hl |= (1 << r_bit);// mCycles += 2;
 
 /* Misc instructions */
 
