@@ -33,8 +33,6 @@
 #define RISING_EDGE(before, after)   ((before & 1) < (after & 1))
 #define FALLING_EDGE(before, after)  ((before & 1) > (after & 1))
 
-const uint16_t TAC_INTERVALS[4] = { 1024, 16, 64, 256 };
-
 inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
     if (!write) 
@@ -46,10 +44,14 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
 #ifdef USE_TIMER_SIMPLE
             case Divider:
                 gb->io[Divider] = 0; return 0;
+            case TimA:
+                LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A);
+                break;
 #else
             case Divider:
                 gb_timer_update (gb, 0); return 0;             /* DIV reset                             */
             case TimA:
+                LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A);
                 if (!gb->newTimALoaded) gb->io[TimA] = val;    /* Update TIMA if new value wasn't loaded last cycle    */
                 if (gb->nextTimA_IRQ)   gb->nextTimA_IRQ = 0;  /* Cancel any pending IRQ when accessing TIMA           */
                 return 0;
@@ -57,11 +59,8 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
                 if (gb->newTimALoaded) gb->io[TimA] = val;
                 return 0;
 #endif
-            case TimA:
-                LOG_("%"PRIu64" | GB: TIMA update (%d, A: $%02x)\n", gb->clock_t, (int8_t)val, REG_A);
-                break;
             case TimerCtrl: /* Todo: TIMA should increase right here if last bit was 1 and current is 0  */
-                LOG_("%"PRIu64" | GB: Init timer (TAC $%02x, A: $%02x)\n", gb->clock_t, val, REG_A);
+                LOG_("GB: Init timer (TAC $%02x, A: $%02x)\n", val, REG_A);
                 gb->io[TimerCtrl] = val | 0xF8; return 0;
             case IntrFlags:                                    /* Mask unused bits for IE and IF         */
             case IntrEnabled:
@@ -69,12 +68,12 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
             case LCDControl: {                             /* Check whether LCD will be turned on or off */
                 const uint8_t lcdEnabled = (LCDC_(LCD_Enable));
                 if (lcdEnabled && !(val & (1 << LCD_Enable))) {
-                    LOG_("%"PRIu64" | GB: %c LCD turn off (%d:%d)\n", gb->clock_t, 176, gb->totalFrames, gb->io[LY]);
+                    LOG_("GB: %c LCD turn off (%d:%d)\n", 176, gb->totalFrames, gb->io[LY]);
                     gb->io[LCDStatus] = IO_STAT_CLEAR;     /* Clear STAT mode when turning off LCD       */
                     gb->io[LY] = 0;
                 }
                 else if (!lcdEnabled && (val & (1 << LCD_Enable))) 
-                    LOG_("%"PRIu64" | GB: %c LCD turn on  (%d:%d)\n", gb->clock_t, 219, gb->totalFrames, gb->io[LY]);
+                    LOG_("GB: %c LCD turn on  (%d:%d)\n", 219, gb->totalFrames, gb->io[LY]);
                 break; }
             case LY:                                           /* Writing to LY resets line counter      */
                 return 0;
@@ -207,17 +206,17 @@ void gb_boot_reset (struct GB * gb)
     gb_boot_register (gb, 1);
 }
 
-const int8_t opTicks[256] = {
+static const int8_t opCycles[256] = {
 /*  0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  A,  B,  C,  D,  E,  F  */
     1,  3,  2,  2,  1,  1,  2,  1,  5,  2,  2,  2,  1,  1,  2,  1, /* 0x */
-	0,  3,  2,  2,  1,  1,  2,  1,  3,  2,  2,  2,  1,  1,  2,  1,
+	1,  3,  2,  2,  1,  1,  2,  1,  3,  2,  2,  2,  1,  1,  2,  1,
 	2,  3,  2,  2,  1,  1,  2,  1,  2,  2,  2,  2,  1,  1,  2,  1,
 	2,  3,  2,  2,  3,  3,  3,  1,  2,  2,  2,  2,  1,  1,  2,  1,
 
 	1,  1,  1,  1,  1,  1,  2,  1,  1,  1,  1,  1,  1,  1,  2,  1, /* 4x */
 	1,  1,  1,  1,  1,  1,  2,  1,  1,  1,  1,  1,  1,  1,  2,  1,
 	1,  1,  1,  1,  1,  1,  2,  1,  1,  1,  1,  1,  1,  1,  2,  1,
-	2,  2,  2,  2,  2,  2,  0,  2,  1,  1,  1,  1,  1,  1,  2,  1,
+	2,  2,  2,  2,  2,  2,  1,  2,  1,  1,  1,  1,  1,  1,  2,  1,
 
 	1,  1,  1,  1,  1,  1,  2,  1,  1,  1,  1,  1,  1,  1,  2,  1, /* 8x */
 	1,  1,  1,  1,  1,  1,  2,  1,  1,  1,  1,  1,  1,  1,  2,  1,
@@ -241,11 +240,6 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
     uint8_t tmp = REG_A;
     int16_t mCycles = 0;
 
-    /* HALT bug skips PC increment, essentially rollback one byte */
-    if (!gb->pcInc) {
-        gb->pc--;
-        gb->pcInc = 1;
-    }
     /* For conditional jump / call instructions */
     const uint8_t cond = ((op >> 3) & 3);
 
@@ -344,17 +338,17 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         default: INVALID;
     }
 
-    mCycles += opTicks[op];
+    mCycles += opCycles[op];
 
     /* Handle effects of STOP instruction */
-    if (op == 0x10 && gb->stop)
+    /* Todo: Read joypad button selection/press */
+    /*if (op == 0x10 && gb->stop)
     {
         gb->stop = 0;
-        /* Todo: Read joypad button selection/press */
         gb->divClock = 0;
-    }
+    }*/
 
-    assert (mCycles >= opTicks[op]);
+    assert (mCycles >= opCycles[op]);
     gb->rt = mCycles * 4;
 }
 
@@ -406,6 +400,11 @@ void gb_handle_interrupts (struct GB * gb)
     const uint8_t io_IE = gb->io[IntrEnabled];
     const uint8_t io_IF = gb->io[IntrFlags];
 
+    if (!gb->pcInc)
+    {
+        gb->pc--;
+        gb->pcInc = 1;
+    }
     /* Run if CPU ran HALT instruction or IME enabled w/flags */
     if (io_IE & io_IF & IF_Any)
     {
@@ -439,15 +438,16 @@ void gb_timer_update (struct GB * gb, const uint8_t change)
 {
     /* Increment div every m-cycle and save bits 6-13 to DIV register */
     gb->divClock = (change) ? gb->divClock + 1 : 0 ;
-    gb->io[Divider] = (gb->divClock >> 6) & 0xFF;
+    gb->io[Divider] = (gb->divClock >> 8);
+
+    gb->lastDiv = gb->divClock;
 
     /* Leave if timer is disabled */
     const uint8_t tac = gb->io[TimerCtrl];
-    const uint8_t tacEnabled = (tac >> 2) & 1;
-    if (!tacEnabled) return;
+    if ((tac & 4) == 0) return;
 
     /* Update timer, check bits for 1024, 16, 64, or 256 cycles respectively */
-    const uint8_t checkBits[4] = { 7, 1, 3, 5 };
+    const uint8_t checkBits[4] = { 9, 3, 5, 7 };
     const uint8_t cBit = checkBits[tac & 0x3];
 
     if (FALLING_EDGE (gb->lastDiv >> cBit, gb->divClock >> cBit))
@@ -455,14 +455,13 @@ void gb_timer_update (struct GB * gb, const uint8_t change)
         /* Request timer interrupt if pending */
         if (++gb->io[TimA] == 0) gb->nextTimA_IRQ = 1;
     }
-    gb->lastDiv = gb->divClock;
 }
 
 /* Update DIV register */
 
 void gb_update_div (struct GB * gb)
 {
-    gb->divClock++;
+    gb->divClock += gb->rt;
     while (gb->divClock >= 256)
     {
         gb->io[Divider]++;
@@ -470,28 +469,32 @@ void gb_update_div (struct GB * gb)
     }  
 }
 
+static const uint16_t TAC_INTERVALS[4] = { 1024, 16, 64, 256 };
+
 /* Update TIMA register */
 
 void gb_update_timer (struct GB * gb)
 {
-    if (!(gb->io[TimerCtrl] & 4))   /* TAC clock disabled */
+    if ((gb->io[TimerCtrl] & 4) == 0)   /* TIMA counter disabled */
         return;
     
     const uint16_t clockRate = TAC_INTERVALS[gb->io[TimerCtrl] & 3];
 
-    gb->timAClock++;  /* Exit when clock didn't pass interval */
-    if (gb->timAClock < clockRate)
-        return;
+    gb->timAClock += gb->rt;
 
-    /* Increment TIMA and request interrupt on TIMA overflow */
-    if (++gb->io[TimA] == 0)
+    /* Exit when clock didn't pass interval */
+    while (gb->timAClock >= clockRate) 
     {
-        gb->io[IntrFlags] |= IF_Timer;
-        gb->io[TimA] = gb->io[TMA];
-        //LOG_("%"PRIu64" | ** TIMA reset to %d (%d Hz)\n", gb->clock_t, gb->io[TMA], 4096 * 1024 / clockRate);
+        /* Reset clock */
+        gb->timAClock -= clockRate;
+        /* Increment TIMA and request interrupt on TIMA overflow */
+        gb->io[TimA]++;
+        if (gb->io[TimA] == 0)
+        {
+            gb->io[IntrFlags] |= IF_Timer;
+            gb->io[TimA] = gb->io[TMA];
+        }
     }
-    /* Reset clock */
-    gb->timAClock -= clockRate;
 }
 
 void gb_handle_timers (struct GB * gb)

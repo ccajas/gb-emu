@@ -88,9 +88,10 @@ struct GB
     uint32_t totalFrames;
 
     /* Timer data */
-    uint16_t divClock, lastDiv, timAClock;
+    uint16_t divClock, lastDiv;
+    int16_t  timAClock;
     uint8_t  timAOverflow, nextTimA_IRQ, newTimALoaded;
-    uint8_t  rt; /* Tracks individual step cycles */
+    int16_t  rt; /* Tracks individual step cycles */
 
     /* HALT and STOP status, PC increment toggle */
     uint8_t stop : 1, halted : 1, pcInc : 1;
@@ -224,16 +225,14 @@ static inline void gb_step (struct GB * gb)
         gb_handle_interrupts (gb);
 
     /* Update timers for every remaining m-cycle */
+#ifdef USE_TIMER_SIMPLE
+    gb_update_div (gb);
+    gb_update_timer (gb);
+#else
     int t = 0;
     while (t++ < gb->rt)
-    {
-#ifdef USE_TIMER_SIMPLE
-        gb_update_div (gb);
-        gb_update_timer (gb);
-#else
         gb_handle_timers (gb);
 #endif
-    }
     /* Update PPU if LCD is turned on */
     if (LCDC_(LCD_Enable))
         gb_render (gb);
