@@ -8,6 +8,8 @@
 #define RAM_ENABLE_REG (addr <= 0x1FFF)
 #define BANK_SELECT    (addr >= 0x2000 && addr <= 0x3FFF)
 #define BANK_SELECT_2  (addr >= 0x4000 && addr <= 0x5FFF)
+#define BANK_SELECT_L  (addr >= 0x2000 && addr <= 0x2FFF)
+#define BANK_SELECT_H  (addr >= 0x3000 && addr <= 0x3FFF)
 #define MODE_SELECT    (addr >= 0x6000 && addr <= 0x7FFF)
 
 /* Read/write implementations for different MBCs */
@@ -120,23 +122,22 @@ uint8_t mbc5_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
 {
     if (!write) /* Read from cartridge */
     {
-        if (addr <= 0x3FFF) return cart->romData[addr];
-        if (addr <= 0x7FFF) {                                         /* Combine 9th bit with lower 8 bits */
-            if (cart->romSizeKB >= 4096)
-                return cart->romData[(((cart->bank2nd & 1) << 8) + cart->bank1st - 1) * 0x4000 + addr];
-            else
-                return cart->romData[((cart->bank1st & cart->romMask) - 1) * 0x4000 + addr];
+        if LOW_BANK return cart->romData[addr];
+        if HIGH_BANK {                                               /* Combine 9th bit with lower 8 bits */
+            const uint8_t selectedBank = ((cart->bank2nd << 8) + cart->bank1st) & cart->romMask;
+            return cart->romData[(selectedBank - 1) * 0x4000 + addr];
         }
-        if (addr >= 0xA000 && addr <= 0xBFFF)
+        if (RAM_BANK && cart->ram)
             return (cart->usingRAM) ? cart->ramData[(cart->ramBank) * 0x2000 + (addr % 0x2000)] : 0xFF;
     }
     else /* Write to registers */
     {    /* RAM banks are stored in upper 4 bits of bank2nd, and shifted down for selecting the bank       */
-        if (addr <= 0x1FFF) { 
-            cart->usingRAM = ((val & 0xF) == 0xA); return 0; }                 /* Enable RAM               */
-        if (addr <= 0x2FFF) { cart->bank1st = val; return 0; }                 /* Write 8 lower bank bits  */
-        if (addr <= 0x3FFF) { cart->bank2nd = (val & 1);  return 0; }          /* Write 9th bank bit       */
-        if (addr <= 0x5FFF) { cart->ramBank = (val & 0xF); return 0; }         /* Lower 4 bits for RAM     */
+        if RAM_ENABLE_REG  cart->usingRAM = ((val & 0xF) == 0xA);              /* Enable RAM               */
+        if BANK_SELECT_L {
+            //LOG_("GB: MBC5 switching banks ($%02x, %d KB)\n", val, val * 16); 
+            cart->bank1st = val; return 0; }                                   /* Write 8 lower bank bits  */
+        if BANK_SELECT_H   cart->bank2nd = (val & 1);                          /* Write 9th bank bit       */
+        if BANK_SELECT_2   cart->ramBank = (val & 0xF);                        /* Lower 4 bits for RAM     */
     }
     return 0;
 }
