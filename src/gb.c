@@ -8,8 +8,7 @@
 
 /*
  **********  Memory/bus read and write  ************
- *
-*/
+ */
 
 #define GB_VRAM_RW \
     if (gb->vramBlocked) return 0xFF;\
@@ -119,8 +118,7 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
 
 /*
  **********  Console startup functions  ************
- *
-*/
+ */
 
 void gb_init (struct GB * gb, uint8_t * bootRom)
 {
@@ -231,8 +229,7 @@ static const int8_t opCycles[256] = {
 
 /*
  *****************  CPU functions  *****************
- ===================================================
-*/
+ */
 
 void gb_cpu_exec (struct GB * gb, const uint8_t op)
 {
@@ -317,7 +314,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         case 0xFE: CPm     break;
         /* Conditional jump, return/call */
         case 0x20:   case 0x28:
-        case 0x30:   case 0x38: JR_ (cond)  break;
+        case 0x30:   case 0x38: JR_(cond)   break;
         case 0xC0:   case 0xC8:
         case 0xD0:   case 0xD8: RET_(cond)  break;
         case 0xC2:   case 0xCA:
@@ -481,7 +478,6 @@ void gb_update_timer (struct GB * gb)
         return;
     
     const uint16_t clockRate = TAC_INTERVALS[gb->io[TimerCtrl] & 3];
-
     gb->timAClock += gb->rt;
 
     /* Exit when clock didn't pass interval */
@@ -490,8 +486,7 @@ void gb_update_timer (struct GB * gb)
         /* Reset clock */
         gb->timAClock -= clockRate;
         /* Increment TIMA and request interrupt on TIMA overflow */
-        gb->io[TimA]++;
-        if (gb->io[TimA] == 0)
+        if (++gb->io[TimA] == 0)
         {
             gb->io[IntrFlags] |= IF_Timer;
             gb->io[TimA] = gb->io[TMA];
@@ -520,7 +515,7 @@ void gb_handle_timers (struct GB * gb)
 
 /*
  *****************  PPU functions  *****************
-*/
+ */
 
 /* Used for comparing and setting PPU mode timings */
 enum {
@@ -572,11 +567,10 @@ int compare_sprites (const void *in1, const void *in2)
     posX = X;\
     tileID = gb->vram[(tileMap & 0x1FFF) + (posX >> 3)];\
     px = pixelX;\
-                \
     /* Select addressing mode */\
     const uint16_t bit12 = !(LCDC_(BG_Win_Data) || (tileID & 0x80)) << 12;\
     tile = bit12 + (tileID << 4) + ((posY & 7) << 1);\
-                \
+    \
     rowLSB = gb->vram[tile] >> px;\
     rowMSB = gb->vram[tile + 1] >> px;\
     /* End fetch tile macro */
@@ -605,17 +599,18 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 		tileMap += ((posY >> 3) << 5);
 
 		lineX = DISPLAY_WIDTH - 1;
-        if (LCDC_(Window_Enable) && gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
+        if (LCDC_(Window_Enable) && 
+            gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
             lineX = (gb->io[WindowX] < 7 ? 0 : gb->io[WindowX] - 7) - 1;
 
         PPU_FETCH_TILE (7 - (posX & 7), lineX + gb->io[ScrollX])
+        const uint8_t end = 0xFF;
 
-		for(; lineX != 0xFF; lineX--)
+		for(; lineX != end; lineX--)
 		{
 			if (px % 8 == 0) {
 				PPU_FETCH_TILE (0, lineX + gb->io[ScrollX])
 			}
-
 			/* Get background color */
 			uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
 			pixels[lineX] = ((gb->io[BGPalette] >> (palIndex << 1)) & 3);
@@ -629,7 +624,7 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 	/* draw window */
 	if (LCDC_(Window_Enable) && gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
 	{
-		uint8_t lineX, posX, px, tileID, rowLSB, rowMSB, end;
+		uint8_t lineX, posX, px, tileID, rowLSB, rowMSB;
 		uint16_t tileMap, tile;
 
 		/* Calculate Window Map Address. */
@@ -640,15 +635,13 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 		const uint8_t posY = gb->windowLY & 7;
 
         PPU_FETCH_TILE (7 - (posX & 7), lineX - gb->io[WindowX] + 7)
-
-		end = (gb->io[WindowX] < 7 ? 0 : gb->io[WindowX] - 7) - 1;
+		const uint8_t end = (gb->io[WindowX] < 7 ? 0 : gb->io[WindowX] - 7) - 1;
 
 		for(; lineX != end; lineX--)
 		{
 			if (px % 8 == 0) {
 				PPU_FETCH_TILE (0, lineX - gb->io[WindowX] + 7)
 			}
-
 			uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
 			pixels[lineX] = ((gb->io[BGPalette] >> (palIndex << 1)) & 3);
 
@@ -672,6 +665,7 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 		/* Record number of sprites on the line being rendered, limited
 		 * to the maximum number sprites that the Game Boy is able to
 		 * render on each line (10 sprites). */
+#ifdef SPRITE_SORTED
 		for (sprite = 0; sprite < (sizeof (sprites_to_render) / sizeof (sprites_to_render[0])); sprite++)
 		{
 			uint8_t objY = gb->oam[4 * sprite];
@@ -685,7 +679,7 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 			sprites_to_render[totalSprites].x = objX;
 			totalSprites++;
 		}
-
+#endif
         uint8_t sprites[10];
         memset(sprites, 0, 10);
         totalSprites = 0;
@@ -704,15 +698,15 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 
 		/* If maximum number of sprites reached, prioritise X
 		 * coordinate and object location in OAM. */
-		//qsort (&sprites_to_render[0], totalSprites,
-		//		sizeof(sprites_to_render[0]), compare_sprites);
-		//if (totalSprites > MAX_SPRITES_LINE)
-		//	totalSprites = MAX_SPRITES_LINE;
+		qsort (&sprites_to_render[0], totalSprites,
+				sizeof(sprites_to_render[0]), compare_sprites);
+		if (totalSprites > MAX_SPRITES_LINE)
+			totalSprites = MAX_SPRITES_LINE;
         
 		/* Sprites are rendered from low priority to high priority */
 		for (sprite = totalSprites - 1; sprite != 0xFF; sprite--)
 		{
-			const uint8_t s = sprites[sprite];//sprites_to_render[sprite].sprite_number << 2;
+			const uint8_t s = sprites[sprite];
 
 			const uint8_t objY = gb->oam[s + 0], objX = gb->oam[s + 1];
 			const uint8_t objTile = gb->oam[s + 2] & (LCDC_(OBJ_Size) ? 0xFE : 0xFF);

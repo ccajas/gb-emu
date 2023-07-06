@@ -194,7 +194,6 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
             gb->sp, pc, cpu_read (pc), cpu_read (pc+1), cpu_read (pc+2), cpu_read (pc+3)\
         );\
     }
-    //#define LOG_CPU_STATE   gb->debug_cpu_log(gb);
 #endif
 
 #define USE_TIMER_SIMPLE
@@ -244,7 +243,7 @@ static inline void gb_step (struct GB * gb)
 static inline void gb_frame (struct GB * gb)
 {
     gb->frameDone = 0;
-    /* Returns when frame is completed */
+    /* Returns when frame is completed (indicated by V-blank) */
     while (!gb->frameDone) 
     {
         gb_step (gb);
