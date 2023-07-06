@@ -89,7 +89,7 @@ struct GB
 
     /* Timer data */
     uint16_t divClock, lastDiv;
-    int16_t  timAClock;
+    uint16_t timAClock;
     uint8_t  timAOverflow, nextTimA_IRQ, newTimALoaded;
     int16_t  rt; /* Tracks individual step cycles */
 
