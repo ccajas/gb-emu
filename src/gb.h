@@ -203,39 +203,34 @@ static inline void gb_step (struct GB * gb)
 {
     gb->rt = 0;
 
-    if (gb->halted)
+    while (gb->halted || (gb->ime && 
+        gb->io[IntrFlags] & gb->io[IntrEnabled] & IF_Any))
     {
-        /* Check if interrupt is pending */
-        if (gb->io[IntrEnabled] & gb->io[IntrFlags] & IF_Any)
-            gb->halted = 0;
-
-        if (gb->ime)
-            gb_handle_interrupts (gb);
-
-        gb->rt += 4;
-    }
-    else
-    {   /* Load next op and execute */
-        const uint8_t op = CPU_RB (gb->pc++);
-        gb_cpu_exec (gb, op);
-        LOG_CPU_STATE (gb);
-    }
-
-    if (gb->ime)
+        gb->halted = 0;
+        if(!gb->ime) break;
         gb_handle_interrupts (gb);
+    }
+    /* Fetch next op and execute */
+    const uint8_t op = CPU_RB (gb->pc++);
+    gb_cpu_exec (gb, op);
+    LOG_CPU_STATE (gb);
 
-    /* Update timers for every remaining m-cycle */
+    do {
+        /* Update timers for every remaining m-cycle */
 #ifdef USE_TIMER_SIMPLE
-    gb_update_div (gb);
-    gb_update_timer (gb);
+        gb_update_div (gb);
+        gb_update_timer (gb);
 #else
-    int t = 0;
-    while (t++ < gb->rt)
-        gb_handle_timers (gb);
+        int t = 0;
+        while (t++ < gb->rt)
+            gb_handle_timers (gb);
 #endif
-    /* Update PPU if LCD is turned on */
-    if (LCDC_(LCD_Enable))
-        gb_render (gb);
+        /* Update PPU if LCD is turned on */
+        if (LCDC_(LCD_Enable))
+            gb_render (gb);
+    }
+    while (gb->halted && 
+        (gb->io[IntrFlags] & gb->io[IntrEnabled]) == 0);
 
     gb->clock_t += gb->rt;
     gb->frameClock += gb->rt;

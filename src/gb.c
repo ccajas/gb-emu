@@ -321,7 +321,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         case 0xFE: CPm     break;
         /* Conditional jump, return/call */
         case 0x20:   case 0x28:
-        case 0x30:   case 0x38: JR_ (cond)  break;
+        case 0x30:   case 0x38: JR_(cond)   break;
         case 0xC0:   case 0xC8:
         case 0xD0:   case 0xD8: RET_(cond)  break;
         case 0xC2:   case 0xCA:
