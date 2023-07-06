@@ -45,13 +45,13 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
             case Divider:
                 gb->io[Divider] = 0; return 0;
             case TimA:
-                //LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A);
+                LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A);
                 break;
 #else
             case Divider:
                 gb_timer_update (gb, 0); return 0;             /* DIV reset                             */
             case TimA:
-                //LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A);
+                LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A);
                 if (!gb->newTimALoaded) gb->io[TimA] = val;    /* Update TIMA if new value wasn't loaded last cycle    */
                 if (gb->nextTimA_IRQ)   gb->nextTimA_IRQ = 0;  /* Cancel any pending IRQ when accessing TIMA           */
                 return 0;
@@ -60,7 +60,7 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
                 return 0;
 #endif
             case TimerCtrl: /* Todo: TIMA should increase right here if last bit was 1 and current is 0  */
-                //LOG_("GB: Init timer (TAC $%02x, A: $%02x)\n", val, REG_A);
+                LOG_("GB: Init timer (TAC $%02x, A: $%02x)\n", val, REG_A);
                 gb->io[TimerCtrl] = val | 0xF8; return 0;
             case IntrFlags:                                    /* Mask unused bits for IE and IF         */
             case IntrEnabled:
@@ -98,9 +98,6 @@ uint8_t gb_mem_access (struct GB * gb, const uint16_t addr, const uint8_t val, c
     uint8_t * b;
     #define DIRECT_RW(b)  if (write) { *b = val; } return *b;
     struct Cartridge * cart = &gb->cart;
-
-    /* Add T-cyles for read/write */
-    gb->rt += 4;
 
     if (addr < 0x0100 && gb->io[BootROM] == 0)                         /* Run boot ROM if needed */
         { if (!write) { return gb->bootRom[addr]; } else { return 0; }}
@@ -237,8 +234,6 @@ static const int8_t opCycles[256] = {
  ===================================================
 */
 
-static const uint16_t TAC_INTERVALS[4] = { 1024, 16, 64, 256 };
-
 void gb_cpu_exec (struct GB * gb, const uint8_t op)
 {
     /* Copied value for operands (can be overridden for other opcodes) */
@@ -250,7 +245,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
 
     switch (op)
     {
-        case 0x0:  NOP   break;
+        case 0x0:  NOP     break;
         /* 16-bit load, arithmetic instructions */
         OP_r16_g1 (0x01, LDrr)
         OP_r16_g1 (0x03, INCrr)
@@ -284,7 +279,6 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         /* HALT */
         case 0x76: 
             OP(HALT);
-            mCycles++;
             if (!gb->ime) {
                 if (gb->io[IntrEnabled] && gb->io[IntrFlags] & IF_Any) 
                     gb->pcInc = 0; 
@@ -323,7 +317,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         case 0xFE: CPm     break;
         /* Conditional jump, return/call */
         case 0x20:   case 0x28:
-        case 0x30:   case 0x38: JR_(cond)   break;
+        case 0x30:   case 0x38: JR_ (cond)  break;
         case 0xC0:   case 0xC8:
         case 0xD0:   case 0xD8: RET_(cond)  break;
         case 0xC2:   case 0xCA:
@@ -344,15 +338,23 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         default: INVALID;
     }
 
-    /* Add up any extra M-cycles */
-    gb->rt += (mCycles * 4);
-    //LOG_("Assert for op %02x - %d T-cycles (%d)...\n", op, opCycles[op] * 4, gb->rt);
-    assert (gb->rt >= opCycles[op] * 4);
+    mCycles += opCycles[op];
+
+    /* Handle effects of STOP instruction */
+    /* Todo: Read joypad button selection/press */
+    /*if (op == 0x10 && gb->stop)
+    {
+        gb->stop = 0;
+        gb->divClock = 0;
+    }*/
+
+    assert (mCycles >= opCycles[op]);
+    gb->rt = mCycles * 4;
 }
 
 uint8_t gb_exec_cb (struct GB * gb, const uint8_t op)
 {
-    uint16_t mCycles = 1;
+    uint8_t mCycles = 3;
 
     const uint8_t opL  = op & 0xf;
     const uint8_t opHh = op >> 3; /* Octal divisions */
@@ -404,8 +406,8 @@ void gb_handle_interrupts (struct GB * gb)
         gb->pcInc = 1;
     }
     /* Run if CPU ran HALT instruction or IME enabled w/flags */
-    //if (io_IE & io_IF & IF_Any)
-    //{
+    if (io_IE & io_IF & IF_Any)
+    {
         gb->ime = 0;
         /* Check all 5 IE and IF bits for flag confirmations 
            This loop also services interrupts by priority (0 = highest) */
@@ -417,7 +419,7 @@ void gb_handle_interrupts (struct GB * gb)
             const uint8_t flag = i;
             addr += 8;
 
-            if (io_IE & io_IF & flag)
+            if ((io_IE & flag) && (io_IF & flag))
             {
                 gb->sp -= 2;
                 CPU_WW (gb->sp, gb->pc);
@@ -425,11 +427,11 @@ void gb_handle_interrupts (struct GB * gb)
 
                 /* Clear flag bit */
                 gb->io[IntrFlags] = io_IF & ~flag;
-                gb->rt += 12;
+                gb->rt += 20;
                 break;
             }
         }
-    //}
+    }
 }
 
 void gb_timer_update (struct GB * gb, const uint8_t change)
@@ -467,24 +469,30 @@ void gb_update_div (struct GB * gb)
     }  
 }
 
+static const uint16_t TAC_INTERVALS[4] = { 1024, 16, 64, 256 };
+
 /* Update TIMA register */
 
 void gb_update_timer (struct GB * gb)
 {
-    if (gb->io[TimerCtrl] >> 2)   /* TIMA counter enabled */
-    {
-        gb->timAClock += gb->rt;
+    if ((gb->io[TimerCtrl] & 4) == 0)   /* TIMA counter disabled */
+        return;
+    
+    const uint16_t clockRate = TAC_INTERVALS[gb->io[TimerCtrl] & 3];
 
-        while (gb->timAClock >= TAC_INTERVALS[gb->io[TimerCtrl] & 3]) 
+    gb->timAClock += gb->rt;
+
+    /* Exit when clock didn't pass interval */
+    while (gb->timAClock >= clockRate) 
+    {
+        /* Reset clock */
+        gb->timAClock -= clockRate;
+        /* Increment TIMA and request interrupt on TIMA overflow */
+        gb->io[TimA]++;
+        if (gb->io[TimA] == 0)
         {
-            /* Reset clock */
-            gb->timAClock -= TAC_INTERVALS[gb->io[TimerCtrl] & 3];
-            /* Increment TIMA and request interrupt on TIMA overflow */
-            if (++gb->io[TimA] == 0)
-            {
-                gb->io[IntrFlags] |= IF_Timer;
-                gb->io[TimA] = gb->io[TMA];
-            }
+            gb->io[IntrFlags] |= IF_Timer;
+            gb->io[TimA] = gb->io[TMA];
         }
     }
 }

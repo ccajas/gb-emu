@@ -89,7 +89,7 @@ struct GB
 
     /* Timer data */
     uint16_t divClock, lastDiv;
-    uint16_t timAClock;
+    int16_t  timAClock;
     uint8_t  timAOverflow, nextTimA_IRQ, newTimALoaded;
     int16_t  rt; /* Tracks individual step cycles */
 
@@ -198,42 +198,44 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
 #endif
 
 #define USE_TIMER_SIMPLE
-#define CPU_INSTRS_TESTING__
 
 static inline void gb_step (struct GB * gb)
 {
     gb->rt = 0;
 
-    while (gb->halted || (gb->ime && 
-        gb->io[IntrFlags] & gb->io[IntrEnabled] & IF_Any))
+    if (gb->halted)
     {
-        gb->halted = 0;
-        if(!gb->ime) break;
-        gb_handle_interrupts (gb);
-    }
-    /* Fetch next op and execute */
-    const uint8_t op = CPU_RB (gb->pc++);
-    gb_cpu_exec (gb, op);
-    LOG_CPU_STATE (gb);
+        /* Check if interrupt is pending */
+        if (gb->io[IntrEnabled] & gb->io[IntrFlags] & IF_Any)
+            gb->halted = 0;
 
-    do {
-        /* Update timers for every remaining m-cycle */
-#ifdef USE_TIMER_SIMPLE
-        gb_update_div (gb);
-        gb_update_timer (gb);
-#else
-        int t = 0;
-        while (t++ < gb->rt)
-            gb_handle_timers (gb);
-#endif
-#ifndef CPU_INSTRS_TESTING
-        /* Update PPU if LCD is turned on */
-        if (LCDC_(LCD_Enable))
-            gb_render (gb);
-#endif
+        if (gb->ime)
+            gb_handle_interrupts (gb);
+
+        gb->rt += 4;
     }
-    while (gb->halted && 
-        (gb->io[IntrFlags] & gb->io[IntrEnabled]) == 0);
+    else
+    {   /* Load next op and execute */
+        const uint8_t op = CPU_RB (gb->pc++);
+        gb_cpu_exec (gb, op);
+        LOG_CPU_STATE (gb);
+    }
+
+    if (gb->ime)
+        gb_handle_interrupts (gb);
+
+    /* Update timers for every remaining m-cycle */
+#ifdef USE_TIMER_SIMPLE
+    gb_update_div (gb);
+    gb_update_timer (gb);
+#else
+    int t = 0;
+    while (t++ < gb->rt)
+        gb_handle_timers (gb);
+#endif
+    /* Update PPU if LCD is turned on */
+    if (LCDC_(LCD_Enable))
+        gb_render (gb);
 
     gb->clock_t += gb->rt;
     gb->frameClock += gb->rt;
@@ -247,12 +249,9 @@ static inline void gb_frame (struct GB * gb)
     {
         gb_step (gb);
         /* Keep track of cycles in frame */
-        const uint32_t lastClock = gb->frameClock;
         gb->frameClock %= (uint32_t)FRAME_CYCLES;
-        /* Exit loop if V-blank didn't happen yet */
-        if (lastClock > gb->frameClock)
-            break;
     }
+
     /* Indicates odd or even frame */
     gb->frame = 1 - gb->frame;
     gb->totalFrames++;
