@@ -388,8 +388,10 @@ uint8_t gb_exec_cb (struct GB * gb, const uint8_t op)
         case 0x18 ... 0x1F: OPR_2_(SET, SETHL) break; /* Bit set   */
     }
     /* Write back to (HL) for most (HL) operations except BIT */
-    if ((op & 7) == 6 && (opHh < 8 || opHh > 0xF))
+    if ((op & 7) == 6 && (opHh < 8 || opHh > 0xF)) {
         CPU_WB (REG_HL, hl);
+        mCycles += 2;
+    }
 
     return mCycles;
 }

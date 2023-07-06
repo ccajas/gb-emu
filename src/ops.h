@@ -350,10 +350,10 @@
 #define BITHL   OP(BITHL); SET_FLAGS(16, (hl & (1 << r_bit)), 0, 1, 0); mCycles++;
 
 #define RES     OP(RES);   *reg1 &= (0xFE << r_bit) | (0xFF >> (8 - r_bit));
-#define RESHL   OP(RESHL); hl &= (0xFE << r_bit) | (0xFF >> (8 - r_bit)); mCycles += 2;
+#define RESHL   OP(RESHL); hl &= (0xFE << r_bit) | (0xFF >> (8 - r_bit));
 
 #define SET     OP(SET);   *reg1 |= (1 << r_bit); 
-#define SETHL   OP(SET);   hl |= (1 << r_bit); mCycles += 2;
+#define SETHL   OP(SET);   hl |= (1 << r_bit);
 
 /* Misc instructions */
 
