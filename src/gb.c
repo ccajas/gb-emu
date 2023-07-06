@@ -237,6 +237,8 @@ static const int8_t opCycles[256] = {
  ===================================================
 */
 
+static const uint16_t TAC_INTERVALS[4] = { 1024, 16, 64, 256 };
+
 void gb_cpu_exec (struct GB * gb, const uint8_t op)
 {
     /* Copied value for operands (can be overridden for other opcodes) */
@@ -415,7 +417,7 @@ void gb_handle_interrupts (struct GB * gb)
             const uint8_t flag = i;
             addr += 8;
 
-            if ((io_IE & flag) && (io_IF & flag))
+            if (io_IE & io_IF & flag)
             {
                 gb->sp -= 2;
                 CPU_WW (gb->sp, gb->pc);
@@ -465,30 +467,24 @@ void gb_update_div (struct GB * gb)
     }  
 }
 
-static const uint16_t TAC_INTERVALS[4] = { 1024, 16, 64, 256 };
-
 /* Update TIMA register */
 
 void gb_update_timer (struct GB * gb)
 {
-    if ((gb->io[TimerCtrl] & 4) == 0)   /* TIMA counter disabled */
-        return;
-    
-    const uint16_t clockRate = TAC_INTERVALS[gb->io[TimerCtrl] & 3];
-
-    gb->timAClock += gb->rt;
-
-    /* Exit when clock didn't pass interval */
-    while (gb->timAClock >= clockRate) 
+    if (gb->io[TimerCtrl] >> 2)   /* TIMA counter enabled */
     {
-        /* Reset clock */
-        gb->timAClock -= clockRate;
-        /* Increment TIMA and request interrupt on TIMA overflow */
-        gb->io[TimA]++;
-        if (gb->io[TimA] == 0)
+        gb->timAClock += gb->rt;
+
+        while (gb->timAClock >= TAC_INTERVALS[gb->io[TimerCtrl] & 3]) 
         {
-            gb->io[IntrFlags] |= IF_Timer;
-            gb->io[TimA] = gb->io[TMA];
+            /* Reset clock */
+            gb->timAClock -= TAC_INTERVALS[gb->io[TimerCtrl] & 3];
+            /* Increment TIMA and request interrupt on TIMA overflow */
+            if (++gb->io[TimA] == 0)
+            {
+                gb->io[IntrFlags] |= IF_Timer;
+                gb->io[TimA] = gb->io[TMA];
+            }
         }
     }
 }
