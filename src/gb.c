@@ -45,13 +45,13 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
             case Divider:
                 gb->io[Divider] = 0; return 0;
             case TimA:
-                LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A);
+                //LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A);
                 break;
 #else
             case Divider:
                 gb_timer_update (gb, 0); return 0;             /* DIV reset                             */
             case TimA:
-                LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A);
+                //LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A);
                 if (!gb->newTimALoaded) gb->io[TimA] = val;    /* Update TIMA if new value wasn't loaded last cycle    */
                 if (gb->nextTimA_IRQ)   gb->nextTimA_IRQ = 0;  /* Cancel any pending IRQ when accessing TIMA           */
                 return 0;
@@ -60,7 +60,7 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
                 return 0;
 #endif
             case TimerCtrl: /* Todo: TIMA should increase right here if last bit was 1 and current is 0  */
-                LOG_("GB: Init timer (TAC $%02x, A: $%02x)\n", val, REG_A);
+                //LOG_("GB: Init timer (TAC $%02x, A: $%02x)\n", val, REG_A);
                 gb->io[TimerCtrl] = val | 0xF8; return 0;
             case IntrFlags:                                    /* Mask unused bits for IE and IF         */
             case IntrEnabled:
@@ -333,7 +333,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
         OP_r16_g3 (0xC5, PUSHrr)
         /* CB prefix ops */
         case 0xCB:   
-            mCycles += gb_exec_cb (gb, CPU_RB (gb->pc++));
+            mCycles = gb_exec_cb (gb, CPU_RB (gb->pc++));
         break;
         default: INVALID;
     }
@@ -354,7 +354,7 @@ void gb_cpu_exec (struct GB * gb, const uint8_t op)
 
 uint8_t gb_exec_cb (struct GB * gb, const uint8_t op)
 {
-    uint8_t mCycles = 3;
+    uint8_t mCycles = 2;
 
     const uint8_t opL  = op & 0xf;
     const uint8_t opHh = op >> 3; /* Octal divisions */
