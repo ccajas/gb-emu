@@ -27,31 +27,31 @@ uint8_t mbc1_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
     switch (write) {
         case 0: /* Read from cartridge */
             if LOW_BANK {                                                  /* User upper 2 bank bits in mode 1 */
-                const uint8_t selectedBank = (cart->bank2nd << 5) & cart->romMask;
+                const uint8_t selectedBank = (cart->romBank2 << 5) & cart->romMask;
                 return cart->romData[addr + ((cart->mode == 1) ? (selectedBank * 0x4000) : 0)];
             }
             if HIGH_BANK {
-                const uint8_t bank = (cart->bank1st == 0) ? 1 : cart->bank1st;
-                const uint8_t selectedBank = ((cart->bank2nd << 5) + bank) & cart->romMask;
+                const uint8_t bank = (cart->romBank1 == 0) ? 1 : cart->romBank1;
+                const uint8_t selectedBank = ((cart->romBank2 << 5) + bank) & cart->romMask;
                 return cart->romData[(selectedBank - 1) * 0x4000 + addr];
             }
-            if (RAM_BANK && cart->ram) {                       /* Select RAM bank and fetch data (if enabled) */
+            if (RAM_BANK && cart->ram) {                        /* Select RAM bank and fetch data (if enabled) */
                 if (!cart->usingRAM) return 0xFF;
-                if (cart->ramSizeKB == 8) return cart->ramData[addr % 0x2000];     /* Fetch only lower 8KB    */
-                const uint16_t ramOffset = (cart->mode == 1) ? (cart->bank2nd * 0x2000) : 0;
+                if (cart->ramSizeKB == 8) return cart->ramData[addr % 0x2000];     /* Fetch only lower 8KB     */
+                const uint16_t ramOffset = (cart->mode == 1) ? (cart->romBank2 * 0x2000) : 0;
                 return cart->ramData[(addr % 0x2000) + ramOffset];
             }
             return 0xFF;
         break;
         case 1: /* Write to registers */
             if RAM_ENABLE_REG  cart->usingRAM = ((val & 0xF) == 0xA);              /* Enable RAM  */
-            if BANK_SELECT     cart->bank1st = (!val) ? 1 : val & 0x1F;            /* Write lower 5 bank bits  */
-            if BANK_SELECT_2   cart->bank2nd = (val & 3);                          /* Write upper 2 bank bits  */
+            if BANK_SELECT     cart->romBank1 = val & 0x1F;                        /* Write lower 5 bank bits  */
+            if BANK_SELECT_2   cart->romBank2 = (val & 3);                         /* Write upper 2 bank bits  */
             if MODE_SELECT     cart->mode = (val & 1);                             /* Simple/RAM banking mode  */
             if (RAM_BANK && cart->ram) {                                           /* Write to RAM if enabled  */
                 if (!cart->usingRAM) return 0;           /* Write only to lower 8KB if mode 0 or smaller bank  */
                 if (cart->ramSizeKB == 8) { cart->ramData[addr % 0x2000] = val; return 0; }
-                const uint16_t ramOffset = (cart->mode == 1) ? (cart->bank2nd * 0x2000) : 0;
+                const uint16_t ramOffset = (cart->mode == 1) ? (cart->romBank2 * 0x2000) : 0;
                 cart->ramData[(addr % 0x2000) + ramOffset] = val;
             }
         break;
@@ -65,7 +65,7 @@ uint8_t mbc2_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
     {
         if LOW_BANK   return cart->romData[addr];
         if HIGH_BANK {
-            const uint8_t selectedBank = (cart->bank1st == 0 ? 1 : cart->bank1st) & cart->romMask;
+            const uint8_t selectedBank = (cart->romBank1 == 0 ? 1 : cart->romBank1) & cart->romMask;
             return cart->romData[(selectedBank - 1) * 0x4000 + addr];
         }
         if RAM_BANK {
@@ -78,7 +78,7 @@ uint8_t mbc2_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
     {
         if LOW_BANK {
             const uint8_t setRomBank = (addr >> 8) & 1;
-            if (setRomBank)    cart->bank1st = val & 0xF;                             /* LSB == 1, ROM bank select */
+            if (setRomBank)    cart->romBank1 = val & 0xF;                            /* LSB == 1, ROM bank select */
             else               cart->usingRAM = ((val & 0xF) == 0xA);                 /* LSB == 0, RAM switch      */
         }
         if RAM_BANK {
@@ -94,25 +94,25 @@ uint8_t mbc3_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
     if (!write) /* Read from cartridge */
     {
         if LOW_BANK   return cart->romData[addr];
-        if HIGH_BANK  return cart->romData[((cart->bank1st & cart->romMask) - 1) * 0x4000 + addr];
+        if HIGH_BANK  return cart->romData[((cart->romBank1 & cart->romMask) - 1) * 0x4000 + addr];
         if (RAM_BANK && cart->ram) {                                     /* Select RAM bank and fetch data (if enabled) */
             if (!cart->usingRAM) return 0xFF;
             if (cart->ramSizeKB == 8) return cart->ramData[addr % 0x2000];                  /* Fetch only lower 8KB     */
-            const uint16_t ramOffset = cart->bank2nd * 0x2000;
+            const uint16_t ramOffset = cart->romBank2 * 0x2000;
             return cart->ramData[(addr % 0x2000) + ramOffset];
         }
     }
     else /* Write to registers */
     {
         if RAM_ENABLE_REG  cart->usingRAM = ((val & 0xF) == 0xA);                           /* Enable both RAM and RTC  */
-        if BANK_SELECT     cart->bank1st = ((val == 0) ? 1 : (val & 0x7F));                 /* Write lower 7 bank bits  */
+        if BANK_SELECT     cart->romBank1 = ((val == 0) ? 1 : (val & 0x7F));                 /* Write lower 7 bank bits  */
         if BANK_SELECT_2   {                                                                /* Lower 3 bits for RAM     */ 
-            cart->bank2nd = val & 3; 
-            if (cart->ram) cart->bkRamData = cart->ramData + (cart->bank2nd * 0x2000);
+            cart->ramBank = val & 3; 
+            if (cart->ram) cart->bkRamData = cart->ramData + (cart->ramBank * 0x2000);
         }
         if (RAM_BANK && cart->ram) {                                     /* Select RAM bank and fetch data (if enabled) */
             if (!cart->usingRAM) return 0xFF;                                  /* Write only to lower 8KB if no banking */
-            const uint16_t ramOffset = (cart->ramSizeKB == 8) ? 0 : cart->bank2nd * 0x2000;
+            const uint16_t ramOffset = (cart->ramSizeKB == 8) ? 0 : cart->ramBank * 0x2000;
             cart->ramData[(addr % 0x2000) + ramOffset] = val;
         }
     }
@@ -124,21 +124,20 @@ uint8_t mbc5_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
     if (!write) /* Read from cartridge */
     {
         if LOW_BANK return cart->romData[addr];
-        if HIGH_BANK {                                            
-            const uint16_t selectedBank = (cart->romSizeKB < 4096) ?
-                cart->bank1st & cart->romMask :                               /* Mask lower 8 bits         */
-                (cart->bank2nd << 8) + cart->bank1st;                 /* Combine 9th bit with lower 8 bits */
-            return cart->romData[(selectedBank - 1) * 0x4000 + addr];
+        if HIGH_BANK {
+            const uint16_t selectedBank = cart->romBank1 & cart->romMask;        /* Mask lower 8 bits         */
+            //    (uint16_t)(cart->romBank2 << 8) + cart->romBank1;       /* Combine 9th bit with lower 8 bits */
+            return cart->romData[(selectedBank * 0x4000) + addr - 0x4000];
         }
         if (RAM_BANK && cart->ram)
             return (cart->usingRAM) ? cart->ramData[(cart->ramBank) * 0x2000 + (addr % 0x2000)] : 0xFF;
     }
     else /* Write to registers */
-    {    /* RAM banks are stored in upper 4 bits of bank2nd, and shifted down for selecting the bank       */
-        if RAM_ENABLE_REG  cart->usingRAM = ((val & 0xF) == 0xA);              /* Enable RAM               */
-        if BANK_SELECT_L   cart->bank1st = val;                                /* Write 8 lower bank bits  */
-        if BANK_SELECT_H   cart->bank2nd = (val & 1);                          /* Write 9th bank bit       */
-        if BANK_SELECT_2   cart->ramBank = (val & 0xF);                        /* Lower 4 bits for RAM     */
+    {
+        if RAM_ENABLE_REG  cart->usingRAM = ((val & 0xF) == 0xA);               /* Enable RAM               */
+        if BANK_SELECT_L   cart->romBank1 = val;                                /* Write 8 lower bank bits  */
+        if BANK_SELECT_H   cart->romBank2 = val & 1;                            /* Write 9th bank bit       */
+        if BANK_SELECT_2   cart->ramBank = (val & 0xF);                         /* Lower 4 bits for RAM     */
     }
     return 0;
 }
@@ -216,7 +215,8 @@ void cart_identify (struct Cartridge * cart)
     }
 
     cart->usingRAM = 0;
-    cart->bank1st = 0;
-    cart->bank2nd = 0;
+    cart->romBank1 = 0;
+    cart->romBank2 = 0;
+    cart->ramBank = 0;
     cart->mode = 0;
 }

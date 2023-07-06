@@ -7,9 +7,11 @@
 #define GB_DEBUG
 
 #ifdef GB_DEBUG
-    #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
+    #define LOG_(f_, ...)  printf((f_),  ##__VA_ARGS__)
+    #define LOGW_(f_, ...) wprintf((f_), ##__VA_ARGS__)
 #else
     #define LOG_(f_, ...)
+    #define LOGW_(f_, ...)
 #endif
 
 #define GB_HEADER_SIZE   0x50
@@ -37,8 +39,8 @@ struct Cartridge
     uint8_t rtc     : 1;
 
     /* MBC registers */
-    uint8_t bank1st;  /* for most ROMS, 4 MiB and under    */
-    uint8_t bank2nd;  /* for additional ROM bank bits      */
+    uint8_t romBank1;  /* for most ROMS, 4 MiB and under    */
+    uint8_t romBank2;  /* for additional ROM bank bits      */
     uint8_t ramBank;
 
     /* Pointer to MBC read/write function */
