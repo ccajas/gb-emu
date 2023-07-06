@@ -89,7 +89,7 @@ struct GB
 
     /* Timer data */
     uint16_t divClock, lastDiv;
-    int16_t  timAClock;
+    uint16_t timAClock;
     uint8_t  timAOverflow, nextTimA_IRQ, newTimALoaded;
     int16_t  rt; /* Tracks individual step cycles */
 
@@ -198,6 +198,7 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
 #endif
 
 #define USE_TIMER_SIMPLE
+#define CPU_INSTRS_TESTING__
 
 static inline void gb_step (struct GB * gb)
 {
@@ -225,9 +226,11 @@ static inline void gb_step (struct GB * gb)
         while (t++ < gb->rt)
             gb_handle_timers (gb);
 #endif
+#ifndef CPU_INSTRS_TESTING
         /* Update PPU if LCD is turned on */
         if (LCDC_(LCD_Enable))
             gb_render (gb);
+#endif
     }
     while (gb->halted && 
         (gb->io[IntrFlags] & gb->io[IntrEnabled]) == 0);
@@ -244,9 +247,12 @@ static inline void gb_frame (struct GB * gb)
     {
         gb_step (gb);
         /* Keep track of cycles in frame */
+        const uint32_t lastClock = gb->frameClock;
         gb->frameClock %= (uint32_t)FRAME_CYCLES;
+        /* Exit loop if V-blank didn't happen yet */
+        if (lastClock > gb->frameClock)
+            break;
     }
-
     /* Indicates odd or even frame */
     gb->frame = 1 - gb->frame;
     gb->totalFrames++;
