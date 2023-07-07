@@ -3,9 +3,10 @@ CFLAGS_LIN = $(CFLAGS) `pkg-config --cflags glfw3`
 LDFLAGS = $(pkg-config --static --libs glfw3)
 
 #`pkg-config --cflags glfw3 freetype2`
+GLdir = src/api/glfw/
 src = $(wildcard src/*.c)
 src_min = src/main.c src/app.c src/gb.c src/cart.c
-srcGL = $(wildcard src/api/glfw/*.c)
+srcGL = $(GLdir)graphics.c $(GLdir)glad.c $(GLdir)shader.c
 srcTIGR = $(wildcard src/api/tigr/*.c)
 
 CC = i686-w64-mingw32-gcc
