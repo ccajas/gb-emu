@@ -19,6 +19,7 @@ obj = $(csrc:.c=.o)
 target = bin/gb-emu
 target_linux = bin/linux/gb-emu
 all: glfw
+includes = -I../_include
 
 .PHONY: clean
 
@@ -26,14 +27,14 @@ LDFLAGS = `pkg-config --libs glfw3`
 
 # main builds
 glfw: $(obj)
-	$(CC) $(CFLAGS) -DUSE_GLFW $(src_min) $(srcGL) -o $(target) -lm -lglfw3 -lgdi32
+	$(CC) $(CFLAGS) -DUSE_GLFW $(src_min) $(srcGL) -o $(target) $(includes) -lm -lglfw3 -lgdi32
 
 glfw-l: $(obj)
 	gcc $(CFLAGS_LIN) -DUSE_GLFW $(src_min) $(srcGL) -o $(target_linux) -lm -ldl -lpthread $(LDFLAGS)
 
 # no GLFW build
 tigr: $(obj)
-	$(CC) $(CFLAGS) -DUSE_TIGR $(src_min) $(srcTIGR) -o $(target) -lm -lopengl32 -lgdi32
+	$(CC) $(CFLAGS) -DUSE_TIGR $(src_min) $(srcTIGR) -o $(target) $(includes) -lm -lopengl32 -lgdi32
 
 minifb: $(obj)
 	$(CC) $(CFLAGS) src/main.c src/app.c src/gb.c src/cart.c -o $(target) -lgdi32
