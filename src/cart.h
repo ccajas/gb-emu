@@ -48,9 +48,9 @@ struct Cartridge
 
     uint16_t 
         romSizeKB,
-        ramSizeKB;
+        ramSizeKB,
+        romMask;
     uint8_t
-        romMask,
         mode,
         usingRAM;
 };

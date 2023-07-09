@@ -125,9 +125,9 @@ uint8_t mbc5_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
     {
         if LOW_BANK return cart->romData[addr];
         if HIGH_BANK {
-            const uint16_t selectedBank = cart->romBank1 & cart->romMask;        /* Mask lower 8 bits         */
-            //    (uint16_t)(cart->romBank2 << 8) + cart->romBank1;      /* Combine 9th bit with lower 8 bits */
-            return cart->romData[(selectedBank * 0x4000) + addr];
+            const uint16_t selectedBank =                              /* Combine 9th bit with lower 8 bits */
+                ((cart->romBank2 << 8) + cart->romBank1 & cart->romMask);
+            return cart->romData[(selectedBank - 1) * 0x4000 + addr];
         }
         if (RAM_BANK && cart->ram)
             return (cart->usingRAM) ? cart->ramData[(cart->ramBank) * 0x2000 + (addr % 0x2000)] : 0xFF;
@@ -215,7 +215,7 @@ void cart_identify (struct Cartridge * cart)
     }
 
     cart->usingRAM = 0;
-    cart->romBank1 = 0;
+    cart->romBank1 = (cart->mbc == 5) ? 1 : 0;
     cart->romBank2 = 0;
     cart->ramBank = 0;
     cart->mode = 0;
