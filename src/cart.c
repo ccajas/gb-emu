@@ -126,7 +126,7 @@ uint8_t mbc5_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
         if LOW_BANK return cart->romData[addr];
         if HIGH_BANK {
             const uint16_t selectedBank =                              /* Combine 9th bit with lower 8 bits */
-                ((cart->romBank2 << 8) + (cart->romBank1 & cart->romMask));
+                (((cart->romBank2 << 8) + cart->romBank1) & cart->romMask);
             return cart->romData[(selectedBank - 1) * 0x4000 + addr];
         }
         if (RAM_BANK && cart->ram)
