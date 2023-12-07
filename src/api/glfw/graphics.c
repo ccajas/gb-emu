@@ -20,7 +20,8 @@ const char * ppu_fs_source =
 "uniform vec3 textColor;\n"
 "uniform vec2 screenSize;\n"
 
-"#define PI_2 3.1415926538 * 2\n"
+"#define PI_2          3.1415926538 * 2\n"
+"#define SCREEN_SHADER dot_matrix\n"
 
 "uniform float rr = 0.640000;\n"
 "uniform float rg = 0.660000;\n"
@@ -28,7 +29,7 @@ const char * ppu_fs_source =
 "uniform float colorP = 1.0;\n"
 "uniform float brightness = 1.4;\n"
 
-"vec3 dotMatrix(vec3 color, vec3 tint)\n"
+"vec3 dot_matrix(vec3 color, vec3 tint)\n"
 "{\n"
 "    vec2 position = (TexCoords.xy);\n"
 "    float dotTint = 0.12;\n"
@@ -40,7 +41,7 @@ const char * ppu_fs_source =
 "    return color;\n"
 "}\n"
 
-"vec3 lcdSimple(vec3 color, vec3 tint)\n"
+"vec3 lcd_simple(vec3 color, vec3 tint)\n"
 "{\n"
 "    vec2 position = (TexCoords.xy);\n"
 "    if (fract(position.x * screenSize.x) > 0.75) color = mix(color, vec3(0), 0.08);\n"
@@ -60,7 +61,7 @@ const char * ppu_fs_source =
 "    vec3 tint = vec3(0.37, 0.84, 0.87);\n"
 "    vec3 tint2 = vec3(0.61, 0.74, 0.03);\n"
 "    vec3 sampled = texture2D(indexed, TexCoords).rgb;\n"
-"    gl_FragColor = vec4(lcdSimple(sampled, tint2), 1.0);\n"
+"    gl_FragColor = vec4(SCREEN_SHADER(sampled, tint2), 1.0);\n"
 "}\n";
 
 const char * ppu_vs_source =
@@ -135,7 +136,7 @@ void graphics_init (Scene * const scene)
 
     /* Create main textures */
     texture_setup (&scene->fbufferTexture, 160, 144, GL_NEAREST, NULL);
-    texture_setup (&scene->debugTexture,   128, 128, GL_NEAREST, NULL);
+    texture_setup (&scene->debugTexture,   320, 288, GL_NEAREST, NULL);
 
     glDisable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
