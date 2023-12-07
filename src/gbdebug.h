@@ -476,9 +476,9 @@ static inline void debug_dump_tiles (
     int t;
     for (t = 0; t < NUM_ITEMS; t++)
     {
-        const uint16_t index = t;
-        const uint16_t tileXoffset = (index % NUM_COLS) * TILE_WIDTH;
-        const uint16_t tileYoffset = (index / NUM_COLS) * txWidth * TILE_HEIGHT;
+        const uint32_t index = t;
+        const uint32_t tileXoffset = (index % NUM_COLS) * (TILE_WIDTH + 1);
+        const uint32_t tileYoffset = (index / NUM_COLS) * txWidth * (TILE_HEIGHT + 1);
 
 		/* Tint active OAM sprite tiles */
 		const uint8_t tintOAM = 0x55 - (activeSpriteTiles[index] * 0x44);
@@ -486,6 +486,8 @@ static inline void debug_dump_tiles (
         int y;
         for (y = 0; y < TILE_HEIGHT; y++)
         {
+			if (y == 8) continue;
+
             const uint8_t row1 = *(data + (y * 2));
             const uint8_t row2 = *(data + (y * 2) + 1);
             const uint16_t yOffset = y * txWidth;
@@ -493,6 +495,8 @@ static inline void debug_dump_tiles (
             int x;
             for (x = 0; x < 8; x++)
             {
+				if (x == 8) continue;
+
                 uint8_t col1 = row1 >> (7 - x);
                 uint8_t col2 = row2 >> (7 - x);
                 
@@ -528,9 +532,9 @@ static inline void debug_dump_OAM (
     {
         uint8_t index = oam[t * 4 + 2];    /* Tile index of sprite        */
         /* index &= 0xFE;               */ /* Adjust index for 8x16 size  */
-        const uint16_t tileXoffset = (t % NUM_COLS) * TILE_WIDTH;
-        const uint16_t tileYoffset = (t / NUM_COLS) * txWidth * TILE_HEIGHT;
-        const uint16_t offset = data[index];
+        const uint32_t tileXoffset = (t % NUM_COLS) * TILE_WIDTH;
+        const uint32_t tileYoffset = (t / NUM_COLS) * txWidth * TILE_HEIGHT;
+        const uint32_t offset = data[index];
 
         int y;
         for (y = 0; y < TILE_HEIGHT; y++)
