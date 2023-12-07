@@ -562,7 +562,7 @@ int compare_sprites (const void *in1, const void *in2)
 	return (int)sd1->sprite_number - (int)sd2->sprite_number;
 }
 
-#define PPU_FETCH_TILE(pixelX, X) \
+#define PPU_GET_TILE(pixelX, X) \
     /* fetch next tile */\
     posX = X;\
     tileID = gb->vram[(tileMap & 0x1FFF) + (posX >> 3)];\
@@ -603,13 +603,13 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
             gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
             lineX = (gb->io[WindowX] < 7 ? 0 : gb->io[WindowX] - 7) - 1;
 
-        PPU_FETCH_TILE (7 - (posX & 7), lineX + gb->io[ScrollX])
+        PPU_GET_TILE (7 - (posX & 7), lineX + gb->io[ScrollX])
         const uint8_t end = 0xFF;
 
 		for(; lineX != end; lineX--)
 		{
 			if (px % 8 == 0) {
-				PPU_FETCH_TILE (0, lineX + gb->io[ScrollX])
+				PPU_GET_TILE (0, lineX + gb->io[ScrollX])
 			}
 			/* Get background color */
 			uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
@@ -634,13 +634,13 @@ static inline uint8_t * gb_pixel_fetch (struct GB * gb)
 		lineX = DISPLAY_WIDTH - 1;
 		const uint8_t posY = gb->windowLY & 7;
 
-        PPU_FETCH_TILE (7 - (posX & 7), lineX - gb->io[WindowX] + 7)
+        PPU_GET_TILE (7 - (posX & 7), lineX - gb->io[WindowX] + 7)
 		const uint8_t end = (gb->io[WindowX] < 7 ? 0 : gb->io[WindowX] - 7) - 1;
 
 		for(; lineX != end; lineX--)
 		{
 			if (px % 8 == 0) {
-				PPU_FETCH_TILE (0, lineX - gb->io[WindowX] + 7)
+				PPU_GET_TILE (0, lineX - gb->io[WindowX] + 7)
 			}
 			uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
 			pixels[lineX] = ((gb->io[BGPalette] >> (palIndex << 1)) & 3);
