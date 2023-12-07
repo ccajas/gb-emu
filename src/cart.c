@@ -125,19 +125,19 @@ uint8_t mbc5_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
     {
         if LOW_BANK return cart->romData[addr];
         if HIGH_BANK {
-            const uint16_t selectedBank = cart->romBank1 & cart->romMask;        /* Mask lower 8 bits         */
-            //    (uint16_t)(cart->romBank2 << 8) + cart->romBank1;      /* Combine 9th bit with lower 8 bits */
-            return cart->romData[(selectedBank * 0x4000) + addr];
+            const int16_t selectedBank = cart->romBank1 & cart->romMask;        /* Mask lower 8 bits         */
+            //    (uint16_t)(cart->romBank2 << 8) + cart->romBank1;     /* Combine 9th bit with lower 8 bits */
+            return cart->romData[(selectedBank - 1) * 0x4000 + addr];
         }
         if (RAM_BANK && cart->ram)
             return (cart->usingRAM) ? cart->ramData[(cart->ramBank) * 0x2000 + (addr % 0x2000)] : 0xFF;
     }
     else /* Write to registers */
     {
-        if RAM_ENABLE_REG  cart->usingRAM = ((val & 0xF) == 0xA);               /* Enable RAM               */
-        if BANK_SELECT_L   cart->romBank1 = val;                                /* Write 8 lower bank bits  */
-        if BANK_SELECT_H   cart->romBank2 = val & 1;                            /* Write 9th bank bit       */
-        if BANK_SELECT_2   cart->ramBank = (val & 0xF);                         /* Lower 4 bits for RAM     */
+        if (addr <= 0x1FFF) { cart->usingRAM = ((val & 0xF) == 0xA); return 0; } /* Enable RAM               */
+        if (addr <= 0x2FFF) { cart->romBank1 = val; return 0; }                  /* Write 8 lower bank bits  */
+        if (addr <= 0x3FFF) { cart->romBank2 = val & 1; return 0; }              /* Write 9th bank bit       */
+        if (addr <= 0x5FFF) { cart->ramBank = (val & 0xF); return 0; }           /* Lower 4 bits for RAM     */
     }
     return 0;
 }
@@ -169,9 +169,9 @@ void cart_identify (struct Cartridge * cart)
         checksum = checksum - cart->romData[addr] - 1;
     }
     if (cart->romData[0x14D] != checksum)
-        LOG_(" %c%c Invalid checksum!\n", 192,196);
+        LOG_(" %c%c Invalid checksum!\n", 192, 196);
     else
-        LOG_(" %c%c Valid checksum '%02X'\n", 192,196, checksum);
+        LOG_(" %c%c Valid checksum '%02X'\n", 192, 196, checksum);
 
     /* Get cartridge type and MBC from header */
     memcpy (cart->header, cart->romData + 0x100, 80 * sizeof(uint8_t));
@@ -215,7 +215,7 @@ void cart_identify (struct Cartridge * cart)
     }
 
     cart->usingRAM = 0;
-    cart->romBank1 = 0;
+    cart->romBank1 = (cart->mbc == 5) ? 1 : 0;
     cart->romBank2 = 0;
     cart->ramBank = 0;
     cart->mode = 0;
