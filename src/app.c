@@ -184,7 +184,7 @@ void app_init (struct App * app)
 
     /* Assign functions to be used by emulator */
     app->gb.draw_line     = app_draw_line;
-    app->gb.debug_cpu_log = NULL;//debug_cpu_log;
+    //app->gb.debug_cpu_log = NULL;//debug_cpu_log;
 
     /* Select image to display */
     app->image = &app->gbData.tileMap;
@@ -302,7 +302,10 @@ void app_draw (struct App * app)
 
     set_shader  (&app->display, &app->display.fbufferShader);
     set_texture (&app->display, &app->display.fbufferTexture);
-    draw_screen_quad (app->window, &app->display, &app->gbData.frameBuffer, app->scale);
+    if (app->debug)
+        draw_quad (app->window, &app->display, &app->gbData.frameBuffer, 0, 0, app->scale);
+    else
+        draw_screen_quad (app->window, &app->display, &app->gbData.frameBuffer, app->scale);
 
     if (app->debug)
     {
