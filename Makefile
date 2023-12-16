@@ -16,21 +16,21 @@ lib = $(csrc:.c=.a)
 obj = $(csrc:.c=.o)
 
 # Output
-target = bin/gb-emu
+target = bin/win32/gb-emu
 target_linux = bin/linux/gb-emu
 all: glfw
 includes = -I../_include
 
 .PHONY: clean
 
-LDFLAGS = `pkg-config --libs glfw3`
+LDFLAGS = `pkg-config --static --libs glfw3`
 
 # main builds
 glfw: $(obj)
 	$(CC) $(CFLAGS) -DUSE_GLFW $(src_min) $(srcGL) -o $(target) $(includes) -lm -lglfw3 -lgdi32
 
 glfw-l: $(obj)
-	gcc $(CFLAGS_LIN) -DUSE_GLFW $(src_min) $(srcGL) -o $(target_linux) -lm -ldl -lpthread $(LDFLAGS)
+	gcc $(CFLAGS_LIN) -DUSE_GLFW $(src_min) $(srcGL) -o $(target_linux) -lm -ldl $(LDFLAGS)
 
 # no GLFW build
 tigr: $(obj)
