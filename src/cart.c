@@ -192,7 +192,7 @@ void cart_identify (struct Cartridge * cart)
     }
     cart->rw = cart_rw[cart->mbc];
 
-    printf ("GB: ROM file size (KiB): %d\n", 32 * (1 << header[0x48]));
+    LOG_("GB: ROM file size (KiB): %d\n", 32 * (1 << header[0x48]));
     
     const uint8_t ramBanks[] = { 0, 0, 8, 32, 128, 64 };
 
@@ -204,10 +204,10 @@ void cart_identify (struct Cartridge * cart)
     cart->battery = cartBattery[cartType];
     cart->romMask = (1 << (header[0x48] + 1)) - 1;
 
-    printf ("GB: RAM file size (KiB): %d\n", cart->ramSizeKB);
-    printf ("GB: Cart type: %02X Mapper type: %d\n", header[0x47], cart->mbc);
-    printf ("GB: This is a %s cart\n", (header[0x43] & 0x80) ? "CGB" : "DMG");
-    printf ("GB: Cart has battery: %s\n", cart->battery ? "Yes" : "No");
+    LOG_("GB: RAM file size (KiB): %d\n", cart->ramSizeKB);
+    LOG_("GB: Cart type: %02X Mapper type: %d\n", header[0x47], cart->mbc);
+    LOG_("GB: This is a %s cart\n", (header[0x43] & 0x80) ? "CGB" : "DMG");
+    LOG_("GB: Cart has battery: %s\n", cart->battery ? "Yes" : "No");
 
     if (cart->ramSizeKB) {
         cart->ramData = calloc(cart->ramSizeKB * 1024, sizeof (uint8_t));
