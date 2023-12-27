@@ -5,6 +5,8 @@
 bin/
 docs/
 test/
+_docs/
+_test/
 .vscode/
 
 # Object files
