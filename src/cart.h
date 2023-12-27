@@ -4,8 +4,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#define GB_DEBUG
-
 #ifdef GB_DEBUG
     #define LOG_(f_, ...)  printf((f_),  ##__VA_ARGS__)
     #define LOGW_(f_, ...) wprintf((f_), ##__VA_ARGS__)
