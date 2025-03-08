@@ -11,6 +11,8 @@
 #define DEBUG_TEXTURE_W  320
 #define DEBUG_TEXTURE_H  288
 
+#define USE_GLFW
+
 #ifdef USE_GLFW
     #include "api/glfw/graphics.h"
 #endif

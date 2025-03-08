@@ -27,10 +27,10 @@ LDFLAGS = `pkg-config --static --libs glfw3`
 
 # main builds
 glfw: $(obj)
-	$(CC) $(CFLAGS) -DUSE_GLFW $(src_min) $(srcGL) -o $(target) $(includes) -lm -lglfw3 -lgdi32
+	$(CC) $(CFLAGS) $(src_min) $(srcGL) -o $(target) -lm -lglfw3 -lgdi32
 
 glfw-l: $(obj)
-	gcc $(CFLAGS_LIN) -DUSE_GLFW -DGB_DEBUG $(src_min) $(srcGL) -o $(target_linux) -lm -ldl $(LDFLAGS)
+	gcc $(CFLAGS_LIN) -DGB_DEBUG $(src_min) $(srcGL) -o $(target_linux) -lm -ldl $(LDFLAGS)
 
 # no GLFW build
 tigr: $(obj)
