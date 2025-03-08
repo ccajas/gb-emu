@@ -1,4 +1,4 @@
-CFLAGS = -Wall -s -Os -std=gnu89 -MMD -MP
+CFLAGS = -Wall -s -Os -std=gnu89 -MMD -MP -Wl,-subsystem,windows
 CFLAGS_LIN = $(CFLAGS) `pkg-config --cflags glfw3`
 LDFLAGS = $(pkg-config --static --libs glfw3)
 
