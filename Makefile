@@ -1,5 +1,6 @@
-CFLAGS = -Wall -s -Os -std=gnu89 -MMD -MP -Wl,-subsystem,windows
-CFLAGS_LIN = $(CFLAGS) `pkg-config --cflags glfw3`
+CFLAGS = -Wall -s -Os -std=gnu89 -MMD -MP
+CFLAGS_WIN = $(CFLAGS) -Wl,-subsystem,windows
+CFLAGS_GLFW = $(CFLAGS) `pkg-config --cflags glfw3`
 LDFLAGS = $(pkg-config --static --libs glfw3)
 
 #`pkg-config --cflags glfw3 freetype2`
@@ -27,10 +28,10 @@ LDFLAGS = `pkg-config --static --libs glfw3`
 
 # main builds
 glfw: $(obj)
-	$(CC) $(CFLAGS) $(src_min) $(srcGL) -o $(target) -lm -lglfw3 -lgdi32
+	$(CC) $(CFLAGS_WIN) $(src_min) $(srcGL) -o $(target) -lm -lglfw3 -lgdi32
 
 glfw-l: $(obj)
-	gcc $(CFLAGS_LIN) -DGB_DEBUG $(src_min) $(srcGL) -o $(target_linux) -lm -ldl $(LDFLAGS)
+	gcc $(CFLAGS_GLFW) -DGB_DEBUG $(src_min) $(srcGL) -o $(target_linux) -lm -ldl $(LDFLAGS)
 
 # no GLFW build
 tigr: $(obj)
