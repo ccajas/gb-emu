@@ -127,7 +127,7 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
 #else
     app->draw = 0;
 #endif
-    app->scale = 3;
+    app->scale = DEFAULT_SCALE;
     app->fullScreen = 0;
     app->paused = 1;
     app->debug = app->step = 0;

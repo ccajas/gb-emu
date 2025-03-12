@@ -10,6 +10,7 @@
 /* #define GB_DEBUG */
 #define DEBUG_TEXTURE_W  320
 #define DEBUG_TEXTURE_H  288
+#define DEFAULT_SCALE    3
 
 #define USE_GLFW
 
