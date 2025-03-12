@@ -24,11 +24,11 @@ includes = -I../_include
 
 .PHONY: clean
 
-LDFLAGS = `pkg-config --static --libs glfw3`
+#LDFLAGS = `pkg-config --static --libs glfw3`
 
 # main builds
 glfw: $(obj)
-	$(CC) $(CFLAGS_WIN) $(src_min) $(srcGL) -o $(target) -lm -lglfw3 -lgdi32
+	$(CC) -I../_include  -L../_lib $(CFLAGS_WIN) $(src_min) $(srcGL) -o $(target) -lm -lglfw3 -lgdi32
 
 glfw-l: $(obj)
 	gcc $(CFLAGS_GLFW) -DGB_DEBUG $(src_min) $(srcGL) -o $(target_linux) -lm -ldl $(LDFLAGS)
