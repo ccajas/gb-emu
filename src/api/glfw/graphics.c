@@ -21,13 +21,15 @@ const char * ppu_fs_source =
 "uniform vec2 screenSize;\n"
 
 "#define PI_2          3.1415926538 * 2\n"
-"#define SCREEN_SHADER simpletex_lcd\n"
+
+// Define main shader used
+"#define SCREEN_SHADER lcd_subpixel\n"
 
 "uniform float rr = 0.640000;\n"
 "uniform float rg = 0.660000;\n"
 "uniform float rb = 0.720000;\n"
-"uniform float colorP = 2.0;\n"
-"uniform float brightness = 2.4;\n"
+"uniform float colorP = 1.2;\n"
+"uniform float brightness = 3.0;\n"
 
 "vec3 dot_matrix(vec3 color, vec3 tint)\n"
 "{\n"
@@ -47,8 +49,8 @@ const char * ppu_fs_source =
 
 // ### Magic Numbers...
 "#define GRID_INTENSITY 1.0\n"
-"#define GRID_WIDTH 0.8\n"
-"#define GRID_BIAS 0.7\n"
+"#define GRID_WIDTH 1.5\n"
+"#define GRID_BIAS 0.8\n"
 "#define DARKEN_GRID 0.0\n"
 "#define DARKEN_COLOR 0.05\n"
 
@@ -126,7 +128,7 @@ const char * ppu_fs_source =
 "	return color;\n"
 "}\n"
 
-"vec3 lcd_simple(vec3 color, vec3 tint)\n"
+"vec3 lcd_subpixel(vec3 color, vec3 tint)\n"
 "{\n"
 "    vec2 position = (TexCoords.xy);\n"
 "    if (fract(position.x * screenSize.x) > 0.75) color = mix(color, vec3(0), 0.08);\n"
@@ -134,9 +136,11 @@ const char * ppu_fs_source =
 "    float tg = sin((position.x + 0.33) * screenSize.x * PI_2) + color.g * 2.0;\n"
 "    float tb = sin((position.x + 0.67) * screenSize.x * PI_2) + color.b * 2.0;\n"
 "    color.r *= tr * rr; color.g *= tg * rg; color.b *= tb * rb;\n"
+     // Gamma adjustment
 "    color.r = pow(color.r, colorP);\n"
 "    color.g = pow(color.g, colorP);\n"
 "    color.b = pow(color.b, colorP);\n"
+     // Scanline separation
 "    if (fract(position.y * screenSize.y) > 0.75) color = mix(color, vec3(0), 0.7);\n"
 "    return color * brightness;\n"
 "}\n"
