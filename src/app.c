@@ -11,7 +11,7 @@
 #ifdef USE_GLFW
 
 /* Forward declaration to resize window */
-void app_resize_window (GLFWwindow * window, const uint8_t, const uint8_t scale);
+void app_resize_window (GLFWwindow * window, Scene * display, const uint8_t scale);
 
 void error_callback (int error, const char* description)
 {
@@ -37,7 +37,7 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
     {
         app->debug = !app->debug;
         if (!app->fullScreen)
-            app_resize_window (window, app->debug, app->scale);
+            app_resize_window (window, &app->display, app->scale);
     }
     
     /* Toggle window size (scale) */
@@ -45,7 +45,7 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
     {
         app->scale += (app->scale == 6) ? -5 : 1;
         if (!app->fullScreen)
-            app_resize_window (window, app->debug, app->scale);
+            app_resize_window (window, &app->display, app->scale);
     }
 
     /* Toggle fullscren */
@@ -60,7 +60,7 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
             mode->width, mode->height, GLFW_DONT_CARE);
         /* Resize back if exiting fullscreen mode */
         if (!app->fullScreen)
-            app_resize_window (window, app->debug, app->scale);
+            app_resize_window (window, &app->display,  app->scale);
     }
 
     const uint8_t totalPalettes = (sizeof(palettes) / sizeof(palettes[0]));
@@ -86,14 +86,16 @@ void framebuffer_size_callback (GLFWwindow * window, int width, int height)
     glViewport(0, 0, width, height);
 }
 
-void app_resize_window (GLFWwindow * window, const uint8_t debug, const uint8_t scale)
+void app_resize_window (GLFWwindow * window, Scene * display, const uint8_t scale)
 {
     /* Resize accordingly if in debug mode. In non-debug it is always a 160x144 (scaled) window */
     struct Texture newWindow = { 
-        .width = DISPLAY_WIDTH * scale + ((debug) ? DEBUG_TEXTURE_W * 2 : 0), 
+        .width = DISPLAY_WIDTH * scale, 
         .height = DISPLAY_HEIGHT * scale 
     };
     glfwSetWindowSize (window, newWindow.width, newWindow.height);
+    display->fbWidth  = newWindow.width;
+    display->fbHeight = newWindow.height;
 }
 
 void drop_callback(GLFWwindow * window, int count, const char** paths)
@@ -190,6 +192,9 @@ void app_init (struct App * app)
     app->image = &app->gbData.tileMap;
     GLFWwindow * window;
 
+    app->display.fbWidth  = app->gbData.frameBuffer.width  * app->scale;
+    app->display.fbHeight = app->gbData.frameBuffer.height * app->scale;
+
     if (app->draw)
     {
         glfwSetErrorCallback(error_callback);
@@ -202,8 +207,7 @@ void app_init (struct App * app)
         glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
 
         window = glfwCreateWindow(
-            app->gbData.frameBuffer.width * app->scale,
-            app->gbData.frameBuffer.height * app->scale,
+            app->display.fbWidth, app->display.fbHeight,
             "GB Emu", NULL, NULL);
 
         LOG_("Set up window\n");
@@ -223,7 +227,9 @@ void app_init (struct App * app)
         glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
         glfwMakeContextCurrent(window);
 
+        glfwSwapInterval(1);
         graphics_init (&app->display);
+
         app->window = window;
     }
 }
@@ -302,10 +308,13 @@ void app_draw (struct App * app)
 
     set_shader  (&app->display, &app->display.fbufferShader);
     set_texture (&app->display, &app->display.fbufferTexture);
+    int32_t xpos, ypos;
+    glfwGetFramebufferSize (app->window, &xpos, &ypos);
+
     if (app->debug)
-        draw_quad (app->window, &app->display, &app->gbData.frameBuffer, 0, 0, app->scale);
+        draw_quad (&app->display, &app->gbData.frameBuffer, 0, 0, app->scale);
     else
-        draw_screen_quad (app->window, &app->display, &app->gbData.frameBuffer, app->scale);
+        draw_screen_quad (&app->display, &app->gbData.frameBuffer, app->scale);
 
     if (app->debug)
     {
@@ -344,7 +353,7 @@ void app_draw (struct App * app)
         set_shader (&app->display, &app->display.debugShader);
         set_texture (&app->display, &app->display.debugTexture);
         if (gb_rom_loaded(&app->gb))
-            draw_quad (app->window, &app->display, app->image, w, 0, 2);
+            draw_quad (&app->display, app->image, w, 0, 2);
     }
 }
 
@@ -370,7 +379,7 @@ void app_run (struct App * app)
 
             const float fps = 1.0 / (current - lastUpdate);
             glfwMakeContextCurrent (app->window);
-            draw_begin (app->window, &app->display);
+            draw_begin (&app->display);
 
             if (gb_rom_loaded(&app->gb))
             {

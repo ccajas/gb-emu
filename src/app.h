@@ -15,7 +15,9 @@
 #define USE_GLFW
 
 #ifdef USE_GLFW
+    #define GLFW_INCLUDE_NONE
     #include "api/glfw/graphics.h"
+    #include <GLFW/glfw3.h>
 #endif
 
 #ifdef USE_TIGR

@@ -23,7 +23,7 @@ const char * ppu_fs_source =
 "#define PI_2          3.1415926538 * 2\n"
 
 // Define main shader used
-"#define SCREEN_SHADER lcd_subpixel\n"
+"#define SCREEN_SHADER dot_matrix\n"
 
 "uniform float rr = 0.640000;\n"
 "uniform float rg = 0.660000;\n"
@@ -37,8 +37,8 @@ const char * ppu_fs_source =
 "    float dotTint = 0.15;\n"
 "    if (color.r + color.g + color.b > 7.3) dotTint = 0;\n"
 "    //color = vec3(0.05) + (color * vec3(0.95)) - 0.05;\n"
-"    //if (fract(position.x * screenSize.x) <= 0.25) color = mix(color, vec3(1), dotTint * 1.25);\n"
-"    //if (fract(position.y * screenSize.y) <= 0.25) color = mix(color, vec3(1), dotTint);\n"
+"    if (fract(position.x * screenSize.x) <= 0.25) color = mix(color, vec3(1), dotTint * 1.25);\n"
+"    if (fract(position.y * screenSize.y) <= 0.25) color = mix(color, vec3(1), dotTint);\n"
 "    if (fract(position.x * screenSize.x) >= 0.75) color = mix(color, vec3(1), dotTint * 1.25);\n"
 "    if (fract(position.y * screenSize.y) >= 0.75) color = mix(color, vec3(1), dotTint);\n"
 "    color = vec3(pow(color.r, 1.2), pow(color.g, 1.2), pow(color.b, 1.2));\n"
@@ -49,10 +49,10 @@ const char * ppu_fs_source =
 
 // ### Magic Numbers...
 "#define GRID_INTENSITY 1.0\n"
-"#define GRID_WIDTH 1.5\n"
-"#define GRID_BIAS 0.8\n"
+"#define GRID_WIDTH 1.0\n"
+"#define GRID_BIAS 1.0\n"
 "#define DARKEN_GRID 0.0\n"
-"#define DARKEN_COLOR 0.05\n"
+"#define DARKEN_COLOR 0.0\n"
 
 // Grid pattern
 // > Line weighting equation:
@@ -216,7 +216,6 @@ void draw_lazy_quad(const float width, const float height, const int i)
 void graphics_init (Scene * const scene)
 {
     gladLoadGL();
-    glfwSwapInterval(1);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -231,7 +230,7 @@ void graphics_init (Scene * const scene)
 
     /* Create main textures */
     texture_setup (&scene->fbufferTexture, 160, 144, GL_NEAREST, NULL);
-    texture_setup (&scene->debugTexture,   320, 288, GL_NEAREST, NULL);
+    texture_setup (&scene->debugTexture,   320, 288, GL_LINEAR, NULL);
 
     glDisable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
@@ -240,23 +239,20 @@ void graphics_init (Scene * const scene)
 }
 
 /* Draw a textured quad on the display */
-void draw_quad (GLFWwindow * window, Scene * const scene, 
+void draw_quad (Scene * const scene, 
     struct Texture * const pixels, 
     const int xpos, const int ypos, const float scale)
 {
-    int32_t width, height;
-    glfwGetFramebufferSize (window, &width, &height);
-
     /* Setup matrix and send data to shader */
     glUseProgram(scene->activeShader->program);
     mat4x4 model;
     mat4x4 projection;
 
-    mat4x4_ortho (projection, 0, width, 0, height, 0, 0.1f);
+    mat4x4_ortho (projection, 0, (pixels->width * scale), 0, (pixels->height * scale), 0, 0.1f);
     mat4x4_identity (model);
 
     /* Translated as if the top left corner is x:0 y:0 */
-    mat4x4_translate (model, xpos, height - (pixels->height * scale) - ypos, 0);
+    mat4x4_translate (model, 0, 0, 0);
     mat4x4_scale_aniso (model, model, pixels->width * scale, pixels->height * scale, 1.0f);
 
     glUniform2f (glGetUniformLocation(scene->activeShader->program, "screenSize"), (GLfloat) pixels->width, (GLfloat) pixels->height);
@@ -266,19 +262,14 @@ void draw_quad (GLFWwindow * window, Scene * const scene,
     glActiveTexture (GL_TEXTURE0);
 
     /* Draw quad */
-    glBindTexture (GL_TEXTURE_2D, scene->fbufferTexture);
+    glBindTexture (GL_TEXTURE_2D, *scene->activeTexture);
     glTexImage2D  (GL_TEXTURE_2D, 0, GL_RGBA, pixels->width, pixels->height, 0, GL_RGB, GL_UNSIGNED_BYTE, pixels->imgData);
 	draw_lazy_quad(1.0f, 1.0f, 0);
 
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void draw_screen_quad (GLFWwindow * window, Scene * const scene, struct Texture * const pixels, const float scale)
+void draw_screen_quad (Scene * const scene, struct Texture * const pixels, const float scale)
 {
-    int32_t xpos, ypos;
-    glfwGetFramebufferSize (window, &xpos, &ypos);
-    /* Center the screen quad */
-    xpos = (xpos - pixels->width * scale) / 2;
-    ypos = (ypos - pixels->height * scale) / 2;
-    draw_quad (window, scene, pixels, xpos, ypos, scale);
+    draw_quad (scene, pixels, 0, 0, scale);
 }

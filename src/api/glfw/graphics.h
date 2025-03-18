@@ -2,7 +2,7 @@
 #define GRAPHICS_H
 
 #include "utils/linmath.h"
-#include "gl_gen.h"
+#include <glad/glad.h>
 #include "shader.h"
 
 struct Texture
@@ -17,7 +17,9 @@ struct Texture
 typedef struct Scene_struct
 {
     uint8_t bgColor[3];
-
+    uint16_t 
+        fbWidth, 
+        fbHeight;
     GLuint 
         fbufferTexture, 
         debugTexture;
@@ -62,7 +64,7 @@ static inline void set_texture (Scene * const scene, GLuint * texture)
     scene->activeTexture = texture;
 }
 
-static inline void draw_begin (GLFWwindow * window, Scene * const scene)
+static inline void draw_begin (Scene * const scene)
 {
 	glClearColor((GLfloat)scene->bgColor[0] / 255, (GLfloat)scene->bgColor[1] / 255, (GLfloat)scene->bgColor[2] / 255, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -71,9 +73,8 @@ static inline void draw_begin (GLFWwindow * window, Scene * const scene)
 }
 
 /* Draw a textured quad on the display */
-void draw_quad (GLFWwindow * window, Scene * const scene, 
-    struct Texture * const pixels, 
-    const int xpos, const int ypos, const float scale);
-void draw_screen_quad (GLFWwindow * window, Scene * const scene, struct Texture * const pixels, const float scale);
+void draw_quad (Scene * const scene, struct Texture * const pixels, const int xpos, const int ypos, const float scale);
+
+void draw_screen_quad (Scene * const scene, struct Texture * const pixels, const float scale);
 
 #endif
