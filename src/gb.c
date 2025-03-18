@@ -48,7 +48,7 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
                 break;
 #else
             case Divider:
-                gb_timer_update (gb, 0); return 0;             /* DIV reset                             */
+                gb_update_timer (gb, 0); return 0;             /* DIV reset                             */
             case TimA:
                 //LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A);
                 if (!gb->newTimALoaded) gb->io[TimA] = val;    /* Update TIMA if new value wasn't loaded last cycle    */
@@ -436,7 +436,7 @@ void gb_handle_interrupts (struct GB * gb)
     }
 }
 
-void gb_timer_update (struct GB * gb, const uint8_t change)
+void gb_update_timer (struct GB * gb, const uint8_t change)
 {
     /* Increment div every m-cycle and save bits 6-13 to DIV register */
     gb->divClock = (change) ? gb->divClock + 1 : 0 ;
@@ -475,7 +475,7 @@ static const uint16_t TAC_INTERVALS[4] = { 1024, 16, 64, 256 };
 
 /* Update TIMA register */
 
-void gb_update_timer (struct GB * gb)
+void gb_update_timer_simple (struct GB * gb)
 {
     if ((gb->io[TimerCtrl] & 4) == 0)   /* TIMA counter disabled */
         return;
@@ -513,7 +513,7 @@ void gb_handle_timers (struct GB * gb)
         }
     }
 
-    gb_timer_update (gb, 1);
+    gb_update_timer (gb, 1);
 }
 
 /*

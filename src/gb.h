@@ -142,12 +142,12 @@ void    gb_boot_reset (struct GB *);
 
 /* Other update-specific functions */
 
-void gb_handle_interrupts (struct GB *);
-void gb_handle_timers     (struct GB *);
-void gb_timer_update      (struct GB *, const uint8_t);
-void gb_update_div        (struct GB *);
-void gb_update_timer      (struct GB *);
-void gb_render            (struct GB *);
+void gb_handle_interrupts   (struct GB *);
+void gb_handle_timers       (struct GB *);
+void gb_update_div          (struct GB *);
+void gb_update_timer        (struct GB *, const uint8_t);
+void gb_update_timer_simple (struct GB *);
+void gb_render              (struct GB *);
 
 static inline uint8_t gb_rom_loaded (struct GB * gb)
 {
@@ -226,7 +226,7 @@ static inline void gb_step (struct GB * gb)
     /* Update timers for every remaining m-cycle */
 #ifdef USE_TIMER_SIMPLE
     gb_update_div (gb);
-    gb_update_timer (gb);
+    gb_update_timer_simple (gb);
 #else
     int t = 0;
     while (t++ < gb->rt)
