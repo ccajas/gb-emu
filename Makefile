@@ -1,7 +1,6 @@
 CFLAGS = -Wall -s -Os -std=gnu89 -MMD -MP
 CFLAGS_WIN = $(CFLAGS) -Wl,-subsystem,windows
-CFLAGS_GLFW = $(CFLAGS) `pkg-config --cflags glfw3`
-LDFLAGS = $(pkg-config --static --libs glfw3)
+GLFW_PKG = `pkg-config --static --libs glfw3`
 
 #`pkg-config --cflags glfw3 freetype2`
 GLdir = src/api/glfw/
@@ -20,18 +19,15 @@ obj = $(csrc:.c=.o)
 target = bin/win32/gb-emu
 target_linux = bin/linux/gb-emu
 all: glfw
-includes = -I../_include
 
 .PHONY: clean
 
-#LDFLAGS = `pkg-config --static --libs glfw3`
-
 # main builds
 glfw: $(obj)
-	$(CC) -I../_include  -L../_lib $(CFLAGS_WIN) $(src_min) $(srcGL) -o $(target) -lm -lglfw3 -lgdi32
+	$(CC) -I../_include  -L../_lib $(CFLAGS_WIN) -o $(target) $(src_min) $(srcGL) -lm -lglfw3 -lgdi32
 
 glfw-l: $(obj)
-	gcc $(CFLAGS_GLFW) -DGB_DEBUG $(src_min) $(srcGL) -o $(target_linux) -lm -ldl $(LDFLAGS)
+	gcc -DGB_DEBUG -o $(target_linux) $(src_min) $(srcGL) $(GLFW_PKG)
 
 # no GLFW build
 tigr: $(obj)
