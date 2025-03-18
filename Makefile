@@ -1,4 +1,4 @@
-CFLAGS = -Wall -s -Os -std=gnu89 -MMD -MP
+CFLAGS = -Wall -s -O2 -std=gnu89 -MMD -MP
 CFLAGS_WIN = $(CFLAGS) -Wl,-subsystem,windows
 GLFW_PKG = `pkg-config --static --libs glfw3`
 
@@ -24,12 +24,15 @@ all: glfw
 
 # main builds
 glfw: $(obj)
-	$(CC) -I../_include  -L../_lib $(CFLAGS_WIN) -o $(target) $(src_min) $(srcGL) -lm -lglfw3 -lgdi32
+	$(CC) -I../_include  -L../_lib -DGB_DEBUG $(CFLAGS_WIN) -o $(target) $(src_min) $(srcGL) -lm -lglfw3 -lgdi32
 
 glfw-l: $(obj)
-	gcc -DGB_DEBUG -o $(target_linux) $(src_min) $(srcGL) $(GLFW_PKG)
+	gcc -DGB_DEBUG $(CFLAGS) -o $(target_linux) $(src_min) $(srcGL) $(GLFW_PKG)
 
 # no GLFW build
+min: $(obj)
+	gcc -DTEST_APP_ -o $(target_linux) src/main.c $(GLdir)glad.c $(GLFW_PKG)
+
 tigr: $(obj)
 	$(CC) $(CFLAGS) -DUSE_TIGR $(src_min) $(srcTIGR) -o $(target) $(includes) -lm -lopengl32 -lgdi32
 
