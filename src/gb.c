@@ -832,8 +832,6 @@ void gb_render (struct GB * const gb)
                 /* Mode 1 interrupt */
                 if STAT_(IR_VBlank) 
                     gb->io[IntrFlags] |= IF_LCD_STAT;
-
-                gb->frameDone = 1;
             }
         }
         else

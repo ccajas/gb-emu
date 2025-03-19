@@ -84,7 +84,7 @@ struct GB
     uint64_t clock_t;
     uint16_t lineClock;
     uint32_t frameClock;
-    uint8_t  frame, frameDone;
+    uint8_t  frame;
     uint32_t totalFrames;
 
     /* Timer data */
@@ -242,14 +242,12 @@ static inline void gb_step (struct GB * gb)
 
 static inline void gb_frame (struct GB * gb)
 {
-    gb->frameDone = 0;
-    /* Returns when frame is completed (indicated by V-blank) */
-    while (!gb->frameDone) 
+    /* Returns when frame is completed (indicated by frame cycles) */
+    while (gb->frameClock < FRAME_CYCLES)
     {
         gb_step (gb);
-        /* Keep track of cycles in frame */
-        gb->frameClock %= (uint32_t)FRAME_CYCLES;
     }
+    gb->frameClock -= FRAME_CYCLES;
 
     /* Indicates odd or even frame */
     gb->frame = 1 - gb->frame;
