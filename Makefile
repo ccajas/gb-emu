@@ -24,10 +24,10 @@ all: glfw
 
 # main builds
 glfw: $(obj)
-	$(CC) -I../_include  -L../_lib -DGB_DEBUG $(CFLAGS_WIN) -o $(target) $(src_min) $(srcGL) -lm -lglfw3 -lgdi32
+	$(CC) -I../_include  -L../_lib -DGB_DEBUG -DUSE_GLFW $(CFLAGS_WIN) -o $(target) $(src_min) $(srcGL) -lm -lglfw3 -lgdi32
 
 glfw-l: $(obj)
-	gcc -DGB_DEBUG $(CFLAGS) -o $(target_linux) $(src_min) $(srcGL) $(GLFW_PKG)
+	gcc -DGB_DEBUG -DUSE_GLFW $(CFLAGS) -o $(target_linux) $(src_min) $(srcGL) $(GLFW_PKG)
 
 # no GLFW build
 min: $(obj)
@@ -39,11 +39,12 @@ tigr: $(obj)
 minifb: $(obj)
 	$(CC) $(CFLAGS) src/main.c src/app.c src/gb.c src/cart.c -o $(target) -lgdi32
 
+# headless
 core: $(obj)
-	$(CC) $(CFLAGS) $(src_min) -o $(target) -I../_include -lm -lgdi32
+	$(CC) -I../_include -DGB_DEBUG $(CFLAGS) $(src_min) -o $(target) -lm -lgdi32
 
 core-l: $(obj)
-	gcc $(CFLAGS) $(src_min) -o $(target_linux) -lm
+	gcc -DGB_DEBUG $(CFLAGS) $(src_min) -o $(target_linux) -lm
 
 clean:
 	rm -f $(obj) $(target)

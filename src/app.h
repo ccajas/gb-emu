@@ -12,8 +12,6 @@
 #define DEBUG_TEXTURE_H  288
 #define DEFAULT_SCALE    3
 
-#define USE_GLFW
-
 #ifdef USE_GLFW
     #define GLFW_INCLUDE_NONE
     #include "api/glfw/graphics.h"
@@ -85,6 +83,7 @@ void app_run    (struct App *);
 /* Functions that reference frontend app data from emulator */
 void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line);
 
+#if defined(USE_GLFW) || defined(USE_TIGR)
 /* Drawing functions */
 static inline void app_imgPtr (struct Texture * texture, const uint32_t pos)
 {
@@ -95,5 +94,6 @@ static inline void app_imgPtr_XY (struct Texture * texture, const uint16_t x, co
 {
     app_imgPtr (texture, (texture->width * y + x) * 3);
 }
+#endif
 
 #endif
