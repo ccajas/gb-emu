@@ -12,6 +12,8 @@
 #define DEBUG_TEXTURE_H  288
 #define DEFAULT_SCALE    3
 
+#define USE_GLFW
+
 #ifdef USE_GLFW
     #define GLFW_INCLUDE_NONE
     #include "api/glfw/graphics.h"
@@ -33,8 +35,10 @@ struct App
     uint8_t draw, paused, step;
     uint8_t debug;
 
-    /* Used for KB input */
+    /* Used for input */
+    uint8_t  GBbuttons[8];
     uint16_t GBkeys[8];
+    uint8_t  joystickID;
 
     /* Cosmetic options */
     uint8_t scale;
@@ -94,6 +98,8 @@ static inline void app_imgPtr_XY (struct Texture * texture, const uint16_t x, co
 {
     app_imgPtr (texture, (texture->width * y + x) * 3);
 }
+
+void app_draw (struct App *);
 #endif
 
 #endif

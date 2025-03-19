@@ -74,9 +74,12 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
 }
 
 void joystick_callback(int joystickID, int event)
-{
+{    
     if (event == GLFW_CONNECTED)
         LOG_("Joystick connected.\n");
+
+    if (event == GLFW_DISCONNECTED)
+        LOG_("Joystick disconnected.\n");
 }
 
 void framebuffer_size_callback (GLFWwindow * window, int width, int height)
@@ -131,12 +134,20 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
         GLFW_KEY_D, GLFW_KEY_A, GLFW_KEY_W, GLFW_KEY_S, 
         GLFW_KEY_J, GLFW_KEY_K, GLFW_KEY_L, GLFW_KEY_M
     };
-    memcpy(&app->GBkeys, GBkeys, sizeof(uint16_t) * 8);
+    const uint8_t GBbuttons[8] = { 
+        GLFW_GAMEPAD_BUTTON_DPAD_RIGHT, GLFW_GAMEPAD_BUTTON_DPAD_LEFT,
+        GLFW_GAMEPAD_BUTTON_DPAD_UP,    GLFW_GAMEPAD_BUTTON_DPAD_DOWN, 
+        GLFW_GAMEPAD_BUTTON_A,    GLFW_GAMEPAD_BUTTON_B, 
+        GLFW_GAMEPAD_BUTTON_BACK, GLFW_GAMEPAD_BUTTON_START
+    };
+    memcpy(&app->GBkeys,    GBkeys,    sizeof(uint16_t) * 8);
+    memcpy(&app->GBbuttons, GBbuttons, sizeof(uint8_t)  * 8);
 
 #else
     app->draw = 0;
 #endif
     app->scale = DEFAULT_SCALE;
+    app->joystickID = 0;
     app->fullScreen = 0;
     app->paused = 1;
     app->debug = app->step = 0;
@@ -378,6 +389,19 @@ void app_run (struct App * app)
     {
         double current = glfwGetTime();
         glfwPollEvents();
+
+        if (app->joystickID != 255 && glfwJoystickIsGamepad(app->joystickID))
+        {
+            GLFWgamepadstate state;
+            glfwGetGamepadState(app->joystickID, &state);
+
+            uint8_t k;
+            for (k = 0; k < 8; k++) {
+                if (state.buttons[app->GBbuttons[k]] == GLFW_PRESS)   app->gb.extData.joypad &= ~(1 << k);
+                if (state.buttons[app->GBbuttons[k]] == GLFW_RELEASE) app->gb.extData.joypad |=  (1 << k);
+            }
+        }
+
 
         if ((current - lastUpdate) < 1.0 / (GB_FRAME_RATE)) continue;
 
