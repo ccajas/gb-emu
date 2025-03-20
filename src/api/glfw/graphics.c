@@ -1,4 +1,5 @@
 #include "graphics.h"
+#include "../../texture.h"
 
 const char * default_fs_source =
 "#version 330\n"

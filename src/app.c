@@ -166,7 +166,6 @@ void app_init (struct App * app)
         .paletteBG = 0,
         .paletteOBJ = 0,
         .pixelTint = 0,
-#if defined(USE_GLFW)
         .tileMap = {
             .width = DEBUG_TEXTURE_W,
             .height = DEBUG_TEXTURE_H,
@@ -177,7 +176,6 @@ void app_init (struct App * app)
             .height = DISPLAY_HEIGHT,
             .imgData = calloc (DISPLAY_WIDTH * DISPLAY_HEIGHT * 3, sizeof(uint8_t))
         }
-#endif
     };
 
     /* Handle file loading */
@@ -198,18 +196,17 @@ void app_init (struct App * app)
     app->gb.draw_line     = app_draw_line;
     //app->gb.debug_cpu_log = NULL;//debug_cpu_log;
 
-#if defined(USE_GLFW)
     /* Objects for drawing */
     Scene newDisplay = { .bgColor = { 17, 18, 19 }};
     app->display = newDisplay;
 
     /* Select image to display */
     app->image = &app->gbData.tileMap;
-    GLFWwindow * window;
 
     app->display.fbWidth  = app->gbData.frameBuffer.width  * app->scale;
     app->display.fbHeight = app->gbData.frameBuffer.height * app->scale;
 
+#if defined(USE_GLFW)
     glfwSetErrorCallback(error_callback);
 
     if (!glfwInit())
@@ -219,6 +216,7 @@ void app_init (struct App * app)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
     glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
 
+    GLFWwindow * window;
     window = glfwCreateWindow(
         app->display.fbWidth, app->display.fbHeight,
         "GB Emu", NULL, NULL);
@@ -241,10 +239,10 @@ void app_init (struct App * app)
     glfwMakeContextCurrent(window);
 
     glfwSwapInterval(1);
-    graphics_init (&app->display);
-
     app->window = window;
 #endif
+
+    graphics_init (&app->display);
 }
 
 uint8_t * app_load (struct GB * gb, const char * fileName)
@@ -294,7 +292,6 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
 
 void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 {
-#if defined(USE_GLFW) || defined(USE_TIGR)
     struct gb_data * const data = dataPtr;
 
     const uint32_t yOffset = line * DISPLAY_WIDTH * 3;
@@ -312,10 +309,8 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
         coloredPixels[x * 3 + 2] = pixel[2];
 	}
     memcpy (data->frameBuffer.imgData + yOffset, coloredPixels, DISPLAY_WIDTH * 3);
-#endif
 }
 
-#if defined(USE_GLFW) || defined(USE_TIGR)
 void app_draw (struct App * app)
 {
     /* Select image to display */
@@ -324,8 +319,6 @@ void app_draw (struct App * app)
 
     set_shader  (&app->display, &app->display.fbufferShader);
     set_texture (&app->display, &app->display.fbufferTexture);
-    int32_t xpos, ypos;
-    glfwGetFramebufferSize (app->window, &xpos, &ypos);
 
     if (app->debug)
         draw_quad (&app->display, &app->gbData.frameBuffer, 0, 0, app->scale);
@@ -373,8 +366,6 @@ void app_draw (struct App * app)
     }
 }
 
-#endif
-
 void app_run (struct App * app)
 {
     /* Start clock */
@@ -389,6 +380,7 @@ void app_run (struct App * app)
     {
         double current = glfwGetTime();
         glfwPollEvents();
+        if ((current - lastUpdate) < 1.0 / (GB_FRAME_RATE)) continue;
 
         if (app->joystickID != 255 && glfwJoystickIsGamepad(app->joystickID))
         {
@@ -402,11 +394,7 @@ void app_run (struct App * app)
             }
         }
 
-
-        if ((current - lastUpdate) < 1.0 / (GB_FRAME_RATE)) continue;
-
         const float fps = 1.0 / (current - lastUpdate);
-        glfwMakeContextCurrent (app->window);
         draw_begin (&app->display);
 
         if (gb_rom_loaded(&app->gb))
@@ -455,10 +443,10 @@ void app_run (struct App * app)
     LOG_("For each second, there is on average %.2f milliseconds free for overhead.\n",
         1000 - (1.0f / (totalSeconds / totalTime) * 1000));
 
-    #if defined(USE_GLFW)
-        glfwDestroyWindow (app->window);
-        glfwTerminate();
-    #endif
+#if defined(USE_GLFW)
+    glfwDestroyWindow (app->window);
+    glfwTerminate();
+#endif
         
     exit (EXIT_SUCCESS);
 }

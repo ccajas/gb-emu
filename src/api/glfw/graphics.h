@@ -5,14 +5,7 @@
 #include <glad/glad.h>
 #include "shader.h"
 
-struct Texture
-{
-    uint16_t width;
-    uint16_t height;
-
-    /* Pixel data and pointer */
-    uint8_t * imgData, * ptr;
-};
+struct Texture;
 
 typedef struct Scene_struct
 {
