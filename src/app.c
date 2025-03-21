@@ -195,7 +195,7 @@ void app_init (struct App * app)
     /* Assign functions to be used by emulator */
     app->gb.draw_line     = app_draw_line;
     //app->gb.debug_cpu_log = NULL;//debug_cpu_log;
-
+#if defined(USE_GLFW)
     /* Objects for drawing */
     Scene newDisplay = { .bgColor = { 17, 18, 19 }};
     app->display = newDisplay;
@@ -205,6 +205,7 @@ void app_init (struct App * app)
 
     app->display.fbWidth  = app->gbData.frameBuffer.width  * app->scale;
     app->display.fbHeight = app->gbData.frameBuffer.height * app->scale;
+#endif
 
 #if defined(USE_GLFW)
     glfwSetErrorCallback(error_callback);
@@ -240,9 +241,9 @@ void app_init (struct App * app)
 
     glfwSwapInterval(1);
     app->window = window;
-#endif
 
     graphics_init (&app->display);
+#endif
 }
 
 uint8_t * app_load (struct GB * gb, const char * fileName)
@@ -283,7 +284,7 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
         fclose (fb);
 #endif
     /* Copy ROM to cart */
-    LOG_("GB: \"%s\"\n", fileName);
+    LOG_("Loading \"%s\"\n", fileName);
     gb->cart.romData = rom;
     if (gb->cart.romData) gb_init (gb, boot);
 
@@ -311,6 +312,13 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
     memcpy (data->frameBuffer.imgData + yOffset, coloredPixels, DISPLAY_WIDTH * 3);
 }
 
+#ifdef USE_GLFW
+    #define GET_TIME() glfwGetTime()
+#else
+    #define GET_TIME() (double)(clock()) / CLOCKS_PER_SEC;
+#endif
+
+#ifdef USE_GLFW
 void app_draw (struct App * app)
 {
     /* Select image to display */
@@ -365,6 +373,7 @@ void app_draw (struct App * app)
             draw_quad (&app->display, app->image, w, 0, 2);
     }
 }
+#endif
 
 void app_run (struct App * app)
 {
@@ -373,15 +382,20 @@ void app_run (struct App * app)
     double totalTime = 0;
     uint32_t frames = 0;
 
-#if defined(USE_GLFW)
-
     double lastUpdate = 0;
+#if defined(USE_GLFW)
     while (!glfwWindowShouldClose (app->window))
+#else
+    while (1)
+#endif
     {
-        double current = glfwGetTime();
+        double current = GET_TIME();
+#if defined(USE_GLFW)
         glfwPollEvents();
+#endif
         if ((current - lastUpdate) < 1.0 / (GB_FRAME_RATE)) continue;
 
+#if defined(USE_GLFW)
         if (app->joystickID != 255 && glfwJoystickIsGamepad(app->joystickID))
         {
             GLFWgamepadstate state;
@@ -393,10 +407,12 @@ void app_run (struct App * app)
                 if (state.buttons[app->GBbuttons[k]] == GLFW_RELEASE) app->gb.extData.joypad |=  (1 << k);
             }
         }
+#endif
 
         const float fps = 1.0 / (current - lastUpdate);
+#if defined(USE_GLFW)
         draw_begin (&app->display);
-
+#endif
         if (gb_rom_loaded(&app->gb))
         {
             if (app->paused == 0)
@@ -410,12 +426,14 @@ void app_run (struct App * app)
                     fps, (double)(frames / (GB_FRAME_RATE)) / totalTime);
             }
         }
+#if defined(USE_GLFW)
         app_draw (app);
         glfwSwapBuffers (app->window);
+#endif
         lastUpdate = current;
     }
 
-#else
+/*
     const int32_t totalFrames = 5000;
 
     while (frames < totalFrames)
@@ -431,7 +449,7 @@ void app_run (struct App * app)
             }
         }
     }
-#endif
+*/
 
     float totalSeconds = (float) frames / 60.0;
 

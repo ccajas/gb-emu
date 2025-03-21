@@ -13,11 +13,9 @@
 #define DEBUG_TEXTURE_H  288
 #define DEFAULT_SCALE    3
 
-#define USE_GLFW
-
 #ifdef USE_GLFW
     #define GLFW_INCLUDE_NONE
-    #include "api/glfw/graphics.h"
+    #include "api/gl/graphics.h"
     #include <GLFW/glfw3.h>
 #endif
 
@@ -52,10 +50,9 @@ struct App
     struct gb_data
     {
         /* Used for drawing the display and tilemap */
-#ifdef USE_GLFW
         struct Texture tileMap;
         struct Texture frameBuffer;
-#endif
+
 #ifdef USE_TIGR
         Tigr * tileMap;
         Tigr * frameBuffer;
@@ -72,8 +69,9 @@ struct App
     /* Drawing elements */
     GLFWwindow     * window;
     Scene            display;
-    struct Texture * image;
 #endif
+    struct Texture * image;
+
 #ifdef USE_TIGR
     Tigr * screen;
 #endif
@@ -99,6 +97,8 @@ static inline void app_imgPtr_XY (struct Texture * texture, const uint16_t x, co
     app_imgPtr (texture, (texture->width * y + x) * 3);
 }
 
+#ifdef USE_GLFW
 void app_draw (struct App *);
+#endif
 
 #endif

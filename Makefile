@@ -3,7 +3,7 @@ CFLAGS_WIN = $(CFLAGS) -Wl,-subsystem,windows
 GLFW_PKG = `pkg-config --static --libs glfw3`
 
 #`pkg-config --cflags glfw3 freetype2`
-GLdir = src/api/glfw/
+GLdir = src/api/gl/
 src = $(wildcard src/*.c)
 src_min = src/main.c src/app.c src/gb.c src/cart.c
 srcGL = $(GLdir)graphics.c $(GLdir)glad.c $(GLdir)shader.c
@@ -41,10 +41,7 @@ minifb: $(obj)
 
 # headless
 core: $(obj)
-	$(CC) -I../_include -DGB_DEBUG $(CFLAGS) $(src_min) -o $(target) -lm -lgdi32
-
-core-l: $(obj)
-	gcc -DGB_DEBUG $(CFLAGS) $(src_min) -o $(target_linux) -lm
+	gcc -DGB_DEBUG $(CFLAGS) $(src_min) -o $(target_linux) -lrt -lm
 
 clean:
 	rm -f $(obj) $(target)
