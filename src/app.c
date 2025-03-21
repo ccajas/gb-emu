@@ -313,12 +313,6 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 }
 
 #ifdef USE_GLFW
-    #define GET_TIME() glfwGetTime()
-#else
-    #define GET_TIME() (double)(clock()) / CLOCKS_PER_SEC;
-#endif
-
-#ifdef USE_GLFW
 void app_draw (struct App * app)
 {
     /* Select image to display */
@@ -383,16 +377,12 @@ void app_run (struct App * app)
     uint32_t frames = 0;
 
     double lastUpdate = 0;
-#if defined(USE_GLFW)
-    while (!glfwWindowShouldClose (app->window))
-#else
-    while (1)
-#endif
+
+    while (!PGM_CLOSED)
     {
         double current = GET_TIME();
-#if defined(USE_GLFW)
-        glfwPollEvents();
-#endif
+        POLL_EVENTS();
+
         if ((current - lastUpdate) < 1.0 / (GB_FRAME_RATE)) continue;
 
 #if defined(USE_GLFW)
@@ -410,9 +400,8 @@ void app_run (struct App * app)
 #endif
 
         const float fps = 1.0 / (current - lastUpdate);
-#if defined(USE_GLFW)
-        draw_begin (&app->display);
-#endif
+        DRAW_BEGIN();
+
         if (gb_rom_loaded(&app->gb))
         {
             if (app->paused == 0)
@@ -426,30 +415,10 @@ void app_run (struct App * app)
                     fps, (double)(frames / (GB_FRAME_RATE)) / totalTime);
             }
         }
-#if defined(USE_GLFW)
-        app_draw (app);
-        glfwSwapBuffers (app->window);
-#endif
+
+        DRAW_SWAP_BUFFERS();
         lastUpdate = current;
     }
-
-/*
-    const int32_t totalFrames = 5000;
-
-    while (frames < totalFrames)
-    {
-        if (gb_rom_loaded(&app->gb))
-        {
-            if (app->paused == 0)
-            {
-                time = clock();
-                gb_frame (&app->gb);
-                totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
-                frames++;
-            }
-        }
-    }
-*/
 
     float totalSeconds = (float) frames / 60.0;
 
@@ -461,10 +430,7 @@ void app_run (struct App * app)
     LOG_("For each second, there is on average %.2f milliseconds free for overhead.\n",
         1000 - (1.0f / (totalSeconds / totalTime) * 1000));
 
-#if defined(USE_GLFW)
-    glfwDestroyWindow (app->window);
-    glfwTerminate();
-#endif
-        
+    PGM_CLEANUP();
+
     exit (EXIT_SUCCESS);
 }

@@ -13,20 +13,51 @@
 #define DEBUG_TEXTURE_H  288
 #define DEFAULT_SCALE    3
 
-#ifdef USE_GLFW
-    #define GLFW_INCLUDE_NONE
-    #include "api/gl/graphics.h"
-    #include <GLFW/glfw3.h>
-#endif
-
-#ifdef USE_TIGR
-    #include "api/tigr/tigr.h"
-#endif
-
 #ifdef GB_DEBUG
     #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
 #else
     #define LOG_(f_, ...)
+#endif
+
+/* Common functions for different APIs */
+
+#if defined(USE_GLFW)
+    #define GLFW_INCLUDE_NONE
+    #include "api/gl/graphics.h"
+    #include <GLFW/glfw3.h>
+
+    #define PGM_CLOSED          glfwWindowShouldClose (app->window)
+    #define GET_TIME()          glfwGetTime()
+    #define DRAW_BEGIN()        draw_begin (&app->display);
+    #define POLL_EVENTS()       glfwPollEvents();
+    #define PGM_CLEANUP()\
+        glfwDestroyWindow (app->window);\
+        glfwTerminate();\
+
+    #define DRAW_SWAP_BUFFERS()\
+        app_draw (app);\
+        glfwSwapBuffers (app->window);\
+
+#elif defined(USE_TIGR)
+    #include "api/tigr/tigr.h"
+
+    #define PGM_CLOSED          tigrClosed(screen));
+    #define GET_TIME()          (double)(clock()) / CLOCKS_PER_SEC;
+    #define DRAW_BEGIN()        draw_begin (&app->display);
+    #define POLL_EVENTS()
+    #define PGM_CLEANUP()       tigrFree(app->window);
+    #define DRAW_SWAP_BUFFERS()\
+        app_draw (app);\
+        tigrUpdate (app->window);\
+
+#else
+    #define PGM_CLOSED          0
+    #define GET_TIME()          (double)(clock()) / CLOCKS_PER_SEC;
+    #define DRAW_BEGIN()
+    #define POLL_EVENTS()
+    #define PGM_CLEANUP()
+    #define DRAW_SWAP_BUFFERS()
+
 #endif
 
 struct App
