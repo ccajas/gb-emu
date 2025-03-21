@@ -1,7 +1,8 @@
 #ifndef SHADER_H
 #define SHADER_H
 
-#include "gl_gen.h"
+#include <glad/glad.h>
+#define GLFW_INCLUDE_NONE
 
 typedef struct Shader_struct
 {

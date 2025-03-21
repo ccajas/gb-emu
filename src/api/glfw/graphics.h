@@ -2,7 +2,6 @@
 #define GRAPHICS_H
 
 #include "utils/linmath.h"
-#include <glad/glad.h>
 #include "shader.h"
 
 struct Texture;
