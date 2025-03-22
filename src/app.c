@@ -3,6 +3,9 @@
 #include <time.h>
 #include "app.h"
 #include "palettes.h"
+#ifdef NO_FILE_LOAD
+    #include "rom.h"
+#endif
 #ifdef USE_TIGR
     #include "app_tigr.h"
 #endif
@@ -179,9 +182,11 @@ void app_init (struct App * app)
     };
 
     /* Handle file loading */
+#ifndef NO_FILE_LOAD
     if (!strcmp(app->defaultFile, "\0"))
         LOG_("No file selected.\n");
     else
+#endif
     {
         /* Copy ROM to cart */
         if (app_load(&app->gb, app->defaultFile))
@@ -194,7 +199,7 @@ void app_init (struct App * app)
 
     /* Assign functions to be used by emulator */
     app->gb.draw_line     = app_draw_line;
-    //app->gb.debug_cpu_log = NULL;//debug_cpu_log;
+
 #if defined(USE_GLFW)
     /* Objects for drawing */
     Scene newDisplay = { .bgColor = { 17, 18, 19 }};
@@ -249,6 +254,8 @@ void app_init (struct App * app)
 uint8_t * app_load (struct GB * gb, const char * fileName)
 { 
     /* Load file from command line */
+#ifndef NO_FILE_LOAD
+
     LOG_("Attempting to open \"%s\"...\n", fileName);
     FILE * f = fopen (fileName, "rb");
 
@@ -272,7 +279,7 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
         rom[size] = 0;
     }
     uint8_t * boot = NULL;
-#define USE_BOOT_ROM_
+
 #ifdef  USE_BOOT_ROM
     /* Load boot file if present */
     FILE * fb = fopen ("test/mgb_bootix.bin", "rb");
@@ -289,6 +296,15 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
     if (gb->cart.romData) gb_init (gb, boot);
 
     return rom;
+#else
+    uint8_t * boot = NULL;
+
+    LOG_("Loading default: \"%s\"\n", "pocket.gb");
+    gb->cart.romData = rom_gb240p_gb;
+    if (gb->cart.romData) gb_init (gb, boot);
+
+    return rom_gb240p_gb;
+#endif
 }
 
 void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
@@ -421,8 +437,9 @@ void app_run (struct App * app)
     }
 
     float totalSeconds = (float) frames / 60.0;
-
+#ifndef NO_FILE_LOAD
     free (app->gb.cart.romData);
+#endif
     free (app->gb.cart.ramData);
 
     LOG_("The emulation took %f seconds for %d frames.\nGB performance is %f times as fast.\n",

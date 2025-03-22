@@ -19,6 +19,8 @@
     #define LOG_(f_, ...)
 #endif
 
+#define NO_FILE_LOAD
+
 /* Common functions for different APIs */
 
 #if defined(USE_GLFW)
