@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#ifdef GB_DEBUG
+#ifdef GBE_DEBUG
     #define LOG_(f_, ...)  printf((f_),  ##__VA_ARGS__)
     #define LOGW_(f_, ...) wprintf((f_), ##__VA_ARGS__)
 #else

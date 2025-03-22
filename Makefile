@@ -24,10 +24,10 @@ all: glfw
 
 # main builds
 glfw: $(obj)
-	$(CC) -I../_include  -L../_lib -DGB_DEBUG -DUSE_GLFW $(CFLAGS_WIN) -o $(target) $(src_min) $(srcGL) -lm -lglfw3 -lgdi32
+	$(CC) -I../_include  -L../_lib -DGBE_DEBUG -DUSE_GLFW $(CFLAGS_WIN) -o $(target) $(src_min) $(srcGL) -lm -lglfw3 -lgdi32
 
 glfw-l: $(obj)
-	gcc -DGB_DEBUG -DUSE_GLFW $(CFLAGS) -o $(target_linux) $(src_min) $(srcGL) $(GLFW_PKG)
+	gcc -DGBE_DEBUG -DUSE_GLFW $(CFLAGS) -o $(target_linux) $(src_min) $(srcGL) $(GLFW_PKG)
 
 # no GLFW build
 min: $(obj)
@@ -41,7 +41,7 @@ minifb: $(obj)
 
 # headless
 core: $(obj)
-	gcc -DGB_DEBUG $(CFLAGS) $(src_min) -o $(target_linux) -lrt -lm
+	gcc -DGBE_DEBUG $(CFLAGS) $(src_min) -o $(target_linux) -lrt -lm
 
 clean:
 	rm -f $(obj) $(target)

@@ -328,9 +328,9 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
     memcpy (data->frameBuffer.imgData + yOffset, coloredPixels, DISPLAY_WIDTH * 3);
 }
 
-#ifdef USE_GLFW
 void app_draw (struct App * app)
 {
+#ifdef USE_GLFW
     /* Select image to display */
     app->image = &app->gbData.tileMap;
     const uint16_t w = app->gbData.frameBuffer.width  * app->scale;
@@ -382,8 +382,8 @@ void app_draw (struct App * app)
         if (gb_rom_loaded(&app->gb))
             draw_quad (&app->display, app->image, w, 0, 2);
     }
-}
 #endif
+}
 
 void app_run (struct App * app)
 {
@@ -394,10 +394,10 @@ void app_run (struct App * app)
 
     double lastUpdate = 0;
 
-    while (!PGM_CLOSED)
+    while (!GBE_APP_CLOSED)
     {
-        double current = GET_TIME();
-        POLL_EVENTS();
+        double current = GBE_GET_TIME();
+        GBE_POLL_EVENTS();
 
         if ((current - lastUpdate) < 1.0 / (GB_FRAME_RATE)) continue;
 
@@ -416,7 +416,7 @@ void app_run (struct App * app)
 #endif
 
         const float fps = 1.0 / (current - lastUpdate);
-        DRAW_BEGIN();
+        GBE_DRAW_BEGIN();
 
         if (gb_rom_loaded(&app->gb))
         {
@@ -432,7 +432,7 @@ void app_run (struct App * app)
             }
         }
 
-        DRAW_SWAP_BUFFERS();
+        GBE_DRAW_SWAP_BUFFERS();
         lastUpdate = current;
     }
 
@@ -447,7 +447,7 @@ void app_run (struct App * app)
     LOG_("For each second, there is on average %.2f milliseconds free for overhead.\n",
         1000 - (1.0f / (totalSeconds / totalTime) * 1000));
 
-    PGM_CLEANUP();
+    GBE_APP_CLEANUP();
 
     exit (EXIT_SUCCESS);
 }

@@ -13,7 +13,7 @@
 #define DEBUG_TEXTURE_H  288
 #define DEFAULT_SCALE    3
 
-#ifdef GB_DEBUG
+#ifdef GBE_DEBUG
     #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
 #else
     #define LOG_(f_, ...)
@@ -28,37 +28,37 @@
     #include "api/gl/graphics.h"
     #include <GLFW/glfw3.h>
 
-    #define PGM_CLOSED          glfwWindowShouldClose (app->window)
-    #define GET_TIME()          glfwGetTime()
-    #define DRAW_BEGIN()        draw_begin (&app->display);
-    #define POLL_EVENTS()       glfwPollEvents();
-    #define PGM_CLEANUP()\
+    #define GBE_APP_CLOSED          glfwWindowShouldClose (app->window)
+    #define GBE_GET_TIME()          glfwGetTime()
+    #define GBE_DRAW_BEGIN()        draw_begin (&app->display);
+    #define GBE_POLL_EVENTS()       glfwPollEvents();
+    #define GBE_APP_CLEANUP()\
         glfwDestroyWindow (app->window);\
         glfwTerminate();\
 
-    #define DRAW_SWAP_BUFFERS()\
+    #define GBE_DRAW_SWAP_BUFFERS()\
         app_draw (app);\
         glfwSwapBuffers (app->window);\
 
 #elif defined(USE_TIGR)
     #include "api/tigr/tigr.h"
 
-    #define PGM_CLOSED          tigrClosed(screen));
-    #define GET_TIME()          (double)(clock()) / CLOCKS_PER_SEC;
-    #define DRAW_BEGIN()        draw_begin (&app->display);
-    #define POLL_EVENTS()
-    #define PGM_CLEANUP()       tigrFree(app->window);
-    #define DRAW_SWAP_BUFFERS()\
+    #define GBE_APP_CLOSED          tigrClosed(screen));
+    #define GBE_GET_TIME()          (double)(clock()) / CLOCKS_PER_SEC;
+    #define GBE_DRAW_BEGIN()        draw_begin (&app->display);
+    #define GBE_POLL_EVENTS()
+    #define GBE_APP_CLEANUP()       tigrFree(app->window);
+    #define GBE_DRAW_SWAP_BUFFERS()\
         app_draw (app);\
         tigrUpdate (app->window);\
 
 #else
-    #define PGM_CLOSED          0
-    #define GET_TIME()          (double)(clock()) / CLOCKS_PER_SEC;
-    #define DRAW_BEGIN()
-    #define POLL_EVENTS()
-    #define PGM_CLEANUP()
-    #define DRAW_SWAP_BUFFERS()
+    #define GBE_APP_CLOSED          0
+    #define GBE_GET_TIME()          (double)(clock()) / CLOCKS_PER_SEC;
+    #define GBE_DRAW_BEGIN()
+    #define GBE_POLL_EVENTS()
+    #define GBE_APP_CLEANUP()
+    #define GBE_DRAW_SWAP_BUFFERS()
 
 #endif
 
@@ -130,8 +130,6 @@ static inline void app_imgPtr_XY (struct Texture * texture, const uint16_t x, co
     app_imgPtr (texture, (texture->width * y + x) * 3);
 }
 
-#ifdef USE_GLFW
 void app_draw (struct App *);
-#endif
 
 #endif
