@@ -6,14 +6,15 @@ GLFW_PKG = `pkg-config --static --libs glfw3`
 GLdir = src/api/gl/
 src = $(wildcard src/*.c)
 src_min = src/main.c src/app.c src/gb.c src/cart.c
-srcGL = $(GLdir)graphics.c $(GLdir)glad.c $(GLdir)shader.c
+srcGL = $(wildcard src/api/gl/*.c)
 srcTIGR = $(wildcard src/api/tigr/*.c)
 
 CC = i686-w64-mingw32-gcc
-#"i686-w64-mingw32-gcc"
 
-lib = $(csrc:.c=.a)
-obj = $(csrc:.c=.o)
+INC = -I../_include  -L../_lib 
+
+lib = $(src:.c=.a)
+obj = $(src:.c=.o)
 
 # Output
 target = bin/win32/gb-emu
@@ -21,13 +22,6 @@ target_linux = bin/linux/gb-emu
 all: glfw
 
 .PHONY: clean
-
-# main builds
-glfw: $(obj)
-	$(CC) -I../_include  -L../_lib -DGBE_DEBUG -DUSE_GLFW $(CFLAGS_WIN) -o $(target) $(src_min) $(srcGL) -lm -lglfw3 -lgdi32
-
-glfw-l: $(obj)
-	gcc -DGBE_DEBUG -DUSE_GLFW $(CFLAGS) -o $(target_linux) $(src_min) $(srcGL) $(GLFW_PKG)
 
 # no GLFW build
 min: $(obj)
