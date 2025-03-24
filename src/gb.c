@@ -2,30 +2,12 @@
 #include <stdlib.h>
 #include <inttypes.h>
 #include <assert.h>
-#include <omp.h>
 #include "gb.h"
 #include "ops.h"
 
 /*
  **********  Memory/bus read and write  ************
  */
-
-#define GB_VRAM_RW \
-    if (gb->vramBlocked)\
-        return 0xFF;\
-    if (!write)\
-        return gb->vram[addr & 0x1FFF];\
-    else\
-        gb->vram[addr & 0x1FFF] = val;\
-    return 0;\
-
-#define GB_OAM_RW \
-    if (gb->oamBlocked)\
-        return 0xFF;\
-    if (!write)\
-        return gb->oam[addr - 0xFE00];\
-    else\
-        gb->oam[addr - 0xFE00] = val;\
 
 #define RISING_EDGE(before, after)  ((before & 1) < (after & 1))
 #define FALLING_EDGE(before, after) ((before & 1) > (after & 1))
@@ -136,7 +118,13 @@ uint8_t gb_mem_access(struct GB *gb, const uint16_t addr, const uint8_t val, con
         return cart->rw(cart, addr, val, write); /* ROM from MBC     */
     if (addr < 0xA000)
     {
-        GB_VRAM_RW
+        if (gb->vramBlocked)
+            return 0xFF;
+        if (!write)
+            return gb->vram[addr & 0x1FFF];
+        else
+            gb->vram[addr & 0x1FFF] = val;
+        return 0;
     } /* Video RAM        */
     if (addr < 0xC000)
         return cart->rw(cart, addr, val, write); /* External RAM     */
@@ -150,10 +138,16 @@ uint8_t gb_mem_access(struct GB *gb, const uint16_t addr, const uint8_t val, con
         b = &gb->ram[addr % WRAM_SIZE];
         DIRECT_RW(b);
     } /* Echo RAM         */
-    if (addr < 0xFEA0)
+    if (addr < 0xFEA0) /* OAM              */
     {
-        GB_OAM_RW
-    } /* OAM              */
+        if (gb->oamBlocked)
+            return 0xFF;
+        if (!write)
+            return gb->oam[addr - 0xFE00];
+        else
+            gb->oam[addr - 0xFE00] = val;
+        return 0;
+    }
     if (addr < 0xFF00)
         return 0xFF; /* Not usable       */
     if (addr == 0xFF00)
