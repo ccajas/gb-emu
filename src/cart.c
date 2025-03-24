@@ -96,24 +96,28 @@ uint8_t mbc3_rw (struct Cartridge * cart, const uint16_t addr, const uint8_t val
         if LOW_BANK   return cart->romData[addr];
         if HIGH_BANK  return cart->romData[((cart->romBank1 & cart->romMask) - 1) * 0x4000 + addr];
         if (RAM_BANK && cart->ram) {                                     /* Select RAM bank and fetch data (if enabled) */
-            if (!cart->usingRAM) return 0xFF;
             if (cart->ramSizeKB == 8) return cart->ramData[addr % 0x2000];                  /* Fetch only lower 8KB     */
-            const uint16_t ramOffset = cart->romBank2 * 0x2000;
-            return cart->ramData[(addr % 0x2000) + ramOffset];
+            if (cart->ramBank < 4) {
+                const uint16_t ramAddr = (cart->ramBank * 0x2000) + (addr - 0xA000);
+                return cart->ramData[ramAddr];
+            }
+            else return 0xFF;
         }
     }
     else /* Write to registers */
     {
         if RAM_ENABLE_REG  cart->usingRAM = ((val & 0xF) == 0xA);                           /* Enable both RAM and RTC  */
-        if BANK_SELECT     cart->romBank1 = ((val == 0) ? 1 : (val & 0x7F));                 /* Write lower 7 bank bits  */
+        if BANK_SELECT     cart->romBank1 = ((val == 0) ? 1 : (val & 0x7F));                /* Write lower 7 bank bits  */
         if BANK_SELECT_2   {                                                                /* Lower 3 bits for RAM     */ 
-            cart->ramBank = val & 3; 
+            cart->ramBank = val; 
             if (cart->ram) cart->bkRamData = cart->ramData + (cart->ramBank * 0x2000);
         }
         if (RAM_BANK && cart->ram) {                                     /* Select RAM bank and fetch data (if enabled) */
             if (!cart->usingRAM) return 0xFF;                                  /* Write only to lower 8KB if no banking */
-            const uint16_t ramOffset = (cart->ramSizeKB == 8) ? 0 : cart->ramBank * 0x2000;
-            cart->ramData[(addr % 0x2000) + ramOffset] = val;
+            if (cart->ramBank < 4) {
+                const uint16_t ramAddr = (cart->ramBank * 0x2000) + (addr - 0xA000);
+                cart->ramData[ramAddr] = val;
+            }
         }
     }
     return 0xFF;

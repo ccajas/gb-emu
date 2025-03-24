@@ -46,6 +46,8 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
             case TimA:
                 //LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A);
                 break;
+            case TMA:
+                gb->io[TMA] = val; return 0;
 #else
             case Divider:
                 gb_update_timer (gb, 0); return 0;             /* DIV reset                             */
@@ -59,7 +61,6 @@ inline uint8_t gb_io_rw (struct GB * gb, const uint16_t addr, const uint8_t val,
                 return 0;
 #endif
             case TimerCtrl: /* Todo: TIMA should increase right here if last bit was 1 and current is 0  */
-                //LOG_("GB: Init timer (TAC $%02x, A: $%02x)\n", val, REG_A);
                 gb->io[TimerCtrl] = val | 0xF8; return 0;
             case IntrFlags:                                    /* Mask unused bits for IE and IF         */
             case IntrEnabled:
