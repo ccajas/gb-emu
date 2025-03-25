@@ -94,7 +94,7 @@ struct GB
     int16_t  rt; /* Tracks individual step cycles */
 
     /* HALT and STOP status, PC increment toggle */
-    uint8_t stop : 1, halted : 1, pcInc : 1;
+    uint8_t halted : 1, stopped : 1, pcInc : 1;
 
     /* PPU related tracking */
     uint8_t vramBlocked, oamBlocked;
@@ -201,6 +201,15 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
 static inline void gb_step (struct GB * gb)
 {
     gb->rt = 0;
+
+    if (gb->stopped)
+    {
+        gb->rt += 4;
+
+        gb->clock_t += gb->rt;
+        gb->frameClock += gb->rt;
+        return;
+    }
 
     if (gb->halted)
     {

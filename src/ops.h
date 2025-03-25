@@ -218,7 +218,7 @@
 
 /** CPU control instructions **/
 
-#define STOP    OP(STOP)  gb->stop = 1; /* STOP is handled after switch/case */
+#define STOP    OP(STOP)  gb->stopped = 1; /* STOP is handled after switch/case */
 #define NOP     OP(NOP) 
 #define DI      OP(DI)    gb->ime = 0; 
 #define EI      OP(EI)    gb->ime = 1; 

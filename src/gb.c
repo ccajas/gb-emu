@@ -216,6 +216,7 @@ void gb_reset(struct GB *gb, uint8_t *bootROM)
     gb->ime = 0;
     gb->invalid = 0;
     gb->halted = 0;
+    gb->stopped = 0;
 }
 
 void gb_boot_reset(struct GB *gb)
@@ -238,6 +239,7 @@ void gb_boot_reset(struct GB *gb)
     gb->ime = 1;
     gb->invalid = 0;
     gb->halted = 0;
+    gb->stopped = 0;
 
     LOG_("GB: Launch without boot ROM\n");
     LOG_("GB: Set I/O\n");
@@ -460,11 +462,14 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
 
     /* Handle effects of STOP instruction */
     /* Todo: Read joypad button selection/press */
-    /*if (op == 0x10 && gb->stop)
+    if (op == 0x10 && gb->stopped)
     {
-        gb->stop = 0;
-        gb->divClock = 0;
-    }*/
+        LOG_("Stopping...\n");
+        gb->stopped = 1;
+        gb->vramBlocked = 1;
+        gb->oamBlocked = 1;
+        gb_mem_access(gb, 0xFF00 + gb->io[Divider], 0, 1);
+    }
 
     assert(mCycles >= opCycles[op]);
     gb->rt = mCycles * 4;
@@ -723,6 +728,12 @@ int compare_sprites(const void *in1, const void *in2)
     rowMSB = gb->vram[tile + 1] >> px;\
     /* End fetch tile macro */
 
+/* Stored BG Palette values */
+uint8_t bgpValues[172];
+
+#define BGP_VAL   bgpValues[(lineX >> 0) << 0]
+//gb->io[BGPalette]
+
 static inline uint8_t *gb_pixel_fetch(struct GB *gb)
 {
     uint8_t *pixels = calloc(DISPLAY_WIDTH, sizeof(uint8_t));
@@ -762,7 +773,7 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
             }
             /* Get background color */
             uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
-            pixels[lineX] = ((gb->io[BGPalette] >> (palIndex << 1)) & 3);
+            pixels[lineX] = ((BGP_VAL >> (palIndex << 1)) & 3);
 
             rowLSB >>= 1;
             rowMSB >>= 1;
@@ -793,7 +804,7 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
                 PPU_GET_TILE(0, lineX - gb->io[WindowX] + 7)
             }
             uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
-            pixels[lineX] = ((gb->io[BGPalette] >> (palIndex << 1)) & 3);
+            pixels[lineX] = (((BGP_VAL) >> (palIndex << 1)) & 3);
 
             rowLSB >>= 1;
             rowMSB >>= 1;
@@ -891,7 +902,7 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
                     (((rowMSB >> (relX & 7)) & 1) << 1);
 
                 /* Handle sprite priority */
-                if (palIndex && !(objFlags & 0x80 && !((pixels[lineX] & 0x3) == (gb->io[BGPalette] & 3))))
+                if (palIndex && !(objFlags & 0x80 && !((pixels[lineX] & 0x3) == (BGP_VAL & 3))))
                 {
                     /* Set pixel based on palette */
                     pixels[lineX] = (objFlags & 0x10) ?
@@ -919,12 +930,18 @@ static inline void gb_oam_read(struct GB *gb)
 
 static inline void gb_transfer(struct GB *gb)
 {
+    const uint8_t bgpIndex = gb->lineClock - TICKS_OAM_READ;
+    uint8_t i;
+    if ((bgpIndex & 3) == 0)
+        for (i = 0; i < 8; i++)
+            bgpValues[bgpIndex + i] = gb->io[BGPalette];
+    
     /* Mode 3 - Transfer to LCD */
     if (IO_STAT_MODE != Stat_Transfer)
     {
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
         if (!LCDC_(LCD_Enable) || (gb->extData.frameSkip &&
-                                   (gb->totalFrames % gb->extData.frameSkip > 0)))
+            (gb->totalFrames % gb->extData.frameSkip > 0)))
             return;
         /* Fetch line of pixels for the screen and draw them */
         uint8_t *pixels = gb_pixel_fetch(gb);
