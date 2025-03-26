@@ -89,13 +89,13 @@
 #define LDrm_r8(r8, _)   OP(LD m)  r8 = CPU_RB_PC;
 #define LDrm_hl(r8, _)   OP(LD m)  CPU_WB (REG_HL, CPU_RB_PC);
 
-#define LDAmm     OP(LDAmm)    REG_A = CPU_RB (CPU_RW (gb->pc)); gb->pc += 2;
-#define LDmmA     OP(LDmmA)    CPU_WB (CPU_RW (gb->pc), REG_A);  gb->pc += 2;
+#define LDAmm   OP(LDAmm)   REG_A = CPU_RB (CPU_RW (gb->pc)); gb->pc += 2;
+#define LDmmA   OP(LDmmA)   CPU_WB (CPU_RW (gb->pc), REG_A);  gb->pc += 2;
 
-#define LDIOmA    OP(LD IO mA)    CPU_WB (0xFF00 + CPU_RB_PC, REG_A);
-#define LDIOCA    OP(LD IO CA)    CPU_WB (0xFF00 + REG_C, REG_A);
-#define LDAIOm    OP(LD A IO m)   REG_A = CPU_RB (0xFF00 + CPU_RB_PC);
-#define LDAIOC    OP(LD A IO C)   REG_A = CPU_RB (0xFF00 + REG_C); 
+#define LDHmA   OP(LDH mA)  CPU_WB (0xFF00 + CPU_RB_PC, REG_A);
+#define LDHCA   OP(LDH CA)  CPU_WB (0xFF00 + REG_C, REG_A);
+#define LDHAm   OP(LDH Am)  REG_A = CPU_RB (0xFF00 + CPU_RB_PC);
+#define LDHAC   OP(LDH AC)  REG_A = CPU_RB (0xFF00 + REG_C); 
 
 #define LDrrmA(r16)  OP(LDrrmA)\
     CPU_WB (r16, REG_A);  REG_HL += (op > 0x30) ? -1 : (op > 0x20) ? 1 : 0;

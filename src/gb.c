@@ -103,7 +103,7 @@ uint8_t gb_mem_access(struct GB *gb, const uint16_t addr, const uint8_t val, con
 #define DIRECT_RW(b)\
     if (write)\
         *b = val;\
-    return *b;
+    return *b;\
 
     struct Cartridge *cart = &gb->cart;
 
@@ -384,9 +384,9 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
             SBCm break;
 
         case 0xE0:
-            LDIOmA break;
+            LDHmA break;
         case 0xE2:
-            LDIOCA break;
+            LDHCA break;
         case 0xE6:
             ANDm break;
         case 0xE8:
@@ -399,9 +399,9 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
             XORm break;
 
         case 0xF0:
-            LDAIOm break;
+            LDHAm break;
         case 0xF2:
-            LDAIOC break;
+            LDHAC break;
         case 0xF3:
             DI break;
         case 0xF6:
@@ -560,10 +560,10 @@ void gb_handle_interrupts(struct GB *gb)
         /* Check all 5 IE and IF bits for flag confirmations
            This loop also services interrupts by priority (0 = highest) */
         uint8_t i;
-        uint16_t addr = 0x40;
+        uint8_t addr = 0x40;
         for (i = IF_VBlank; i <= IF_Joypad; i <<= 1)
         {
-            const uint16_t requestAddress = addr;
+            const uint8_t requestAddress = addr;
             const uint8_t flag = i;
             addr += 8;
 
@@ -729,9 +729,9 @@ int compare_sprites(const void *in1, const void *in2)
     /* End fetch tile macro */
 
 /* Stored BG Palette values */
-uint8_t bgpValues[172];
+uint8_t bgpValues[172 >> 3];
 
-#define BGP_VAL   bgpValues[(lineX >> 0) << 0]
+#define BGP_VAL   bgpValues[(lineX + 8) >> 3]
 //gb->io[BGPalette]
 
 static inline uint8_t *gb_pixel_fetch(struct GB *gb)
@@ -931,10 +931,7 @@ static inline void gb_oam_read(struct GB *gb)
 static inline void gb_transfer(struct GB *gb)
 {
     const uint8_t bgpIndex = gb->lineClock - TICKS_OAM_READ;
-    uint8_t i;
-    if ((bgpIndex & 3) == 0)
-        for (i = 0; i < 8; i++)
-            bgpValues[bgpIndex + i] = gb->io[BGPalette];
+    bgpValues[bgpIndex >> 3] = gb->io[BGPalette];
     
     /* Mode 3 - Transfer to LCD */
     if (IO_STAT_MODE != Stat_Transfer)

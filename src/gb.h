@@ -110,6 +110,7 @@ struct GB
 
     /* Interrupt master enable and PC increment */
     uint8_t ime : 1;
+    uint8_t lastJoypad;
 
     /* Catridge which holds ROM and RAM */
     struct Cartridge cart;
@@ -170,6 +171,20 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
         gb->io[Joypad] |= (!(gb->io[Joypad] & 0x10)) ?
             (gb->extData.joypad & 0xF) :  /* Direction buttons */
             (gb->extData.joypad >> 4);    /* Action buttons    */
+
+        int i;
+        for (i = 0; i < 4; i++)
+        {
+            const uint8_t btnLast = (gb->lastJoypad >> i) & 1;
+            const uint8_t btnCurr = (gb->io[Joypad] >> i) & 1;
+
+            if (btnLast == 1 && btnCurr == 0)
+            {
+                gb->io[IntrFlags] |= IF_Joypad;
+                break;
+            }
+        }
+        gb->lastJoypad = gb->io[Joypad] & 0xF;
 
         if (!(gb->io[Joypad] & 0xF))
             LOG_("GB: Joypad reset detected!\n");
