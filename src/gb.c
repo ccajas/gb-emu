@@ -464,10 +464,7 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
     /* Todo: Read joypad button selection/press */
     if (op == 0x10 && gb->stopped)
     {
-        LOG_("Stopping...\n");
-        gb->stopped = 1;
-        gb->vramBlocked = 1;
-        gb->oamBlocked = 1;
+        gb->stopped = 0;
         gb_mem_access(gb, 0xFF00 + gb->io[Divider], 0, 1);
     }
 
