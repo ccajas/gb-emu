@@ -246,16 +246,25 @@ void gb_boot_reset(struct GB *gb)
 
     /* Initalize I/O registers (DMG) */
     memset(gb->io, 0xFF, sizeof(gb->io));
-    gb->io[Joypad]     = 0xCF;
-    gb->io[SerialCtrl] = 0x7E;
-    gb->io[Divider]    = 0xAB;
-    gb->io[TimerCtrl]  = 0xF8;
-    gb->io[IntrFlags]  = 0xE1;
-    gb->io[LCDControl] = 0x91;
-    gb->io[LCDStatus]  = 0x85;
-    gb->io[LY]         = 0x0;
-    gb->io[BGPalette]  = 0xFC;
-    gb->io[DMA]        = 0xFF;
+    gb->io[Joypad]      = 0xCF;
+    gb->io[SerialCtrl]  = 0x7E;
+    gb->io[Divider]     = 0xAB;
+    gb->io[TimA]        = 0x0;
+    gb->io[TMA]         = 0x0;
+    gb->io[TimerCtrl]   = 0xF8;
+    gb->io[IntrFlags]   = 0xE1;
+    gb->io[LCDControl]  = 0x91;
+    gb->io[LCDStatus]   = 0x85;
+    gb->io[ScrollY]     = 0x0;
+    gb->io[ScrollX]     = 0x0;
+    gb->io[LY]          = 0x0;
+    gb->io[LYC]         = 0x0;
+    gb->io[DMA]         = 0xFF;
+    gb->io[BGPalette]   = 0xFC;
+    gb->io[WindowY]     = 0x0;
+    gb->io[WindowX]     = 0x0;
+    gb->io[IntrEnabled] = 0x0;
+    
     gb_boot_register(gb, 1);
 }
 
