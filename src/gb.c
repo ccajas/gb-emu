@@ -245,7 +245,7 @@ void gb_boot_reset(struct GB *gb)
     LOG_("GB: Set I/O\n");
 
     /* Initalize I/O registers (DMG) */
-    memset(gb->io, 0, sizeof(gb->io));
+    memset(gb->io, 0xFF, sizeof(gb->io));
     gb->io[Joypad]     = 0xCF;
     gb->io[SerialCtrl] = 0x7E;
     gb->io[Divider]    = 0xAB;
