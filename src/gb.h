@@ -91,7 +91,7 @@ struct GB
     uint16_t divClock, lastDiv;
     uint16_t timAClock;
     uint8_t  timAOverflow, nextTimA_IRQ, newTimALoaded;
-    int16_t  rt; /* Tracks individual step cycles */
+    int16_t  rm, rt; /* Tracks individual step cycles */
 
     /* HALT and STOP status, PC increment toggle */
     uint8_t halted : 1, stopped : 1, pcInc : 1;
@@ -135,11 +135,11 @@ uint8_t gb_ppu_rw     (struct GB *, const uint16_t addr, const uint8_t val, cons
 uint8_t gb_io_rw      (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
 uint8_t gb_mem_access (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
 
-void    gb_init       (struct GB *, uint8_t *);
-void    gb_cpu_exec   (struct GB *, const uint8_t op);
-uint8_t gb_exec_cb    (struct GB *, const uint8_t op);
-void    gb_reset      (struct GB *, uint8_t *);
-void    gb_boot_reset (struct GB *);
+void gb_init       (struct GB *, uint8_t *);
+void gb_cpu_exec   (struct GB *, const uint8_t op);
+void gb_exec_cb    (struct GB *, const uint8_t op);
+void gb_reset      (struct GB *, uint8_t *);
+void gb_boot_reset (struct GB *);
 
 /* Other update-specific functions */
 
@@ -239,6 +239,7 @@ static inline void gb_step (struct GB * gb)
     }
     else
     {   /* Load next op and execute */
+        gb->rm = 0;
         const uint8_t op = CPU_RB (gb->pc++);
         gb_cpu_exec (gb, op);
         LOG_CPU_STATE (gb);

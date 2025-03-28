@@ -105,6 +105,7 @@ uint8_t gb_mem_access(struct GB *gb, const uint16_t addr, const uint8_t val, con
         *b = val;\
     return *b;\
 
+    ++gb->rm;
     struct Cartridge *cart = &gb->cart;
 
     if (addr < 0x0100 && gb->io[BootROM] == 0) /* Run boot ROM if needed */
@@ -299,7 +300,7 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
 {
     /* Copied value for operands (can be overridden for other opcodes) */
     uint8_t tmp = REG_A;
-    int16_t mCycles = 0;
+    //int16_t mCycles = 0;
 
     /* For conditional jump / call instructions */
     const uint8_t cond = ((op >> 3) & 3);
@@ -461,13 +462,13 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
         OP_r16_g3(0xC5, PUSHrr)
         /* CB prefix ops */
         case 0xCB:
-            mCycles = gb_exec_cb(gb, CPU_RB(gb->pc++));
+            gb_exec_cb(gb, CPU_RB(gb->pc++));
             break;
         default:
             INVALID;
     }
 
-    mCycles += opCycles[op];
+    //mCycles += opCycles[op];
 
     /* Handle effects of STOP instruction */
     /* Todo: Read joypad button selection/press */
@@ -477,14 +478,16 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
         gb_mem_access(gb, 0xFF00 + gb->io[Divider], 0, 1);
     }
 
-    assert(mCycles >= opCycles[op]);
-    gb->rt = mCycles * 4;
+    if (!(gb->rm >= opCycles[op]))
+        LOG_("$%02x\n", op);
+    assert(gb->rm >= opCycles[op]);
+
+    gb->rt = gb->rm * 4;
+    gb->rm = 0;
 }
 
-uint8_t gb_exec_cb(struct GB *gb, const uint8_t op)
+void gb_exec_cb(struct GB *gb, const uint8_t op)
 {
-    uint8_t mCycles = 2;
-
     const uint8_t opL = op & 0xf;
     const uint8_t opHh = op >> 3; /* Octal divisions */
 
@@ -542,10 +545,7 @@ uint8_t gb_exec_cb(struct GB *gb, const uint8_t op)
     if ((op & 7) == 6 && (opHh < 8 || opHh > 0xF))
     {
         CPU_WB(REG_HL, hl);
-        mCycles += 2;
     }
-
-    return mCycles;
 }
 
 void gb_handle_interrupts(struct GB *gb)

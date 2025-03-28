@@ -105,12 +105,12 @@
 
 /** 16-bit load instructions **/
 
-#define LDmSP           OP(LDmSP)   CPU_WW (CPU_RW (gb->pc), gb->sp); gb->pc += 2;
+#define LDmSP           OP(LDmSP)   const uint16_t nn = CPU_RW (gb->pc); CPU_WW (nn, gb->sp); gb->pc += 2;
 #define LDSP            OP(LDSP)    gb->sp = CPU_RW (gb->pc); gb->pc += 2;
-#define LDSPHL          OP(LDSPHL)  gb->sp = REG_HL;
+#define LDSPHL          OP(LDSPHL)  gb->sp = REG_HL; ++gb->rm;
 #define LDrr(r16)       OP(LDrr)    r16 = CPU_RW (gb->pc); gb->pc += 2;
 
-#define PUSH_(X, Y)     gb->sp--; CPU_WB (gb->sp, X); gb->sp--; CPU_WB (gb->sp, Y);
+#define PUSH_(X, Y)     gb->sp--; ++gb->rm; CPU_WB (gb->sp, X); gb->sp--; CPU_WB (gb->sp, Y);
 
 #define PUSHrr(op_, R16_1, R16_2)  OP(PUSHrr); PUSH_(R16_1, R16_2);
 #define POPrr(op_, R16_1, R16_2)   OP(POPrr);\
@@ -202,40 +202,43 @@
     #define FLAGS_SPm   gb->flags = 0; gb->f_h = ((gb->sp & 0xF) + (i & 0xF) > 0xF); gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);
 
 #define ADHLrr(r16)   OP(ADHLrr); {\
-    uint16_t tmp = REG_HL + r16; FLAGS_ADHL; REG_HL = tmp;\
+    uint16_t tmp = REG_HL + r16; ++gb->rm; FLAGS_ADHL; REG_HL = tmp;\
 }
 
-#define ADDSPm   OP(ADDSPm)   { int8_t i = (int8_t) CPU_RB_PC; FLAGS_SPm; gb->sp += i; }
+#define ADDSPm   OP(ADDSPm)   {\
+    int8_t i = (int8_t) CPU_RB_PC; ++gb->rm; FLAGS_SPm; ++gb->rm; gb->sp += i; }
+
 #define LDHLSP   OP(LDHLSP)   { int8_t i = (int8_t) CPU_RB_PC;\
-    REG_H = ((gb->sp + i) >> 8); REG_L = (gb->sp + i) & 0xFF;\
-    gb->flags = 0;\
+    ++gb->rm; gb->flags = 0;\
     gb->f_h = ((gb->sp & 0xF) + (i & 0xF) > 0xF);\
     gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);\
+    REG_H = ((gb->sp + i) >> 8); REG_L = (gb->sp + i) & 0xFF;\
 }
 
-#define INCrr(r16)    OP(INCrr); r16++;
-#define DECrr(r16)    OP(DECrr); r16--;
+#define INCrr(r16)    OP(INCrr); ++gb->rm; r16++;
+#define DECrr(r16)    OP(DECrr); ++gb->rm; r16--;
 
 /** CPU control instructions **/
 
 #define STOP    OP(STOP)  gb->stopped = 1; /* STOP is handled after switch/case */
-#define NOP     OP(NOP) 
+#define NOP     OP(NOP)
 #define DI      OP(DI)    gb->ime = 0; 
 #define EI      OP(EI)    gb->ime = 1; 
 
 /** Jump and call instructions **/
 
 /* Jump to | relative jump */
-#define JPNN    OP(JPNN)  gb->pc = CPU_RW (gb->pc);
+#define JPNN    OP(JPNN)  gb->pc = CPU_RW (gb->pc); ++gb->rm;
 #define JPHL    OP(JPHL)  gb->pc = REG_HL; 
-#define JRm     OP(JRm)   gb->pc += (int8_t) CPU_RB (gb->pc); gb->pc++;
+#define JRm     OP(JRm)   gb->pc += (int8_t) CPU_RB (gb->pc); gb->pc++; ++gb->rm;
 
 /* Calls */
 #define CALLm   OP(CALLm);  {\
-    uint16_t tmp = CPU_RW (gb->pc); gb->pc += 2; gb->sp -= 2; CPU_WW(gb->sp, gb->pc); gb->pc = tmp; }\
+    uint16_t tmp = CPU_RW (gb->pc); gb->pc += 2; gb->sp -= 2;\
+    CPU_WW(gb->sp, gb->pc); gb->pc = tmp; ++gb->rm; }\
 
     /* Return function template */
-    #define RET__     gb->pc = CPU_RW (gb->sp); gb->sp += 2;
+    #define RET__     gb->pc = CPU_RW (gb->sp); ++gb->rm; gb->sp += 2; 
 
 #define RET     OP(RET)    RET__;
 #define RETI    OP(RETI)   RET__; gb->ime = 1;
@@ -243,18 +246,18 @@
     /* Conditional function templates */
     #define JP_IF(X) \
         uint16_t mm = CPU_RW (gb->pc); gb->pc += 2;\
-        if (X) { gb->pc = mm; mCycles++; }\
+        if (X) { gb->pc = mm; ++gb->rm; }\
 
     #define JR_IF(X) \
         int8_t e = (int8_t) CPU_RB (gb->pc++);\
-        if (X) { gb->pc += e; mCycles++; }\
+        if (X) { gb->pc += e; ++gb->rm; }\
 
     #define CALL_IF(X) \
         uint16_t mm = CPU_RW (gb->pc); gb->pc += 2;\
         if (X) { PUSH_(gb->pc >> 8, gb->pc & 0xFF);\
-            gb->pc = mm; mCycles += 3; }\
+            gb->pc = mm; }\
 
-    #define RET_IF(X) if (X) { RET__; mCycles += 3; }
+    #define RET_IF(X) ++gb->rm; if (X) { RET__; }
 
 /* Conditional jump, relative jump, return, call */
 
@@ -268,7 +271,7 @@
 #define JP_(C)    OP(JP_)     { JP_IF   (COND_(C)); }
 #define CALL_(C)  OP(CALL_)   { CALL_IF (COND_(C)); }
 
-#define RST            OP(RST)    gb->sp -= 2; CPU_WW (gb->sp, gb->pc); gb->pc = op & 0x38;
+#define RST            OP(RST)    gb->sp -= 2; ++gb->rm; CPU_WW (gb->sp, gb->pc); gb->pc = op & 0x38;
 
 /* Rotate and shift instructions */
 
@@ -347,7 +350,7 @@
 }
 
 #define BIT     OP(BIT);   SET_FLAGS(16, (*reg1 & (1 << r_bit)), 0, 1, 0);
-#define BITHL   OP(BITHL); SET_FLAGS(16, (hl & (1 << r_bit)), 0, 1, 0); mCycles++;
+#define BITHL   OP(BITHL); SET_FLAGS(16, (hl & (1 << r_bit)), 0, 1, 0);
 
 #define RES     OP(RES);   *reg1 &= (0xFE << r_bit) | (0xFF >> (8 - r_bit));
 #define RESHL   OP(RESHL); hl &= (0xFE << r_bit) | (0xFF >> (8 - r_bit));
