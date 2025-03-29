@@ -4,7 +4,6 @@
 
 #include "../src/gb.h"
 #include "../src/cart.h"
-#include "../src/opcycles.h"
 
 struct GB        dummyGB;
 struct Cartridge dummyCart;
@@ -12,6 +11,7 @@ struct Cartridge dummyCart;
 void setup(void) {
     printf("Runs before the test");
     dummyGB.cart = dummyCart;
+    dummyGB.cart.romData = {0};
 }
 
 Test(no_rom, passing) {
