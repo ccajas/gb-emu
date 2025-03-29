@@ -464,7 +464,7 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
 #endif
 
     gb->rt = gb->rm * 4;
-    gb->rm = 0;
+    //gb->rm = 0;
 }
 
 void gb_exec_cb(struct GB *gb, const uint8_t op)
@@ -709,7 +709,7 @@ int compare_sprites(const void *in1, const void *in2)
     px = pixelX;\
     /* Select addressing mode */\
     const uint16_t bit12 = !(LCDC_(BG_Win_Data) || (tileID & 0x80)) << 12;\
-    tile = bit12 + (tileID << 4) + ((posY & 7) << 1);\
+    const uint16_t tile = bit12 + (tileID << 4) + ((posY & 7) << 1);\
     \
     rowLSB = gb->vram[tile] >> px;\
     rowMSB = gb->vram[tile + 1] >> px;\
@@ -730,7 +730,6 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
     if (LCDC_(BG_Win_Enable))
     {
         uint8_t lineX, posX, tileID, px, rowLSB, rowMSB;
-        uint16_t tileMap, tile;
 
         /* Calculate current background line to draw */
         const uint8_t posY = gb->io[LY] + gb->io[ScrollY];
@@ -741,8 +740,8 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
 
         /* Get selected background map address for first tile
          * corresponding to current line  */
-        tileMap = ((LCDC_(BG_Area)) ? 0x9C00 : 0x9800);
-        tileMap += ((posY >> 3) << 5);
+        const uint16_t tileMap =
+            ((LCDC_(BG_Area)) ? 0x9C00 : 0x9800) + ((posY >> 3) << 5);
 
         lineX = DISPLAY_WIDTH - 1;
         if (LCDC_(Window_Enable) &&
@@ -772,11 +771,10 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
     if (LCDC_(Window_Enable) && gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
     {
         uint8_t lineX, posX, px, tileID, rowLSB, rowMSB;
-        uint16_t tileMap, tile;
 
         /* Calculate Window Map Address. */
-        tileMap = (LCDC_(Window_Area)) ? 0x9C00 : 0x9800;
-        tileMap += (gb->windowLY >> 3) << 5;
+        const uint16_t tileMap = 
+            ((LCDC_(Window_Area)) ? 0x9C00 : 0x9800) + ((gb->windowLY >> 3) << 5);
 
         lineX = DISPLAY_WIDTH - 1;
         const uint8_t posY = gb->windowLY & 7;
@@ -927,9 +925,6 @@ static inline void gb_transfer(struct GB *gb)
         if (!LCDC_(LCD_Enable) || (gb->extData.frameSkip &&
             (gb->totalFrames % gb->extData.frameSkip > 0)))
             return;
-        /* Fetch line of pixels for the screen and draw them */
-        uint8_t *pixels = gb_pixel_fetch(gb);
-        gb->draw_line(gb->extData.ptr, pixels, gb->io[LY]);
     }
 }
 
@@ -966,6 +961,10 @@ void gb_render(struct GB *const gb)
         { /* Mode 0 - H-blank */
             if (IO_STAT_MODE != Stat_HBlank)
             {
+                /* Fetch line of pixels for the screen and draw them */
+                uint8_t *pixels = gb_pixel_fetch(gb);
+                gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
+
                 gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;
                 /* Mode 0 interrupt */
                 if STAT_ (IR_HBlank)
