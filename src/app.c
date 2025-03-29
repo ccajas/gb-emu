@@ -210,9 +210,7 @@ void app_init (struct App * app)
 
     app->display.fbWidth  = app->gbData.frameBuffer.width  * app->scale;
     app->display.fbHeight = app->gbData.frameBuffer.height * app->scale;
-#endif
 
-#if defined(USE_GLFW)
     glfwSetErrorCallback(error_callback);
 
     if (!glfwInit())
@@ -385,13 +383,23 @@ void app_draw (struct App * app)
 #endif
 }
 
+enum { NS_PER_SECOND = 1000000000 };
+
+inline uint64_t as_nanoseconds(struct timespec* ts) {
+    return ts->tv_sec * (uint64_t)1000000000L + ts->tv_nsec;
+}
+
 void app_run (struct App * app)
 {
+    uint32_t frames = 0;
+
+    /* Start timekeeping */
+    /*struct timespec start, finish;
+    uint64_t accu_nsec = 0;*/
+
     /* Start clock */
     clock_t time;
     double totalTime = 0;
-    uint32_t frames = 0;
-
     double lastUpdate = 0;
 
     while (!GBE_APP_CLOSED)
@@ -422,9 +430,12 @@ void app_run (struct App * app)
         {
             if (app->paused == 0)
             {
+                //clock_gettime(CLOCK_REALTIME, &start);
                 time = clock();
                 gb_frame (&app->gb);
+                //clock_gettime(CLOCK_REALTIME, &finish);
                 totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
+                //accu_nsec += as_nanoseconds(&finish) - as_nanoseconds(&start);
                 frames++;
                 if (frames % 30 == 29)
                     sprintf(app->fpsString, "FPS: %0.2f | Perf: %0.2fx ", 
@@ -436,16 +447,18 @@ void app_run (struct App * app)
         lastUpdate = current;
     }
 
-    float totalSeconds = (float) frames / 60.0;
 #ifndef NO_FILE_LOAD
     free (app->gb.cart.romData);
 #endif
     free (app->gb.cart.ramData);
 
-    LOG_("The emulation took %f seconds for %d frames.\nGB performance is %f times as fast.\n",
+    const double totalSeconds = (double)(frames / 60.0);
+    //const double totalTime    = (double)(accu_nsec / 1000000000.0);
+
+    LOG_("The emulation took %f milliseconds for %d frames.\nGB performance is %f times as fast.\n",
         totalTime, frames, totalSeconds / totalTime);
     LOG_("For each second, there is on average %.2f milliseconds free for overhead.\n",
-        1000 - (1.0f / (totalSeconds / totalTime) * 1000));
+            1000.0 - (1.0f / (totalSeconds / totalTime) * 1000));
 
     GBE_APP_CLEANUP();
 
