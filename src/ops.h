@@ -28,7 +28,8 @@
 
 /** Choose between operations based on position **/
 
-#define OPR_2_(A, B)  if ((op & 7) != 6) { A } else { B }
+#define OPR_2_(A, B) \
+    switch (op & 7) { case 0 ... 5: case 7: A; break; default: B }
 
 #define OP_r8(op_, name, R)\
     case op_:     name ##_r8(R, REG_B); break;\
