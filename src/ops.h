@@ -106,7 +106,7 @@
 
 /** 16-bit load instructions **/
 
-#define LDmSP           OP(LDmSP)   const uint16_t nn = CPU_RW (gb->pc); CPU_WW (nn, gb->sp); gb->pc += 2;
+#define LDmSP           OP(LDmSP)   { const uint16_t nn = CPU_RW (gb->pc); CPU_WW (nn, gb->sp); gb->pc += 2; }
 #define LDSP            OP(LDSP)    gb->sp = CPU_RW (gb->pc); gb->pc += 2;
 #define LDSPHL          OP(LDSPHL)  gb->sp = REG_HL; ++gb->rm;
 #define LDrr(r16)       OP(LDrr)    r16 = CPU_RW (gb->pc); gb->pc += 2;
@@ -281,74 +281,44 @@
 #define RLCA    OP(RLCA);  REG_A = (REG_A << 1) | (REG_A >> 7); gb->flags = 0; gb->f_c = (REG_A & 1); 
 #define RRCA    OP(RRCA);  gb->flags = 0; gb->f_c = (REG_A & 1); REG_A = (REG_A >> 1) | (REG_A << 7); 
 
-#define RLC     OP(RLC); {\
-    uint8_t tmp = *reg1;\
-    *reg1 <<= 1; *reg1 |= (tmp >> 7);\
-    SET_FLAGS(0, *reg1, 0, 0, (tmp >> 7));\
+#define RLC(X)  OP(RLC); {\
+    uint8_t tmp = X;\
+    X <<= 1; X |= (tmp >> 7);\
+    SET_FLAGS(0, X, 0, 0, (tmp >> 7));\
 }
 
-#define RLCHL   OP(RLCHL); {\
-    uint8_t tmp = hl; hl <<= 1; hl |= (tmp >> 7);\
-    SET_FLAGS(0, hl, 0, 0, (tmp >> 7));\
+#define RL(X)   OP(RL); {\
+    uint8_t tmp = X;\
+    X <<= 1; X |= gb->f_c;\
+    SET_FLAGS(0, X, 0, 0, (tmp >> 7));\
 }
 
-#define RL      OP(RL); {\
-    uint8_t tmp = *reg1;\
-    *reg1 <<= 1; *reg1 |= gb->f_c;\
-    SET_FLAGS(0, *reg1, 0, 0, (tmp >> 7));\
+#define RRC(X)  OP(RRC); {\
+    uint8_t tmp = X;\
+    X >>= 1; X |= (tmp << 7);\
+    SET_FLAGS(0, X, 0, 0, (tmp & 1));\
 }
 
-#define RLHL    OP(RLHL); {\
-    uint8_t tmp = hl; hl <<= 1; hl |= gb->f_c;\
-    SET_FLAGS(0, hl, 0, 0, (tmp >> 7));\
+#define RR(X)   OP(RR); {\
+    uint8_t tmp = X;\
+    X >>= 1; X |= gb->f_c << 7;\
+    SET_FLAGS(0, X, 0, 0, (tmp & 1));\
 }
 
-#define RRC     OP(RRC); {\
-    uint8_t tmp = *reg1;\
-    *reg1 >>= 1; *reg1 |= (tmp << 7);\
-    SET_FLAGS(0, *reg1, 0, 0, (tmp & 1));\
+#define SLA(X)  OP(SLA);   gb->flags = 0; SET_FLAG_C (X >> 7); X <<= 1; SET_FLAG_Z (X);
+#define SRA(X)  OP(SRA);   gb->flags = 0; SET_FLAG_C (X & 1); X = (X >> 1) | (X & 0X80); SET_FLAG_Z(X);
+
+#define SWAP(X) OP(SWAP) {\
+    uint8_t tmp = X << 4;\
+    X >>= 4; X |= tmp; SET_FLAGS(0, X, 0, 0, 0);\
 }
 
-#define RRCHL   OP(RRCHL); {\
-    uint8_t tmp = hl; hl >>= 1; hl |= (tmp << 7);\
-    SET_FLAGS(0, hl, 0, 0, (tmp & 1));\
+#define SRL(X)  OP(SRL); {\
+    uint8_t fc = (X & 1) ? 1 : 0;\
+    X >>= 1; SET_FLAGS(0, X, 0, 0, fc);\
 }
 
-#define RR      OP(RR); {\
-    uint8_t tmp = *reg1;\
-    *reg1 >>= 1; *reg1 |= gb->f_c << 7;\
-    SET_FLAGS(0, *reg1, 0, 0, (tmp & 1));\
-}
-
-#define RRHL    OP(RRHL); {\
-    uint8_t tmp = hl; hl >>= 1; hl |= gb->f_c << 7;\
-    SET_FLAGS(0, hl, 0, 0, (tmp & 1));\
-}
-
-#define SLA     OP(SLA);   gb->flags = 0; SET_FLAG_C (*reg1 >> 7); *reg1 <<= 1; SET_FLAG_Z (*reg1);
-#define SRA     OP(SRA);   gb->flags = 0; SET_FLAG_C (*reg1 & 1); *reg1 = (*reg1 >> 1) | (*reg1 & 0X80); SET_FLAG_Z(*reg1);
-#define SLAHL   OP(SLAHL); gb->flags = 0; SET_FLAG_C (hl >> 7); hl <<= 1; SET_FLAG_Z(hl);
-#define SRAHL   OP(SRAHL); gb->flags = 0; SET_FLAG_C (hl & 1); hl = (hl >> 1) | (hl & 0X80); SET_FLAG_Z(hl);
-
-#define SWAP    OP(SWAP) {\
-    uint8_t tmp = *reg1 << 4;\
-    *reg1 >>= 4; *reg1 |= tmp; SET_FLAGS(0, *reg1, 0, 0, 0);\
-}
-
-#define SWAPHL  OP(SWAPHL) {\
-    uint8_t tmp = hl << 4;\
-    hl >>= 4; hl |= tmp; SET_FLAGS(0, hl, 0, 0, 0);\
-}
-
-#define SRL     OP(SRL); {\
-    uint8_t fc = (*reg1 & 1) ? 1 : 0;\
-    *reg1 >>= 1; SET_FLAGS(0, *reg1, 0, 0, fc);\
-}
-
-#define SRLHL   OP(SRLHL); {\
-    uint8_t fc = (hl & 1) ? 1 : 0;\
-    hl >>= 1; SET_FLAGS(0, hl, 0, 0, fc);\
-}
+/* Bit instructions */
 
 #define BIT     OP(BIT);   SET_FLAGS(16, (*reg1 & (1 << r_bit)), 0, 1, 0);
 #define BITHL   OP(BITHL); SET_FLAGS(16, (hl & (1 << r_bit)), 0, 1, 0);

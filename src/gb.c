@@ -327,12 +327,8 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
             CPL break;
         case 0x3F:
             CCF break;
-        /* 8-bit load, LD or LDrHL */
-        LD_OPS
-        /* 8-bit load, LDHLr */
-        OP_r8(0x70, LD_HL, 0)
-            /* HALT */
-            case 0x76:
+        /* Halt */
+        case 0x76:
             OP(HALT);
             if (!gb->ime)
             {
@@ -346,6 +342,10 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
                 gb->halted = 1;
             }
             break;
+        /* 8-bit load, LD or LDrHL */
+        LD_OPS
+        /* 8-bit load, LDHLr */
+        OP_r8(0x70, LD_HL, 0)
         /* 8-bit arithmetic */
         OP_r8_hl(0x80, ADD, 0)
         OP_r8_hl(0x88, ADC, 0)
@@ -487,28 +487,36 @@ void gb_exec_cb(struct GB *gb, const uint8_t op)
             switch (op & 0x38)
             {
                 case 0:
-                    OPR_2_(RLC, RLCHL)
+                    switch (op & 7) { 
+                        case 0 ... 5: case 7: RLC(*reg1); break; default: RLC(hl) }
                     break;
                 case 8:
-                    OPR_2_(RRC, RRCHL)
+                    switch (op & 7) { 
+                        case 0 ... 5: case 7: RRC(*reg1); break; default: RRC(hl) }
                     break;
                 case 0x10:
-                    OPR_2_(RL, RLHL)
+                    switch (op & 7) { 
+                        case 0 ... 5: case 7: RL(*reg1); break; default: RL(hl) }
                     break;
                 case 0x18:
-                    OPR_2_(RR, RRHL)
+                    switch (op & 7) { 
+                        case 0 ... 5: case 7: RR(*reg1); break; default: RR(hl) }
                     break;
                 case 0x20:
-                    OPR_2_(SLA, SLAHL)
+                    switch (op & 7) { 
+                        case 0 ... 5: case 7: SLA(*reg1); break; default: SLA(hl) }
                     break;
                 case 0x28:
-                    OPR_2_(SRA, SRAHL)
+                    switch (op & 7) { 
+                        case 0 ... 5: case 7: SRA(*reg1); break; default: SRA(hl) }
                     break;
                 case 0x30:
-                    OPR_2_(SWAP, SWAPHL)
+                    switch (op & 7) { 
+                        case 0 ... 5: case 7: SWAP(*reg1); break; default: SWAP(hl) }
                     break;
                 case 0x38:
-                    OPR_2_(SRL, SRLHL)
+                    switch (op & 7) { 
+                        case 0 ... 5: case 7: SRL(*reg1); break; default: SRL(hl) }
                     break;
             }
             break;
