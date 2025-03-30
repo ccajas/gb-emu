@@ -18,7 +18,7 @@
 #define WRAM_SIZE     0x2000
 #define OAM_SIZE      0xA0
 #define HRAM_SIZE     0x80
-#define IO_SIZE       0x80
+#define IO_SIZE       0x100
 
 #define GB_FRAME_RATE    CPU_FREQ_DMG / FRAME_CYCLES
 

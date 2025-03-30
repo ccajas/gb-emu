@@ -22,7 +22,7 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
         return gb->io[addr % 0x80];
     else
     {
-        switch (addr % 0x80)
+        switch (addr & 0xFF)
         {
 #ifdef USE_TIMER_SIMPLE
             case Divider:
@@ -85,7 +85,7 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 }
                 break;
         }
-        gb->io[addr % 0x80] = val;
+        gb->io[addr & 0xFF] = val;
     }
     return 0;
 }
@@ -156,7 +156,7 @@ uint8_t gb_mem_access(struct GB *gb, const uint16_t addr, const uint8_t val, con
     if (addr < 0xFF00)
         return 0xFF; /* Not usable       */
     if (addr == 0xFF00)
-        return gb_joypad(gb, val, write); /* Joypad           */
+        return gb_joypad(gb, val, write);      /* Joypad           */
     if (addr < 0xFF80)
         return gb_io_rw(gb, addr, val, write); /* I/O registers    */
     if (addr < 0xFFFF)
@@ -165,10 +165,7 @@ uint8_t gb_mem_access(struct GB *gb, const uint16_t addr, const uint8_t val, con
         DIRECT_RW(b);
     } /* High RAM         */
     if (addr == 0xFFFF)
-    {
-        b = &gb->io[addr % IO_SIZE];
-        DIRECT_RW(b);
-    } /* Interrupt enable */
+        return gb_io_rw(gb, addr, val, write); /* Interrupt enable */
 
 #undef DIRECT_RW
     return 0;
@@ -281,172 +278,182 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
 {
     /* Copied value for operands (can be overridden for other opcodes) */
     uint8_t tmp = REG_A;
-    //int16_t mCycles = 0;
+    const uint8_t opHh = op >> 3; /* Octal divisions */
 
     /* For conditional jump / call instructions */
     const uint8_t cond = ((op >> 3) & 3);
 
-    switch (op)
+    switch (opHh)
     {
-        case 0x0:
-            NOP break;
-        /* 16-bit load, arithmetic instructions */
-        OP_r16_g1(0x01, LDrr)
-        OP_r16_g1(0x03, INCrr)
-        OP_r16_g1(0x09, ADHLrr)
-        OP_r16_g1(0x0B, DECrr) 
-        case 0x08:
-            LDmSP break;
-        /* 8-bit load instructions */
-        OP_r16_g2(0x02, LDrrmA)
-        OP_r16_g2(0x0A, LDArrm)
-        /* Increment, decrement, LD r8,n  */
-        OP_r8_g(0x04, INC, 0)
-        OP_r8_g(0x05, DEC, 0)
-        OP_r8_g(0x06, LDrm, 0)
-        /* Opcode group 1 */
-        case 0x07:
-            RLCA break;
-        case 0x17:
-            RLA break;
-        case 0x27:
-            DAA break;
-        case 0x37:
-            SCF break;
-        /* STOP and relative jump to nn */
-        case 0x10:
-            STOP break;
-        case 0x18:
-            JRm break;
-        /* Opcode group 2 */
-        case 0x0F:
-            RRCA break;
-        case 0x1F:
-            RRA break;
-        case 0x2F:
-            CPL break;
-        case 0x3F:
-            CCF break;
-        /* Halt */
-        case 0x76:
-            OP(HALT);
-            if (!gb->ime)
+        case 8 ... 0xF:
+            /* Fetch value at address (HL) if it's needed */
+            //uint8_t hl = ((op & 7) == 0x6) ? CPU_RB(REG_HL) : 0;
+            
+            switch (op)
             {
-                if (gb->io[IntrEnabled] && gb->io[IntrFlags] & IF_Any)
-                    gb->pcInc = 0;
+                /* Halt */
+                case 0x76:
+                OP(HALT);
+                if (!gb->ime)
+                {
+                    if (gb->io[IntrEnabled] && gb->io[IntrFlags] & IF_Any)
+                        gb->pcInc = 0;
+                    else
+                        gb->halted = 1;
+                }
                 else
                     gb->halted = 1;
+                break;
+                /* 8-bit load, LD or LDrHL */
+                LD_OPS
+                /* 8-bit load, LDHLr */
+                OP_r8(0x70, LD_HL, 0)
             }
-            else
-            {
-                gb->halted = 1;
-            }
-            break;
-        /* 8-bit load, LD or LDrHL */
-        LD_OPS
-        /* 8-bit load, LDHLr */
-        OP_r8(0x70, LD_HL, 0)
-        /* 8-bit arithmetic */
-        OP_r8_hl(0x80, ADD, 0)
-        OP_r8_hl(0x88, ADC, 0)
-        OP_r8_hl(0x90, SUB, 0)
-        OP_r8_hl(0x98, SBC, 0)
-        OP_r8_hl(0xA0, AND, 0)
-        OP_r8_hl(0xA8, XOR, 0)
-        OP_r8_hl(0xB0, OR, 0)
-        OP_r8_hl(0xB8, CP, 0)
-            /* ... */
-        case 0xC3:
-            JPNN break;
-        case 0xC6:
-            ADDm break;
-        case 0xC9:
-            RET break;
-        case 0xCD:
-            CALLm break;
-        case 0xCE:
-            ADCm break;
-
-        case 0xD6:
-            SUBm break;
-        case 0xD9:
-            RETI break;
-        case 0xDE:
-            SBCm break;
-
-        case 0xE0:
-            LDHmA break;
-        case 0xE2:
-            LDHCA break;
-        case 0xE6:
-            ANDm break;
-        case 0xE8:
-            ADDSPm break;
-        case 0xE9:
-            JPHL break;
-        case 0xEA:
-            LDmmA break;
-        case 0xEE:
-            XORm break;
-
-        case 0xF0:
-            LDHAm break;
-        case 0xF2:
-            LDHAC break;
-        case 0xF3:
-            DI break;
-        case 0xF6:
-            ORm break;
-        case 0xF8:
-            LDHLSP break;
-        case 0xF9:
-            LDSPHL break;
-        case 0xFA:
-            LDAmm break;
-        case 0xFB:
-            EI break;
-        case 0xFE:
-            CPm break;
-        /* Conditional jump, return/call */
-        case 0x20:
-        case 0x28:
-        case 0x30:
-        case 0x38:
-            JR_(cond) break;
-        case 0xC0:
-        case 0xC8:
-        case 0xD0:
-        case 0xD8:
-            RET_(cond) break;
-        case 0xC2:
-        case 0xCA:
-        case 0xD2:
-        case 0xDA:
-            JP_(cond) break;
-        case 0xC4:
-        case 0xCC:
-        case 0xD4:
-        case 0xDC:
-            CALL_(cond) break;
-        /* Call routines at addresses 0x00 to 0x38 */
-        case 0xC7:
-        case 0xCF:
-        case 0xD7:
-        case 0xDF:
-        case 0xE7:
-        case 0xEF:
-        case 0xF7:
-        case 0xFF:
-            RST break;
-        /* 16-bit push and pop */
-        OP_r16_g3(0xC1, POPrr)
-        OP_r16_g3(0xC5, PUSHrr)
-        /* CB prefix ops */
-        case 0xCB:
-            gb_exec_cb(gb, CPU_RB(gb->pc++));
             break;
         default:
-            INVALID;
+            switch (op)
+            {
+                case 0x0:
+                    NOP break;
+                /* 16-bit load, arithmetic instructions */
+                OP_r16_g1(0x01, LDrr)
+                OP_r16_g1(0x03, INCrr)
+                OP_r16_g1(0x09, ADHLrr)
+                OP_r16_g1(0x0B, DECrr) 
+                case 0x08:
+                    LDmSP break;
+                /* 8-bit load instructions */
+                OP_r16_g2(0x02, LDrrmA)
+                OP_r16_g2(0x0A, LDArrm)
+                /* Increment, decrement, LD r8,n  */
+                OP_r8_g(0x04, INC, 0)
+                OP_r8_g(0x05, DEC, 0)
+                OP_r8_g(0x06, LDrm, 0)
+                /* Opcode group 1 */
+                case 0x07:
+                    RLCA break;
+                case 0x17:
+                    RLA break;
+                case 0x27:
+                    DAA break;
+                case 0x37:
+                    SCF break;
+                /* STOP and relative jump to nn */
+                case 0x10:
+                    STOP break;
+                case 0x18:
+                    JRm break;
+                /* Opcode group 2 */
+                case 0x0F:
+                    RRCA break;
+                case 0x1F:
+                    RRA break;
+                case 0x2F:
+                    CPL break;
+                case 0x3F:
+                    CCF break;
+                /* 8-bit arithmetic */
+                OP_r8_hl(0x80, ADD, 0)
+                OP_r8_hl(0x88, ADC, 0)
+                OP_r8_hl(0x90, SUB, 0)
+                OP_r8_hl(0x98, SBC, 0)
+                OP_r8_hl(0xA0, AND, 0)
+                OP_r8_hl(0xA8, XOR, 0)
+                OP_r8_hl(0xB0, OR, 0)
+                OP_r8_hl(0xB8, CP, 0)
+                    /* ... */
+                case 0xC3:
+                    JPNN break;
+                case 0xC6:
+                    ADDm break;
+                case 0xC9:
+                    RET break;
+                case 0xCD:
+                    CALLm break;
+                case 0xCE:
+                    ADCm break;
+
+                case 0xD6:
+                    SUBm break;
+                case 0xD9:
+                    RETI break;
+                case 0xDE:
+                    SBCm break;
+
+                case 0xE0:
+                    LDHmA break;
+                case 0xE2:
+                    LDHCA break;
+                case 0xE6:
+                    ANDm break;
+                case 0xE8:
+                    ADDSPm break;
+                case 0xE9:
+                    JPHL break;
+                case 0xEA:
+                    LDmmA break;
+                case 0xEE:
+                    XORm break;
+
+                case 0xF0:
+                    LDHAm break;
+                case 0xF2:
+                    LDHAC break;
+                case 0xF3:
+                    DI break;
+                case 0xF6:
+                    ORm break;
+                case 0xF8:
+                    LDHLSP break;
+                case 0xF9:
+                    LDSPHL break;
+                case 0xFA:
+                    LDAmm break;
+                case 0xFB:
+                    EI break;
+                case 0xFE:
+                    CPm break;
+                /* Conditional jump, return/call */
+                case 0x20:
+                case 0x28:
+                case 0x30:
+                case 0x38:
+                    JR_(cond) break;
+                case 0xC0:
+                case 0xC8:
+                case 0xD0:
+                case 0xD8:
+                    RET_(cond) break;
+                case 0xC2:
+                case 0xCA:
+                case 0xD2:
+                case 0xDA:
+                    JP_(cond) break;
+                case 0xC4:
+                case 0xCC:
+                case 0xD4:
+                case 0xDC:
+                    CALL_(cond) break;
+                /* Call routines at addresses 0x00 to 0x38 */
+                case 0xC7:
+                case 0xCF:
+                case 0xD7:
+                case 0xDF:
+                case 0xE7:
+                case 0xEF:
+                case 0xF7:
+                case 0xFF:
+                    RST break;
+                /* 16-bit push and pop */
+                OP_r16_g3(0xC1, POPrr)
+                OP_r16_g3(0xC5, PUSHrr)
+                /* CB prefix ops */
+                case 0xCB:
+                    gb_exec_cb(gb, CPU_RB(gb->pc++));
+                    break;
+                default:
+                    INVALID;
+            }
     }
 
     //mCycles += opCycles[op];
@@ -487,48 +494,29 @@ void gb_exec_cb(struct GB *gb, const uint8_t op)
             switch (op & 0x38)
             {
                 case 0:
-                    switch (op & 7) { 
-                        case 0 ... 5: case 7: RLC(*reg1); break; default: RLC(hl) }
-                    break;
+                    OPR_2_(RLC)  break;
                 case 8:
-                    switch (op & 7) { 
-                        case 0 ... 5: case 7: RRC(*reg1); break; default: RRC(hl) }
-                    break;
+                    OPR_2_(RRC)  break;
                 case 0x10:
-                    switch (op & 7) { 
-                        case 0 ... 5: case 7: RL(*reg1); break; default: RL(hl) }
-                    break;
+                    OPR_2_(RL)   break;
                 case 0x18:
-                    switch (op & 7) { 
-                        case 0 ... 5: case 7: RR(*reg1); break; default: RR(hl) }
-                    break;
+                    OPR_2_(RR)   break;
                 case 0x20:
-                    switch (op & 7) { 
-                        case 0 ... 5: case 7: SLA(*reg1); break; default: SLA(hl) }
-                    break;
+                    OPR_2_(SLA)  break;
                 case 0x28:
-                    switch (op & 7) { 
-                        case 0 ... 5: case 7: SRA(*reg1); break; default: SRA(hl) }
-                    break;
+                    OPR_2_(SRA)  break;
                 case 0x30:
-                    switch (op & 7) { 
-                        case 0 ... 5: case 7: SWAP(*reg1); break; default: SWAP(hl) }
-                    break;
+                    OPR_2_(SWAP) break;
                 case 0x38:
-                    switch (op & 7) { 
-                        case 0 ... 5: case 7: SRL(*reg1); break; default: SRL(hl) }
-                    break;
+                    OPR_2_(SRL)  break;
             }
             break;
         case 8 ... 0xF:
-            OPR_2_(BIT, BITHL)
-            break; /* Bit test  */
+            OPR_2_(BIT) break; /* Bit test  */
         case 0x10 ... 0x17:
-            OPR_2_(RES, RESHL)
-            break; /* Bit reset */
+            OPR_2_(RES) break; /* Bit reset */
         case 0x18 ... 0x1F:
-            OPR_2_(SET, SETHL)
-            break; /* Bit set   */
+            OPR_2_(SET) break; /* Bit set   */
     }
     /* Write back to (HL) for most (HL) operations except BIT */
     if ((op & 7) == 6 && (opHh < 8 || opHh > 0xF))

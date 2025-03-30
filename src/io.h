@@ -28,8 +28,7 @@ static const enum
 
     BootROM     = 0x50,
     IntrFlags   = 0x0F,
-    /* normally 255 but here it fits in the end of the 128 byte array */
-    IntrEnabled = 0x7F  
+    IntrEnabled = 0xFF  
 }
 registers;
 

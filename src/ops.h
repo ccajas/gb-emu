@@ -27,9 +27,11 @@
 #endif
 
 /** Choose between operations based on position **/
+/*switch (op & 7) { case 0 ... 5: case 7: A; break; default: B }*/
 
-#define OPR_2_(A, B) \
-    switch (op & 7) { case 0 ... 5: case 7: A; break; default: B }
+#define OPR_2_(name) \
+    switch (op & 7) { case 0 ... 5: case 7: name(*reg1); break;\
+    default: name(hl); }\
 
 #define OP_r8(op_, name, R)\
     case op_:     name ##_r8(R, REG_B); break;\
@@ -320,14 +322,9 @@
 
 /* Bit instructions */
 
-#define BIT     OP(BIT);   SET_FLAGS(16, (*reg1 & (1 << r_bit)), 0, 1, 0);
-#define BITHL   OP(BITHL); SET_FLAGS(16, (hl & (1 << r_bit)), 0, 1, 0);
-
-#define RES     OP(RES);   *reg1 &= (0xFE << r_bit) | (0xFF >> (8 - r_bit));
-#define RESHL   OP(RESHL); hl &= (0xFE << r_bit) | (0xFF >> (8 - r_bit));
-
-#define SET     OP(SET);   *reg1 |= (1 << r_bit); 
-#define SETHL   OP(SET);   hl |= (1 << r_bit);
+#define BIT(X)  OP(BIT);   SET_FLAGS(16, (X & (1 << r_bit)), 0, 1, 0);
+#define RES(X)  OP(RES);   X &= (0xFE << r_bit) | (0xFF >> (8 - r_bit));
+#define SET(X)  OP(SET);   X |= (1 << r_bit); 
 
 /* Misc instructions */
 
