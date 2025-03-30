@@ -117,11 +117,12 @@ struct GB
     uint8_t * bootRom;
 
     /* Directly accessible external data */
-    struct gb_data_s
+    struct gb_data_sj
     {
         /* Joypad button inputs */
         uint8_t joypad;
         uint8_t frameSkip;
+        uint8_t pixelLine[DISPLAY_WIDTH];
         void * ptr;
     }
     extData;

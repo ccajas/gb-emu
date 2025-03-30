@@ -731,7 +731,7 @@ uint8_t bgpValues[172 >> 3];
 
 static inline uint8_t *gb_pixel_fetch(struct GB *gb)
 {
-    uint8_t *pixels = calloc(DISPLAY_WIDTH, sizeof(uint8_t));
+    uint8_t *pixels = gb->extData.pixelLine;
     assert(gb->io[LY] < DISPLAY_HEIGHT);
 
     /* If background is enabled, draw it. */
@@ -970,8 +970,8 @@ void gb_render(struct GB *const gb)
             if (IO_STAT_MODE != Stat_HBlank)
             {
                 /* Fetch line of pixels for the screen and draw them */
-                uint8_t *pixels = gb_pixel_fetch(gb);
-                gb->draw_line (gb->extData.ptr, pixels, gb->io[LY]);
+                gb_pixel_fetch(gb);
+                gb->draw_line (gb->extData.ptr, gb->extData.pixelLine, gb->io[LY]);
 
                 gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;
                 /* Mode 0 interrupt */
