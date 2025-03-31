@@ -199,15 +199,15 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
 }
 
 #ifndef CPU_LOG_INSTRS
-    #define LOG_CPU_STATE(gb)
-#else
+    #define LOG_CPU_STATE(gb, op)
+    #else
     #define cpu_read(X)   gb_mem_access (gb, X, 0, 0)
-    #define LOG_CPU_STATE(gb) {\
-        const uint16_t pc = gb->pc;\
-        LOG_("A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X "\
-            "SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",\
-            REG_A, gb->flags, REG_B, REG_C, REG_D, REG_E, REG_H, REG_L, \
-            gb->sp, pc, cpu_read (pc), cpu_read (pc+1), cpu_read (pc+2), cpu_read (pc+3)\
+    #define LOG_CPU_STATE(gb, op) {\
+        LOG_("fclock %08d op: %02X "\
+            "A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X "\
+            "SP:%04X PC:%04X LY:%3d mode: %d\n",\
+            gb->frameClock, op, REG_A, gb->flags, REG_B, REG_C, REG_D, REG_E, REG_H, REG_L, \
+            gb->sp, gb->pc, gb->io[LY], IO_STAT_MODE\
         );\
     }
 #endif
@@ -243,7 +243,7 @@ static inline void gb_step (struct GB * gb)
         gb->rm = 0;
         const uint8_t op = CPU_RB (gb->pc++);
         gb_cpu_exec (gb, op);
-        LOG_CPU_STATE (gb);
+        LOG_CPU_STATE (gb, op);
     }
 
     if (gb->ime)

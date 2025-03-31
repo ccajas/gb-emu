@@ -195,7 +195,7 @@ void gb_init(struct GB *gb, uint8_t *bootRom)
     else
         gb_boot_reset(gb);
 
-    LOG_CPU_STATE(gb);
+    LOG_CPU_STATE(gb, 0);
     gb->lineClock = gb->frameClock = 0;
     gb->clock_t = 0;
     gb->divClock = gb->timAClock = 0;
@@ -918,9 +918,6 @@ static inline void gb_transfer(struct GB *gb)
     if (IO_STAT_MODE != Stat_Transfer)
     {
         gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
-        if (!LCDC_(LCD_Enable) || (gb->extData.frameSkip &&
-            (gb->totalFrames % gb->extData.frameSkip > 0)))
-            return;
     }
 }
 
@@ -957,14 +954,18 @@ void gb_render(struct GB *const gb)
         { /* Mode 0 - H-blank */
             if (IO_STAT_MODE != Stat_HBlank)
             {
-                /* Fetch line of pixels for the screen and draw them */
-                gb_pixel_fetch(gb);
-                gb->draw_line (gb->extData.ptr, gb->extData.pixelLine, gb->io[LY]);
-
                 gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;
                 /* Mode 0 interrupt */
                 if STAT_ (IR_HBlank)
                     gb->io[IntrFlags] |= IF_LCD_STAT;
+
+                if (!LCDC_(LCD_Enable) || (gb->extData.frameSkip &&
+                    (gb->totalFrames % gb->extData.frameSkip > 0)))
+                    return;
+
+                /* Fetch line of pixels for the screen and draw them */
+                gb_pixel_fetch(gb);
+                gb->draw_line (gb->extData.ptr, gb->extData.pixelLine, gb->io[LY]);
             }
         }
         else

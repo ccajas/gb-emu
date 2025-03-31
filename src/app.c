@@ -154,7 +154,7 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
     app->fullScreen = 0;
     app->paused = 1;
     app->debug = app->step = 0;
-    /* Frameskip (for 30 FPS) */
+    /* Frameskip (for slower FPS) */
     app->gb.extData.frameSkip = 0;
 }
 
@@ -169,6 +169,7 @@ void app_init (struct App * app)
         .paletteBG = 0,
         .paletteOBJ = 0,
         .pixelTint = 0,
+#if defined(USE_GLFW)
         .tileMap = {
             .width = DEBUG_TEXTURE_W,
             .height = DEBUG_TEXTURE_H,
@@ -179,6 +180,7 @@ void app_init (struct App * app)
             .height = DISPLAY_HEIGHT,
             .imgData = calloc (DISPLAY_WIDTH * DISPLAY_HEIGHT * 3, sizeof(uint8_t))
         }
+#endif
     };
 
     /* Handle file loading */
