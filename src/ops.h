@@ -108,7 +108,7 @@
 
 /** 16-bit load instructions **/
 
-#define LDmSP           OP(LDmSP)   { const uint16_t nn = CPU_RW (gb->pc); CPU_WW (nn, gb->sp); gb->pc += 2; }
+#define LDmSP           OP(LDmSP)   { gb->nn = CPU_RW (gb->pc); CPU_WW (gb->nn, gb->sp); gb->pc += 2; }
 #define LDSP            OP(LDSP)    gb->sp = CPU_RW (gb->pc); gb->pc += 2;
 #define LDSPHL          OP(LDSPHL)  gb->sp = REG_HL; ++gb->rm;
 #define LDrr(r16)       OP(LDrr)    r16 = CPU_RW (gb->pc); gb->pc += 2;
@@ -133,10 +133,10 @@
 
     /* Add function templates */
     #define FLAGS_ALU_(X, N)  SET_FLAGS (0,\
-        (tmp & 0xFF), N,(((REG_A ^ X ^ tmp) & 0x10) > 0), (tmp >= 0x100));\
+        (gb->nn & 0xFF), N,(((REG_A ^ X ^ gb->nn) & 0x10) > 0), (gb->nn >= 0x100));\
 
-    #define ADC_A_(X, C)   const uint8_t val = X; uint16_t tmp = REG_A + val + C; FLAGS_ALU_(val, 0); REG_A = tmp & 0xFF;
-    #define SBC_A_(X, C)   const uint8_t val = X; uint16_t tmp = REG_A - val - C; FLAGS_ALU_(val, 1); REG_A = tmp & 0xFF;
+    #define ADC_A_(X, C)   const uint8_t val = X; gb->nn = REG_A + val + C; FLAGS_ALU_(val, 0); REG_A = gb->nn & 0xFF;
+    #define SBC_A_(X, C)   const uint8_t val = X; gb->nn = REG_A - val - C; FLAGS_ALU_(val, 1); REG_A = gb->nn & 0xFF;
 
     /* Add and subtract */
 
@@ -201,17 +201,17 @@
 /** 16-bit arithmetic instructions **/
 
     /* Flag templates for Add HL instructions */
-    #define FLAGS_ADHL  gb->f_n = 0;   gb->f_h = ((REG_HL & 0xfff) > (tmp & 0xfff)); gb->f_c = (REG_HL > tmp) ? 1 : 0;
+    #define FLAGS_ADHL  gb->f_n = 0;   gb->f_h = ((REG_HL & 0xfff) > (gb->nn & 0xfff)); gb->f_c = (REG_HL > gb->nn) ? 1 : 0;
     #define FLAGS_SPm   gb->flags = 0; gb->f_h = ((gb->sp & 0xF) + (i & 0xF) > 0xF); gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);
 
 #define ADHLrr(r16)   OP(ADHLrr); {\
-    uint16_t tmp = REG_HL + r16; ++gb->rm; FLAGS_ADHL; REG_HL = tmp;\
+    gb->nn = REG_HL + r16; ++gb->rm; FLAGS_ADHL; REG_HL = gb->nn;\
 }
 
 #define ADDSPm   OP(ADDSPm)   {\
-    int8_t i = (int8_t) CPU_RB_PC; ++gb->rm; FLAGS_SPm; ++gb->rm; gb->sp += i; }
+    const int8_t i = (int8_t) CPU_RB_PC; ++gb->rm; FLAGS_SPm; ++gb->rm; gb->sp += i; }
 
-#define LDHLSP   OP(LDHLSP)   { int8_t i = (int8_t) CPU_RB_PC;\
+#define LDHLSP   OP(LDHLSP)   { const int8_t i = (int8_t) CPU_RB_PC;\
     ++gb->rm; gb->flags = 0;\
     gb->f_h = ((gb->sp & 0xF) + (i & 0xF) > 0xF);\
     gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);\
@@ -237,8 +237,8 @@
 
 /* Calls */
 #define CALLm   OP(CALLm);  {\
-    uint16_t tmp = CPU_RW (gb->pc); gb->pc += 2; gb->sp -= 2;\
-    CPU_WW(gb->sp, gb->pc); gb->pc = tmp; ++gb->rm; }\
+    gb->nn = CPU_RW (gb->pc); gb->pc += 2; gb->sp -= 2;\
+    CPU_WW(gb->sp, gb->pc); gb->pc = gb->nn; ++gb->rm; }\
 
     /* Return function template */
     #define RET__     gb->pc = CPU_RW (gb->sp); ++gb->rm; gb->sp += 2; 
@@ -248,17 +248,17 @@
 
     /* Conditional function templates */
     #define JP_IF(X) \
-        uint16_t mm = CPU_RW (gb->pc); gb->pc += 2;\
-        if (X) { gb->pc = mm; ++gb->rm; }\
+        gb->nn = CPU_RW (gb->pc); gb->pc += 2;\
+        if (X) { gb->pc = gb->nn ; ++gb->rm; }\
 
     #define JR_IF(X) \
         int8_t e = (int8_t) CPU_RB (gb->pc++);\
         if (X) { gb->pc += e; ++gb->rm; }\
 
     #define CALL_IF(X) \
-        uint16_t mm = CPU_RW (gb->pc); gb->pc += 2;\
+        gb->nn = CPU_RW (gb->pc); gb->pc += 2;\
         if (X) { PUSH_(gb->pc >> 8, gb->pc & 0xFF);\
-            gb->pc = mm; }\
+            gb->pc = gb->nn; }\
 
     #define RET_IF(X) ++gb->rm; if (X) { RET__; }
 
@@ -278,41 +278,41 @@
 
 /* Rotate and shift instructions */
 
-#define RLA   	OP(RLA);   { uint8_t tmp = REG_A; REG_A = (REG_A << 1) | (gb->f_c);      gb->flags = 0; gb->f_c = ((tmp >> 7) & 1); }
-#define RRA     OP(RRA);   { uint8_t tmp = REG_A; REG_A = (REG_A >> 1) | (gb->f_c << 7); gb->flags = 0; gb->f_c = (tmp & 1); }
+#define RLA   	OP(RLA);   { gb->nn = REG_A; REG_A = (REG_A << 1) | (gb->f_c);      gb->flags = 0; gb->f_c = ((gb->nn >> 7) & 1); }
+#define RRA     OP(RRA);   { gb->nn = REG_A; REG_A = (REG_A >> 1) | (gb->f_c << 7); gb->flags = 0; gb->f_c = (gb->nn & 1); }
 #define RLCA    OP(RLCA);  REG_A = (REG_A << 1) | (REG_A >> 7); gb->flags = 0; gb->f_c = (REG_A & 1); 
 #define RRCA    OP(RRCA);  gb->flags = 0; gb->f_c = (REG_A & 1); REG_A = (REG_A >> 1) | (REG_A << 7); 
 
 #define RLC(X)  OP(RLC); {\
-    uint8_t tmp = X;\
-    X <<= 1; X |= (tmp >> 7);\
-    SET_FLAGS(0, X, 0, 0, (tmp >> 7));\
+    gb->nn = X;\
+    X <<= 1; X |= (gb->nn >> 7);\
+    SET_FLAGS(0, X, 0, 0, (gb->nn >> 7));\
 }
 
 #define RL(X)   OP(RL); {\
-    uint8_t tmp = X;\
+    gb->nn = X;\
     X <<= 1; X |= gb->f_c;\
-    SET_FLAGS(0, X, 0, 0, (tmp >> 7));\
+    SET_FLAGS(0, X, 0, 0, (gb->nn >> 7));\
 }
 
 #define RRC(X)  OP(RRC); {\
-    uint8_t tmp = X;\
-    X >>= 1; X |= (tmp << 7);\
-    SET_FLAGS(0, X, 0, 0, (tmp & 1));\
+    gb->nn = X;\
+    X >>= 1; X |= ((gb->nn << 7) & 0xff);\
+    SET_FLAGS(0, X, 0, 0, (gb->nn & 1));\
 }
 
 #define RR(X)   OP(RR); {\
-    uint8_t tmp = X;\
+    gb->nn = X;\
     X >>= 1; X |= gb->f_c << 7;\
-    SET_FLAGS(0, X, 0, 0, (tmp & 1));\
+    SET_FLAGS(0, X, 0, 0, (gb->nn & 1));\
 }
 
 #define SLA(X)  OP(SLA);   gb->flags = 0; SET_FLAG_C (X >> 7); X <<= 1; SET_FLAG_Z (X);
 #define SRA(X)  OP(SRA);   gb->flags = 0; SET_FLAG_C (X & 1); X = (X >> 1) | (X & 0X80); SET_FLAG_Z(X);
 
 #define SWAP(X) OP(SWAP) {\
-    uint8_t tmp = X << 4;\
-    X >>= 4; X |= tmp; SET_FLAGS(0, X, 0, 0, 0);\
+    X = ((0xF0 & (X << 4)) | (0x0F & (X >> 4)));\
+    SET_FLAGS(0, X, 0, 0, 0);\
 }
 
 #define SRL(X)  OP(SRL); {\
