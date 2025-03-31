@@ -81,6 +81,7 @@ struct GB
     
     /* Other CPU registers / general timekeeping */
     uint16_t pc, sp;
+    uint16_t nn;
     uint64_t clock_t;
     uint16_t lineClock;
     uint32_t frameClock;
@@ -218,46 +219,50 @@ static inline void gb_step (struct GB * gb)
 {
     gb->rt = 0;
 
-    if (gb->stopped)
+    int i;
+    for (i = 0; i < 10; i++)
     {
-        gb->rt += 4;
+        if (gb->stopped)
+        {
+            gb->rt += 4;
 
-        gb->clock_t += gb->rt;
-        gb->frameClock += gb->rt;
-        return;
-    }
+            gb->clock_t += gb->rt;
+            gb->frameClock += gb->rt;
+            return;
+        }
 
-    if (gb->halted)
-    {
-        /* Check if interrupt is pending */
-        if (gb->io[IntrEnabled] & gb->io[IntrFlags] & IF_Any)
-            gb->halted = 0;
+        if (gb->halted)
+        {
+            /* Check if interrupt is pending */
+            if (gb->io[IntrEnabled] & gb->io[IntrFlags] & IF_Any)
+                gb->halted = 0;
+
+            if (gb->ime)
+                gb_handle_interrupts (gb);
+
+            gb->rt += 4;
+        }
+        else
+        {   /* Load next op and execute */
+            gb->rm = 0;
+            const uint8_t op = CPU_RB (gb->pc++);
+            gb_cpu_exec (gb, op);
+            LOG_CPU_STATE (gb, op);
+        }
 
         if (gb->ime)
             gb_handle_interrupts (gb);
 
-        gb->rt += 4;
+        /* Update timers for every remaining m-cycle */
+    #ifdef USE_TIMER_SIMPLE
+        gb_update_div (gb);
+        gb_update_timer_simple (gb);
+    #else
+        int t = 0;
+        while (t++ < gb->rt)
+            gb_handle_timers (gb);
+    #endif
     }
-    else
-    {   /* Load next op and execute */
-        gb->rm = 0;
-        const uint8_t op = CPU_RB (gb->pc++);
-        gb_cpu_exec (gb, op);
-        LOG_CPU_STATE (gb, op);
-    }
-
-    if (gb->ime)
-        gb_handle_interrupts (gb);
-
-    /* Update timers for every remaining m-cycle */
-#ifdef USE_TIMER_SIMPLE
-    gb_update_div (gb);
-    gb_update_timer_simple (gb);
-#else
-    int t = 0;
-    while (t++ < gb->rt)
-        gb_handle_timers (gb);
-#endif
     /* Update PPU if LCD is turned on */
     if (LCDC_(LCD_Enable))
         gb_render (gb);
