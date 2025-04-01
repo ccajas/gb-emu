@@ -5,7 +5,7 @@
 #include "gb.h"
 #include "ops.h"
 
-#ifdef ASSERT_INSTR_TIMING
+#if defined(ASSERT_INSTR_TIMING) || !defined(USE_INC_MCYCLE)
 #include "opcycles.h"
 #endif
 
@@ -109,7 +109,7 @@ uint8_t gb_mem_access(struct GB *gb, const uint16_t addr, const uint8_t val, con
         *b = val;\
     return *b;\
 
-    ++gb->rm;
+    INC_MCYCLE;
     struct Cartridge *cart = &gb->cart;
 
     if (addr < 0x0100 && gb->io[BootROM] == 0) /* Run boot ROM if needed */
@@ -455,7 +455,9 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
             }
     }
 
-    //mCycles += opCycles[op];
+#ifndef USE_INC_MCYCLE
+    gb->rm += opCycles[op];
+#endif
 
     /* Handle effects of STOP instruction */
     /* Todo: Read joypad button selection/press */
@@ -465,7 +467,7 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
         gb_mem_access(gb, 0xFF00 + gb->io[Divider], 0, 1);
     }
 
-#if ASSERT_INSTR_TIMING
+#ifdef ASSERT_INSTR_TIMING
     assert(gb->rm >= opCycles[op]);
 #endif
 
@@ -474,6 +476,10 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
 
 void gb_exec_cb(struct GB *gb, const uint8_t op)
 {
+    #ifndef USE_INC_MCYCLE
+    ++gb->rm;
+    #endif
+
     const uint8_t opL = op & 0xf;
     const uint8_t opHh = op >> 3; /* Octal divisions */
 
@@ -519,6 +525,9 @@ void gb_exec_cb(struct GB *gb, const uint8_t op)
     /* Write back to (HL) for most (HL) operations except BIT */
     if ((op & 7) == 6 && (opHh < 8 || opHh > 0xF))
     {
+        #ifndef USE_INC_MCYCLE
+        ++gb->rm;
+        #endif
         CPU_WB(REG_HL, hl);
     }
 }
@@ -715,13 +724,13 @@ int compare_sprites(const void *in1, const void *in2)
 /* Stored BG Palette values */
 uint8_t bgpValues[172 >> 3];
 
-#define BGP_VAL   bgpValues[(lineX + 8) >> 3]
-//gb->io[BGPalette]
+#define BGP_VAL    gb->io[BGPalette]
+//bgpValues[(lineX + 8) >> 3]
 
 static inline uint8_t *gb_pixel_fetch(struct GB *gb)
 {
     uint8_t *pixels = gb->extData.pixelLine;
-    assert(gb->io[LY] < DISPLAY_HEIGHT);
+    //assert(gb->io[LY] < DISPLAY_HEIGHT);
 
     /* If background is enabled, draw it. */
     if (LCDC_(BG_Win_Enable))
@@ -899,7 +908,7 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
     return pixels;
 }
 
-# define _FORCE_INLINE __attribute__((always_inline)) inline
+#define _FORCE_INLINE __attribute__((always_inline)) inline
 
 _FORCE_INLINE void gb_oam_read(struct GB *gb)
 {
@@ -928,19 +937,18 @@ _FORCE_INLINE void gb_transfer(struct GB *gb)
 
 /* Evaluate LY==LYC */
 
-_FORCE_INLINE void gb_eval_LYC(struct GB *const gb)
-{
-    /* Set bit 02 flag for comparing lYC and LY
-       If STAT interrupt is enabled, an interrupt is requested */
-    if (gb->io[LYC] == gb->io[LY])
-    {
-        gb->io[LCDStatus] |= (1 << LYC_LY);
-        if (STAT_(IR_LYC))
-            gb->io[IntrFlags] |= IF_LCD_STAT;
-    }
-    else /* Unset the flag */
-        gb->io[LCDStatus] &= 0xFB;
-}
+//_FORCE_INLINE void gb_eval_LYC(struct GB *const gb)
+#define GB_EVAL_LYC(gb)\
+    /* Set bit 02 flag for comparing lYC and LY \
+       If STAT interrupt is enabled, an interrupt is requested */\
+    if (gb->io[LYC] == gb->io[LY])\
+    {\
+        gb->io[LCDStatus] |= (1 << LYC_LY);\
+        if (STAT_(IR_LYC))\
+            gb->io[IntrFlags] |= IF_LCD_STAT;\
+    }\
+    else /* Unset the flag */\
+        gb->io[LCDStatus] &= 0xFB;\
 
 //#define DISABLE_LCD
 
@@ -980,7 +988,7 @@ void gb_render(struct GB *const gb)
         { /* Starting new line */
             gb->lineClock -= TICKS_HBLANK;
             gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
-            gb_eval_LYC(gb);
+            GB_EVAL_LYC(gb);
         }
     }
     else /* Outside of screen Y bounds */
@@ -993,7 +1001,7 @@ void gb_render(struct GB *const gb)
                 gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
                 gb->io[IntrFlags] |= IF_VBlank;
                 /* Mode 1 interrupt */
-                if STAT_ (IR_VBlank)
+                if (STAT_ (IR_VBlank))
                     gb->io[IntrFlags] |= IF_LCD_STAT;
             }
         }
@@ -1003,7 +1011,7 @@ void gb_render(struct GB *const gb)
             gb->lineClock -= TICKS_VBLANK;
             if (gb->io[LY] > DISPLAY_HEIGHT)
                 gb->windowLY = 0; /* Reset window Y counter if line is 0 */
-            gb_eval_LYC(gb);
+            GB_EVAL_LYC(gb);
         }
     }
     /* ...and DMA transfer to OMA, if needed */

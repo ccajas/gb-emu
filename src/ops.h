@@ -26,6 +26,14 @@
 
 #endif
 
+#define USE_INC_MCYCLE
+
+#ifndef USE_INC_MCYCLE
+#define INC_MCYCLE
+#else
+#define INC_MCYCLE  ++gb->rm
+#endif
+
 /** Choose between operations based on position **/
 /*switch (op & 7) { case 0 ... 5: case 7: A; break; default: B }*/
 
@@ -110,10 +118,10 @@
 
 #define LDmSP           OP(LDmSP)   { gb->nn = CPU_RW (gb->pc); CPU_WW (gb->nn, gb->sp); gb->pc += 2; }
 #define LDSP            OP(LDSP)    gb->sp = CPU_RW (gb->pc); gb->pc += 2;
-#define LDSPHL          OP(LDSPHL)  gb->sp = REG_HL; ++gb->rm;
+#define LDSPHL          OP(LDSPHL)  gb->sp = REG_HL; INC_MCYCLE;
 #define LDrr(r16)       OP(LDrr)    r16 = CPU_RW (gb->pc); gb->pc += 2;
 
-#define PUSH_(X, Y)     gb->sp--; ++gb->rm; CPU_WB (gb->sp, X); gb->sp--; CPU_WB (gb->sp, Y);
+#define PUSH_(X, Y)     gb->sp--; INC_MCYCLE; CPU_WB (gb->sp, X); gb->sp--; CPU_WB (gb->sp, Y);
 
 #define PUSHrr(op_, R16_1, R16_2)  OP(PUSHrr); PUSH_(R16_1, R16_2);
 #define POPrr(op_, R16_1, R16_2)   OP(POPrr);\
@@ -205,21 +213,21 @@
     #define FLAGS_SPm   gb->flags = 0; gb->f_h = ((gb->sp & 0xF) + (i & 0xF) > 0xF); gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);
 
 #define ADHLrr(r16)   OP(ADHLrr); {\
-    gb->nn = REG_HL + r16; ++gb->rm; FLAGS_ADHL; REG_HL = gb->nn;\
+    gb->nn = REG_HL + r16; INC_MCYCLE; FLAGS_ADHL; REG_HL = gb->nn;\
 }
 
 #define ADDSPm   OP(ADDSPm)   {\
-    const int8_t i = (int8_t) CPU_RB_PC; ++gb->rm; FLAGS_SPm; ++gb->rm; gb->sp += i; }
+    const int8_t i = (int8_t) CPU_RB_PC; INC_MCYCLE; FLAGS_SPm; INC_MCYCLE; gb->sp += i; }
 
 #define LDHLSP   OP(LDHLSP)   { const int8_t i = (int8_t) CPU_RB_PC;\
-    ++gb->rm; gb->flags = 0;\
+    INC_MCYCLE; gb->flags = 0;\
     gb->f_h = ((gb->sp & 0xF) + (i & 0xF) > 0xF);\
     gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);\
     REG_H = ((gb->sp + i) >> 8); REG_L = (gb->sp + i) & 0xFF;\
 }
 
-#define INCrr(r16)    OP(INCrr); ++gb->rm; r16++;
-#define DECrr(r16)    OP(DECrr); ++gb->rm; r16--;
+#define INCrr(r16)    OP(INCrr); INC_MCYCLE; r16++;
+#define DECrr(r16)    OP(DECrr); INC_MCYCLE; r16--;
 
 /** CPU control instructions **/
 
@@ -231,17 +239,17 @@
 /** Jump and call instructions **/
 
 /* Jump to | relative jump */
-#define JPNN    OP(JPNN)  gb->pc = CPU_RW (gb->pc); ++gb->rm;
+#define JPNN    OP(JPNN)  gb->pc = CPU_RW (gb->pc); INC_MCYCLE;
 #define JPHL    OP(JPHL)  gb->pc = REG_HL; 
-#define JRm     OP(JRm)   gb->pc += (int8_t) CPU_RB (gb->pc); gb->pc++; ++gb->rm;
+#define JRm     OP(JRm)   gb->pc += (int8_t) CPU_RB (gb->pc); gb->pc++; INC_MCYCLE;
 
 /* Calls */
 #define CALLm   OP(CALLm);  {\
     gb->nn = CPU_RW (gb->pc); gb->pc += 2; gb->sp -= 2;\
-    CPU_WW(gb->sp, gb->pc); gb->pc = gb->nn; ++gb->rm; }\
+    CPU_WW(gb->sp, gb->pc); gb->pc = gb->nn; INC_MCYCLE; }\
 
     /* Return function template */
-    #define RET__     gb->pc = CPU_RW (gb->sp); ++gb->rm; gb->sp += 2; 
+    #define RET__     gb->pc = CPU_RW (gb->sp); INC_MCYCLE; gb->sp += 2; 
 
 #define RET     OP(RET)    RET__;
 #define RETI    OP(RETI)   RET__; gb->ime = 1;
@@ -249,18 +257,18 @@
     /* Conditional function templates */
     #define JP_IF(X) \
         gb->nn = CPU_RW (gb->pc); gb->pc += 2;\
-        if (X) { gb->pc = gb->nn ; ++gb->rm; }\
+        if (X) { gb->pc = gb->nn ; INC_MCYCLE; }\
 
     #define JR_IF(X) \
         int8_t e = (int8_t) CPU_RB (gb->pc++);\
-        if (X) { gb->pc += e; ++gb->rm; }\
+        if (X) { gb->pc += e; INC_MCYCLE; }\
 
     #define CALL_IF(X) \
         gb->nn = CPU_RW (gb->pc); gb->pc += 2;\
         if (X) { PUSH_(gb->pc >> 8, gb->pc & 0xFF);\
             gb->pc = gb->nn; }\
 
-    #define RET_IF(X) ++gb->rm; if (X) { RET__; }
+    #define RET_IF(X) INC_MCYCLE; if (X) { RET__; }
 
 /* Conditional jump, relative jump, return, call */
 
@@ -274,7 +282,7 @@
 #define JP_(C)    OP(JP_)     { JP_IF   (COND_(C)); }
 #define CALL_(C)  OP(CALL_)   { CALL_IF (COND_(C)); }
 
-#define RST            OP(RST)    gb->sp -= 2; ++gb->rm; CPU_WW (gb->sp, gb->pc); gb->pc = op & 0x38;
+#define RST            OP(RST)    gb->sp -= 2; INC_MCYCLE; CPU_WW (gb->sp, gb->pc); gb->pc = op & 0x38;
 
 /* Rotate and shift instructions */
 
