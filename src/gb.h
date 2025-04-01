@@ -21,6 +21,7 @@
 #define IO_SIZE       0x100
 
 #define GB_FRAME_RATE    CPU_FREQ_DMG / FRAME_CYCLES
+#define INSTR_TIGHT_LOOP 1
 
 /* Assign register pair as 16-bit union */
 
@@ -220,7 +221,7 @@ static inline void gb_step (struct GB * gb)
     gb->rt = 0;
 
     int i;
-    for (i = 0; i < 10; i++)
+    for (i = 0; i < INSTR_TIGHT_LOOP; ++i)
     {
         if (gb->stopped)
         {
