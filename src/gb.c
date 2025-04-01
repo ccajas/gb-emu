@@ -288,7 +288,6 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
         case 8 ... 0xF:
             /* Fetch value at address (HL) if it's needed */
             //uint8_t hl = ((op & 7) == 0x6) ? CPU_RB(REG_HL) : 0;
-            
             switch (op)
             {
                 /* Halt */
@@ -471,7 +470,6 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
 #endif
 
     gb->rt = gb->rm * 4;
-    //gb->rm = 0;
 }
 
 void gb_exec_cb(struct GB *gb, const uint8_t op)
@@ -684,6 +682,8 @@ struct sprite_data
     uint8_t x;
 };
 
+//#define HIGH_SORT_ACCURACY
+#ifdef HIGH_SORT_ACCURACY
 int compare_sprites(const void *in1, const void *in2)
 {
     const struct sprite_data *sd1, *sd2;
@@ -697,6 +697,7 @@ int compare_sprites(const void *in1, const void *in2)
 
     return (int)sd1->sprite_number - (int)sd2->sprite_number;
 }
+#endif
 
 #define PPU_GET_TILE(pixelX, X)\
     /* fetch next tile */\
@@ -796,6 +797,7 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
 
 #define MAX_SPRITES_LINE 10
 #define NUM_SPRITES 40
+#define SPRITE_SORTED
 
     if (LCDC_(OBJ_Enable))
     {
@@ -840,11 +842,12 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
             if (totalSprites == 10)
                 break;
         }
-
+#ifdef HIGH_SORT_ACCURACY
         /* If maximum number of sprites reached, prioritise X
          * coordinate and object location in OAM. */
         qsort(&sprites_to_render[0], totalSprites,
               sizeof(sprites_to_render[0]), compare_sprites);
+#endif
         if (totalSprites > MAX_SPRITES_LINE)
             totalSprites = MAX_SPRITES_LINE;
 
@@ -896,7 +899,9 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
     return pixels;
 }
 
-static inline void gb_oam_read(struct GB *gb)
+# define _FORCE_INLINE __attribute__((always_inline)) inline
+
+_FORCE_INLINE void gb_oam_read(struct GB *gb)
 {
     /* Mode 2 - OAM read */
     if (IO_STAT_MODE != Stat_OAM_Search)
@@ -909,7 +914,7 @@ static inline void gb_oam_read(struct GB *gb)
     }
 }
 
-static inline void gb_transfer(struct GB *gb)
+_FORCE_INLINE void gb_transfer(struct GB *gb)
 {
     const uint8_t bgpIndex = gb->lineClock - TICKS_OAM_READ;
     bgpValues[bgpIndex >> 3] = gb->io[BGPalette];
@@ -923,7 +928,7 @@ static inline void gb_transfer(struct GB *gb)
 
 /* Evaluate LY==LYC */
 
-static inline void gb_eval_LYC(struct GB *const gb)
+_FORCE_INLINE void gb_eval_LYC(struct GB *const gb)
 {
     /* Set bit 02 flag for comparing lYC and LY
        If STAT interrupt is enabled, an interrupt is requested */
@@ -936,6 +941,8 @@ static inline void gb_eval_LYC(struct GB *const gb)
     else /* Unset the flag */
         gb->io[LCDStatus] &= 0xFB;
 }
+
+//#define DISABLE_LCD
 
 void gb_render(struct GB *const gb)
 {
@@ -960,12 +967,13 @@ void gb_render(struct GB *const gb)
                     gb->io[IntrFlags] |= IF_LCD_STAT;
 
                 if (!LCDC_(LCD_Enable) || (gb->extData.frameSkip &&
-                    (gb->totalFrames % gb->extData.frameSkip > 0)))
+                    (gb->totalFrames % (gb->extData.frameSkip + 1) > 0)))
                     return;
-
+#ifndef DISABLE_LCD
                 /* Fetch line of pixels for the screen and draw them */
                 gb_pixel_fetch(gb);
                 gb->draw_line (gb->extData.ptr, gb->extData.pixelLine, gb->io[LY]);
+#endif
             }
         }
         else
