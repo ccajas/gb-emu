@@ -293,7 +293,7 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
             {
                 /* Halt */
                 case 0x76:
-                OP(HALT);
+                OP(HALT)
                 if (!gb->ime)
                 {
                     if (gb->io[IntrEnabled].r && gb->io[IntrFlags].r & IF_Any)
@@ -452,7 +452,7 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
                     gb_exec_cb(gb, CPU_RB(gb->pc++));
                     break;
                 default:
-                    INVALID;
+                    INVALID
             }
     }
 
@@ -483,48 +483,31 @@ void gb_exec_cb(struct GB *gb, const uint8_t op)
 
     const uint8_t opL = op & 0xf;
     const uint8_t opHh = op >> 3; /* Octal divisions */
-
-    uint8_t *r8_g[] = {
-        &REG_B, &REG_C, &REG_D, &REG_E, &REG_H, &REG_L, &R_FLAGS, &REG_A};
+    const uint8_t op_r8 = op & 7;
 
     const uint8_t r_bit = opHh & 7;
-    uint8_t *reg1 = r8_g[opL & 7];
 
     /* Fetch value at address (HL) if it's needed */
     uint8_t hl = (opL == 0x6 || opL == 0xE) ? CPU_RB(REG_HL) : 0;
 
-    switch (opHh)
+    switch (op)
     {
-        case 0 ... 7:
-            switch (op & 0x38)
-            {
-                case 0:
-                    OPR_2_(RLC)  break;
-                case 8:
-                    OPR_2_(RRC)  break;
-                case 0x10:
-                    OPR_2_(RL)   break;
-                case 0x18:
-                    OPR_2_(RR)   break;
-                case 0x20:
-                    OPR_2_(SLA)  break;
-                case 0x28:
-                    OPR_2_(SRA)  break;
-                case 0x30:
-                    OPR_2_(SWAP) break;
-                case 0x38:
-                    OPR_2_(SRL)  break;
-            }
-            break;
-        case 8 ... 0xF:
-            OPR_2_(BIT) break; /* Bit test  */
-        case 0x10 ... 0x17:
-            OPR_2_(RES) break; /* Bit reset */
-        case 0x18 ... 0x1F:
-            OPR_2_(SET) break; /* Bit set   */
+        OPR_2_(0,    RLC)
+        OPR_2_(0x8,  RRC)
+        OPR_2_(0x10, RL)
+        OPR_2_(0x18, RR) 
+        OPR_2_(0x20, SLA)
+        OPR_2_(0x28, SRA)
+        OPR_2_(0x30, SWAP)
+        OPR_2_(0x38, SRL)
+
+        OPR_2R_(0x40, BIT) /* Bit test  */
+        OPR_2R_(0x80, RES) /* Bit reset */
+        OPR_2R_(0xC0, SET) /* Bit set   */
     }
+
     /* Write back to (HL) for most (HL) operations except BIT */
-    if ((op & 7) == 6 && (opHh < 8 || opHh > 0xF))
+    if (op_r8 == 6 && (opHh < 8 || opHh > 0xF))
     {
         #ifndef USE_INC_MCYCLE
         ++gb->rm;

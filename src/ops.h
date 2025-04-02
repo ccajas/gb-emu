@@ -35,11 +35,30 @@
 #endif
 
 /** Choose between operations based on position **/
-/*switch (op & 7) { case 0 ... 5: case 7: A; break; default: B }*/
 
-#define OPR_2_(name) \
-    switch (op & 7) { case 0 ... 5: case 7: name(*reg1); break;\
-    default: name(hl); }\
+#define OPR_2_(op_, name) \
+    case op_:     name (REG_B); break;\
+    case op_ + 1: name (REG_C); break;\
+    case op_ + 2: name (REG_D); break;\
+    case op_ + 3: name (REG_E); break;\
+    case op_ + 4: name (REG_H); break;\
+    case op_ + 5: name (REG_L); break;\
+    case op_ + 6: name (hl); break;\
+    case op_ + 7: name (REG_A); break;\
+/*
+    //switch (op_r8) { case 0 ... 5: case 7: name(*reg1); break;\
+    //default: name(hl); }\
+*/
+
+#define OPR_2R_(op_, name) \
+    OPR_2_(op_, name)\
+    OPR_2_(op_ + 0x8,  name)\
+    OPR_2_(op_ + 0x10, name)\
+    OPR_2_(op_ + 0x18, name)\
+    OPR_2_(op_ + 0x20, name)\
+    OPR_2_(op_ + 0x28, name)\
+    OPR_2_(op_ + 0x30, name)\
+    OPR_2_(op_ + 0x38, name)\
 
 #define OP_r8(op_, name, R)\
     case op_:     name ##_r8(R, REG_B); break;\
@@ -86,7 +105,7 @@
 /** 8-bit load instructions **/
 
 #define LD_r8(dest, src)     OP(LD_r8) dest = src;
-#define LD_HL_r8(_, src)     OP(LD_r8) CPU_WB(REG_HL, src);
+#define LD_HL_r8(_, src)     OP(LD_r8) CPU_WB(REG_HL, src)
 
 #define LD_OPS\
     OP_r8_hl(0x40, LD, REG_B)\
@@ -97,8 +116,8 @@
     OP_r8_hl(0x68, LD, REG_L)\
     OP_r8_hl(0x78, LD, REG_A)\
 
-#define LDrm_r8(r8, _)   OP(LD m)  r8 = CPU_RB_PC;
-#define LDrm_hl(r8, _)   OP(LD m)  CPU_WB (REG_HL, CPU_RB_PC);
+#define LDrm_r8(r8, _)   OP(LD m)  r8 = CPU_RB_PC
+#define LDrm_hl(r8, _)   OP(LD m)  CPU_WB (REG_HL, CPU_RB_PC)
 
 #define LDAmm   OP(LDAmm)   REG_A = CPU_RB (CPU_RW (gb->pc)); gb->pc += 2;
 #define LDmmA   OP(LDmmA)   CPU_WB (CPU_RW (gb->pc), REG_A);  gb->pc += 2;
@@ -129,10 +148,10 @@
 
 /* Flag setting helpers */
 
-#define SET_FLAG_Z(X)    gb->f_z = ((X) == 0);
-#define SET_FLAG_H_S(X)  gb->f_h = ((X) & 0x10) > 0;
-#define SET_FLAG_H(X)    gb->f_h = (X);
-#define SET_FLAG_C(X)    gb->f_c = (X);
+#define SET_FLAG_Z(X)    gb->f_z = ((X) == 0)
+#define SET_FLAG_H_S(X)  gb->f_h = ((X) & 0x10) > 0
+#define SET_FLAG_H(X)    gb->f_h = (X)
+#define SET_FLAG_C(X)    gb->f_c = (X)
 
 #define SET_FLAGS(mask, z,n,h,c)\
     gb->flags = (gb->flags & mask) | ((!z << 7) + (n << 6) + (h << 5) + (c << 4));
@@ -286,55 +305,55 @@
 
 /* Rotate and shift instructions */
 
-#define RLA   	OP(RLA);   { gb->nn = REG_A; REG_A = (REG_A << 1) | (gb->f_c);      gb->flags = 0; gb->f_c = ((gb->nn >> 7) & 1); }
-#define RRA     OP(RRA);   { gb->nn = REG_A; REG_A = (REG_A >> 1) | (gb->f_c << 7); gb->flags = 0; gb->f_c = (gb->nn & 1); }
-#define RLCA    OP(RLCA);  REG_A = (REG_A << 1) | (REG_A >> 7); gb->flags = 0; gb->f_c = (REG_A & 1); 
-#define RRCA    OP(RRCA);  gb->flags = 0; gb->f_c = (REG_A & 1); REG_A = (REG_A >> 1) | (REG_A << 7); 
+#define RLA   	OP(RLA)   { gb->nn = REG_A; REG_A = (REG_A << 1) | (gb->f_c);      gb->flags = 0; gb->f_c = ((gb->nn >> 7) & 1); }
+#define RRA     OP(RRA)   { gb->nn = REG_A; REG_A = (REG_A >> 1) | (gb->f_c << 7); gb->flags = 0; gb->f_c = (gb->nn & 1); }
+#define RLCA    OP(RLCA)  REG_A = (REG_A << 1) | (REG_A >> 7); gb->flags = 0; gb->f_c = (REG_A & 1); 
+#define RRCA    OP(RRCA)  gb->flags = 0; gb->f_c = (REG_A & 1); REG_A = (REG_A >> 1) | (REG_A << 7); 
 
-#define RLC(X)  OP(RLC); {\
+#define RLC(X)  OP(RLC) {\
     gb->nn = X;\
     X <<= 1; X |= (gb->nn >> 7);\
     SET_FLAGS(0, X, 0, 0, (gb->nn >> 7));\
 }
 
-#define RL(X)   OP(RL); {\
+#define RL(X)   OP(RL) {\
     gb->nn = X;\
     X <<= 1; X |= gb->f_c;\
     SET_FLAGS(0, X, 0, 0, (gb->nn >> 7));\
 }
 
-#define RRC(X)  OP(RRC); {\
+#define RRC(X)  OP(RRC) {\
     gb->nn = X;\
     X >>= 1; X |= ((gb->nn << 7) & 0xff);\
     SET_FLAGS(0, X, 0, 0, (gb->nn & 1));\
 }
 
-#define RR(X)   OP(RR); {\
+#define RR(X)   OP(RR) {\
     gb->nn = X;\
     X >>= 1; X |= gb->f_c << 7;\
     SET_FLAGS(0, X, 0, 0, (gb->nn & 1));\
 }
 
-#define SLA(X)  OP(SLA);   gb->flags = 0; SET_FLAG_C (X >> 7); X <<= 1; SET_FLAG_Z (X);
-#define SRA(X)  OP(SRA);   gb->flags = 0; SET_FLAG_C (X & 1); X = (X >> 1) | (X & 0X80); SET_FLAG_Z(X);
+#define SLA(X)  OP(SLA)   gb->flags = 0; SET_FLAG_C (X >> 7); X <<= 1; SET_FLAG_Z (X);
+#define SRA(X)  OP(SRA)   gb->flags = 0; SET_FLAG_C (X & 1); X = (X >> 1) | (X & 0X80); SET_FLAG_Z(X);
 
 #define SWAP(X) OP(SWAP) {\
     X = ((0xF0 & (X << 4)) | (0x0F & (X >> 4)));\
     SET_FLAGS(0, X, 0, 0, 0);\
 }
 
-#define SRL(X)  OP(SRL); {\
+#define SRL(X)  OP(SRL) {\
     uint8_t fc = (X & 1) ? 1 : 0;\
     X >>= 1; SET_FLAGS(0, X, 0, 0, fc);\
 }
 
 /* Bit instructions */
 
-#define BIT(X)  OP(BIT);   SET_FLAGS(16, (X & (1 << r_bit)), 0, 1, 0);
-#define RES(X)  OP(RES);   X &= (0xFE << r_bit) | (0xFF >> (8 - r_bit));
-#define SET(X)  OP(SET);   X |= (1 << r_bit); 
+#define BIT(X)  OP(BIT)   SET_FLAGS(16, (X & (1 << r_bit)), 0, 1, 0);
+#define RES(X)  OP(RES)   X &= (0xFE << r_bit) | (0xFF >> (8 - r_bit));
+#define SET(X)  OP(SET)   X |= (1 << r_bit); 
 
 /* Misc instructions */
 
 #define PREFIX    OP(PREFIX)
-#define INVALID   OP(INVALID); gb->invalid = 1;
+#define INVALID   OP(INVALID)   gb->invalid = 1;
