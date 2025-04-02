@@ -483,8 +483,6 @@ void gb_exec_cb(struct GB *gb, const uint8_t op)
 
     const uint8_t opL = op & 0xf;
     const uint8_t opHh = op >> 3; /* Octal divisions */
-    const uint8_t op_r8 = op & 7;
-
     const uint8_t r_bit = opHh & 7;
 
     /* Fetch value at address (HL) if it's needed */
@@ -507,7 +505,7 @@ void gb_exec_cb(struct GB *gb, const uint8_t op)
     }
 
     /* Write back to (HL) for most (HL) operations except BIT */
-    if (op_r8 == 6 && (opHh < 8 || opHh > 0xF))
+    if ((op & 7) == 6 && (opHh < 8 || opHh > 0xF))
     {
         #ifndef USE_INC_MCYCLE
         ++gb->rm;

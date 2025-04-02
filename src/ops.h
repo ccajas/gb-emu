@@ -142,8 +142,8 @@
 
 #define PUSH_(X, Y)     gb->sp--; INC_MCYCLE; CPU_WB (gb->sp, X); gb->sp--; CPU_WB (gb->sp, Y);
 
-#define PUSHrr(op_, R16_1, R16_2)  OP(PUSHrr); PUSH_(R16_1, R16_2);
-#define POPrr(op_, R16_1, R16_2)   OP(POPrr);\
+#define PUSHrr(op_, R16_1, R16_2)  OP(PUSHrr) PUSH_(R16_1, R16_2);
+#define POPrr(op_, R16_1, R16_2)   OP(POPrr)\
     R16_2 = CPU_RB (gb->sp++) & ((op_ == 0xF1) ? 0xF0 : 0xFF); R16_1 = CPU_RB (gb->sp++);\
 
 /* Flag setting helpers */
@@ -270,8 +270,8 @@
     /* Return function template */
     #define RET__     gb->pc = CPU_RW (gb->sp); INC_MCYCLE; gb->sp += 2; 
 
-#define RET     OP(RET)    RET__;
-#define RETI    OP(RETI)   RET__; gb->ime = 1;
+#define RET     OP(RET)    RET__
+#define RETI    OP(RETI)   RET__ gb->ime = 1;
 
     /* Conditional function templates */
     #define JP_IF(X) \
@@ -287,7 +287,7 @@
         if (X) { PUSH_(gb->pc >> 8, gb->pc & 0xFF);\
             gb->pc = gb->nn; }\
 
-    #define RET_IF(X) INC_MCYCLE; if (X) { RET__; }
+    #define RET_IF(X) INC_MCYCLE; if (X) { RET__ }
 
 /* Conditional jump, relative jump, return, call */
 
@@ -296,12 +296,12 @@
     (_ == 1) ?   gb->f_z  :\
     (_ == 2) ? (!gb->f_c) : gb->f_c\
 
-#define JR_(C)    OP(JR_)     { JR_IF   (COND_(C)); }
-#define RET_(C)   OP(RET_)    { RET_IF  (COND_(C)); }
-#define JP_(C)    OP(JP_)     { JP_IF   (COND_(C)); }
-#define CALL_(C)  OP(CALL_)   { CALL_IF (COND_(C)); }
+#define JR_(C)    OP(JR_)     { JR_IF   (COND_(C)) }
+#define RET_(C)   OP(RET_)    { RET_IF  (COND_(C)) }
+#define JP_(C)    OP(JP_)     { JP_IF   (COND_(C)) }
+#define CALL_(C)  OP(CALL_)   { CALL_IF (COND_(C)) }
 
-#define RST            OP(RST)    gb->sp -= 2; INC_MCYCLE; CPU_WW (gb->sp, gb->pc); gb->pc = op & 0x38;
+#define RST       OP(RST)    gb->sp -= 2; INC_MCYCLE; CPU_WW (gb->sp, gb->pc); gb->pc = op & 0x38;
 
 /* Rotate and shift instructions */
 

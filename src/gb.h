@@ -57,6 +57,9 @@ struct GB
     REG_16(de, e, d);
     REG_16(hl, l, h);
 
+    /* Register bitfields */
+    /* Assumes little-endian for the host platform. */
+
     union
     {
         struct {
