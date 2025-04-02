@@ -86,11 +86,12 @@ struct GB
     uint64_t clock_t;
     uint16_t lineClock;
     uint32_t frameClock;
+    uint32_t apuClock;
     uint8_t  frame;
     uint32_t totalFrames;
 
     /* Timer data */
-    uint16_t divClock, lastDiv;
+    uint16_t divClock, lastDivClock;
     uint16_t timAClock;
     uint8_t  timAOverflow, nextTimA_IRQ, newTimALoaded;
     int16_t  rm, rt; /* Tracks individual step cycles */
@@ -151,7 +152,10 @@ void gb_handle_timers       (struct GB *);
 void gb_update_div          (struct GB *);
 void gb_update_timer        (struct GB *, const uint8_t);
 void gb_update_timer_simple (struct GB *);
+
 void gb_render              (struct GB *);
+void gb_init_audio          (struct GB *);
+void gb_update_audio        (struct GB *);
 
 static inline uint8_t gb_rom_loaded (struct GB * gb)
 {

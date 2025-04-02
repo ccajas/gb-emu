@@ -266,7 +266,8 @@ void gb_boot_reset(struct GB *gb)
     gb->io[WindowY]     = 0x0;
     gb->io[WindowX]     = 0x0;
     gb->io[IntrEnabled] = 0x0;
-    
+
+    gb_init_audio(gb);
     gb_boot_register(gb, 1);
 }
 
@@ -578,7 +579,7 @@ void gb_update_timer(struct GB *gb, const uint8_t change)
     gb->divClock = (change) ? gb->divClock + 1 : 0;
     gb->io[Divider] = (gb->divClock >> 8);
 
-    gb->lastDiv = gb->divClock;
+    gb->lastDivClock = gb->divClock;
 
     /* Leave if timer is disabled */
     const uint8_t tac = gb->io[TimerCtrl];
@@ -589,7 +590,7 @@ void gb_update_timer(struct GB *gb, const uint8_t change)
     const uint8_t checkBits[4] = {9, 3, 5, 7};
     const uint8_t cBit = checkBits[tac & 0x3];
 
-    if (FALLING_EDGE(gb->lastDiv >> cBit, gb->divClock >> cBit))
+    if (FALLING_EDGE(gb->lastDivClock >> cBit, gb->divClock >> cBit))
     {
         /* Request timer interrupt if pending */
         if (++gb->io[TimA] == 0)
@@ -599,9 +600,10 @@ void gb_update_timer(struct GB *gb, const uint8_t change)
 
 /* Update DIV register */
 
-void gb_update_div(struct GB *gb)
+inline void gb_update_div(struct GB *gb)
 {
     gb->divClock += gb->rt;
+
     while (gb->divClock >= 256)
     {
         ++gb->io[Divider];
@@ -613,7 +615,7 @@ static const uint16_t TAC_INTERVALS[4] = {1024, 16, 64, 256};
 
 /* Update TIMA register */
 
-void gb_update_timer_simple(struct GB *gb)
+inline void gb_update_timer_simple(struct GB *gb)
 {
     if ((gb->io[TimerCtrl] & 4) == 0) /* TIMA counter disabled */
         return;
@@ -1015,4 +1017,18 @@ void gb_render(struct GB *const gb)
         }
     }
     /* ...and DMA transfer to OMA, if needed */
+}
+
+/*
+ *****************  APU functions  *****************
+ */
+
+void gb_init_audio (struct GB * const gb)
+{
+    
+}
+
+void gb_update_audio (struct GB * const gb)
+{
+    gb->apuClock += gb->rt;
 }

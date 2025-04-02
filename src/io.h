@@ -13,6 +13,31 @@ static const enum
     TMA         = 0x06,
     TimerCtrl   = 0x07,
 
+    /* Audio */
+    Ch1Sweep    = 0x10,
+    Ch1Length   = 0x11,
+    Ch1Vol      = 0x12,
+    Ch1Period   = 0x13,
+    Ch1Ctrl     = 0x14,
+    Ch2Length   = 0x16,
+    Ch2Vol      = 0x17,
+    Ch2Period   = 0x18,
+    Ch2Ctrl     = 0x19,
+    Ch3DAC      = 0x1A,
+    Ch3Length   = 0x1B,
+    Ch3Vol      = 0x1C,
+    Ch3Period   = 0x1D,
+    Ch3Ctrl     = 0x1E,
+    Ch4Length   = 0x20,
+    Ch4Vol      = 0x21,
+    Ch4Freq     = 0x22,
+    Ch4Ctrl     = 0x23,
+
+    MasterVol   = 0x24,
+    AudioPan    = 0x25,
+    AudioCtrl   = 0x26,
+
+    /* Video/display */
     LCDControl	= 0x40,
     LCDStatus	= 0x41,
     ScrollY	    = 0x42,
