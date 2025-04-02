@@ -97,10 +97,8 @@ static const enum
 }
 LCD_Control_Flags;
 
-#define IO_STAT_CLEAR   (gb->io[LCDStatus] & 0xFC)
-#define IO_STAT_MODE    (gb->io[LCDStatus] & 3)
+#define IO_STAT_MODE    gb->io[LCDStatus].stat_mode
 
-#define LCDC_(bit)  (gb->io[LCDControl] & (1 << bit))
-#define STAT_(bit)  (gb->io[LCDStatus]  & (1 << bit))
+#define LCDC_(bit)  (gb->io[LCDControl].r & (1 << bit))
 
 #endif

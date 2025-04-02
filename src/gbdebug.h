@@ -470,7 +470,7 @@ static inline void debug_dump_tiles (
 		const uint8_t tileID = gb->oam[s * 4 + 2];
 		activeSpriteTiles[tileID] = 1;
 		/* Make 8x16 OBJ bottom tiles active */
-		activeSpriteTiles[tileID + 1] = (gb->io[LCDControl] & 4) >> 2;
+		activeSpriteTiles[tileID + 1] = (gb->io[LCDControl].r & 4) >> 2;
 	}
 
     int t;

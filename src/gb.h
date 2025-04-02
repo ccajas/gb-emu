@@ -65,7 +65,7 @@ struct GB
         struct {
             uint16_t af, bc, de, hl; 
         } r16;
-    }; 
+    };
 
     union
     {
@@ -79,6 +79,34 @@ struct GB
         };
         uint8_t flags;
     };
+
+    /* Assigned bit values for certain registers */
+    union regValues 
+    {
+        struct /* LCD Control */
+        {
+            uint8_t BG_Win_Enable : 1;
+            uint8_t OBJ_Enable    : 1;
+            uint8_t OBJ_Size      : 1;
+            uint8_t BG_Area       : 1;
+            uint8_t BG_Win_Data   : 1;
+            uint8_t Window_Enable : 1;
+            uint8_t Window_Area   : 1;
+            uint8_t LCD_Enable    : 1;
+        };
+        struct /* LCD Status */
+        {
+            uint8_t stat_mode   : 2;
+            uint8_t stat_LYC_LY : 1;
+            uint8_t stat_HBlank : 1;
+            uint8_t stat_VBlank : 1;
+            uint8_t stat_OAM    : 1;
+            uint8_t stat_LYC    : 1;
+            uint8_t stat_hb     : 1; /* Unused */
+        };
+        uint8_t r;
+    }
+    io[IO_SIZE];
     
     /* Other CPU registers / general timekeeping */
     uint16_t pc, sp;
@@ -109,7 +137,6 @@ struct GB
     uint8_t vram[VRAM_SIZE];
     uint8_t oam [OAM_SIZE];
     uint8_t hram[HRAM_SIZE];   /* High RAM  */
-    uint8_t io  [IO_SIZE];
 
     /* Interrupt master enable and PC increment */
     uint8_t ime : 1;
@@ -164,7 +191,7 @@ static inline uint8_t gb_rom_loaded (struct GB * gb)
 
 static inline void gb_boot_register (struct GB * const gb, const uint8_t val)
 {
-    gb->io[BootROM] = val;
+    gb->io[BootROM].r = val;
 }
 
 /*
@@ -175,7 +202,7 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
 {
     if (!write)
     {
-        gb->io[Joypad] |= (!(gb->io[Joypad] & 0x10)) ?
+        gb->io[Joypad].r |= (!(gb->io[Joypad].r & 0x10)) ?
             (gb->extData.joypad & 0xF) :  /* Direction buttons */
             (gb->extData.joypad >> 4);    /* Action buttons    */
 
@@ -183,22 +210,22 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
         for (i = 0; i < 4; i++)
         {
             const uint8_t btnLast = (gb->lastJoypad >> i) & 1;
-            const uint8_t btnCurr = (gb->io[Joypad] >> i) & 1;
+            const uint8_t btnCurr = (gb->io[Joypad].r >> i) & 1;
 
             if (btnLast == 1 && btnCurr == 0)
             {
-                gb->io[IntrFlags] |= IF_Joypad;
+                gb->io[IntrFlags].r |= IF_Joypad;
                 break;
             }
         }
-        gb->lastJoypad = gb->io[Joypad] & 0xF;
+        gb->lastJoypad = gb->io[Joypad].r & 0xF;
 
-        if (!(gb->io[Joypad] & 0xF))
+        if (!(gb->io[Joypad].r & 0xF))
             LOG_("GB: Joypad reset detected!\n");
-        return gb->io[Joypad];
+        return gb->io[Joypad].r;
     }
     else { /* Set only bits 5 and 6 for selecting action/direction */
-        gb->io[Joypad] = (val & 0x30);
+        gb->io[Joypad].r = (val & 0x30);
     }
     
     return 0;
@@ -239,7 +266,7 @@ static inline void gb_step (struct GB * gb)
         if (gb->halted)
         {
             /* Check if interrupt is pending */
-            if (gb->io[IntrEnabled] & gb->io[IntrFlags] & IF_Any)
+            if (gb->io[IntrEnabled].r & gb->io[IntrFlags].r & IF_Any)
                 gb->halted = 0;
 
             if (gb->ime)

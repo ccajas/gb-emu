@@ -19,20 +19,20 @@
 inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
     if (!write)
-        return gb->io[addr % 0x80];
+        return gb->io[addr % 0x80].r;
     else
     {
         switch (addr & 0xFF)
         {
 #ifdef USE_TIMER_SIMPLE
             case Divider:
-                gb->io[Divider] = 0;
+                gb->io[Divider].r = 0;
                 break;
             case TimA:
                 // LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A);
                 break;
             case TMA:
-                gb->io[TMA] = val;
+                gb->io[TMA].r = val;
                 break;
 #else
             case Divider:
@@ -41,41 +41,41 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
             case TimA:
                 // LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A);
                 if (!gb->newTimALoaded)
-                    gb->io[TimA] = val; /* Update TIMA if new value wasn't loaded last cycle    */
+                    gb->io[TimA].r = val; /* Update TIMA if new value wasn't loaded last cycle    */
                 if (gb->nextTimA_IRQ)
                     gb->nextTimA_IRQ = 0; /* Cancel any pending IRQ when accessing TIMA           */
                 break;
             case TMA: /* Update TIMA also if TMA is written in the same cycle */
                 if (gb->newTimALoaded)
-                    gb->io[TimA] = val;
+                    gb->io[TimA].r = val;
                 break;
 #endif
             case TimerCtrl: /* Todo: TIMA should increase right here if last bit was 1 and current is 0  */
-                gb->io[TimerCtrl] = val | 0xF8;
+                gb->io[TimerCtrl].r = val | 0xF8;
                 break;
             case IntrFlags: /* Mask unused bits for IE and IF         */
             case IntrEnabled:
-                gb->io[addr % 0x80] = val | 0xE0;
+                gb->io[addr % 0x80].r = val | 0xE0;
                 break;
             case LCDControl:
             { /* Check whether LCD will be turned on or off */
-                const uint8_t lcdEnabled = (LCDC_(LCD_Enable));
+                const uint8_t lcdEnabled =  gb->io[LCDControl].LCD_Enable;
                 if (lcdEnabled && !(val & (1 << LCD_Enable)))
                 {
-                    LOG_("GB: ░ LCD turn off (%d:%d)\n", gb->totalFrames, gb->io[LY]);
-                    gb->io[LCDStatus] = IO_STAT_CLEAR | 0; /* Clear STAT mode when turning off LCD       */
-                    gb->io[LY] = 0;
+                    LOG_("GB: ░ LCD turn off (%d:%d)\n", gb->totalFrames, gb->io[LY].r);
+                    IO_STAT_MODE = 0; /* Clear STAT mode when turning off LCD       */
+                    gb->io[LY].r = 0;
                 }
                 else if (!lcdEnabled && (val & (1 << LCD_Enable)))
                 {
-                    LOG_("GB: ▓ LCD turn on  (%d:%d)\n", gb->totalFrames, gb->io[LY]);
+                    LOG_("GB: ▓ LCD turn on  (%d:%d)\n", gb->totalFrames, gb->io[LY].r);
                 }
                 break;
             }
             case LY: /* Writing to LY resets line counter      */
                 break;
             case DMA: /* OAM DMA transfer     */
-                gb->io[DMA] = val;
+                gb->io[DMA].r = val;
                 int i = 0; /* Todo: Make it write across 160 cycles */
                 const uint16_t src = val << 8;
                 while (i < OAM_SIZE)
@@ -85,7 +85,7 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 }
                 break;
         }
-        gb->io[addr & 0xFF] = val;
+        gb->io[addr & 0xFF].r = val;
     }
     return 0;
 }
@@ -112,7 +112,7 @@ uint8_t gb_mem_access(struct GB *gb, const uint16_t addr, const uint8_t val, con
     INC_MCYCLE;
     struct Cartridge *cart = &gb->cart;
 
-    if (addr < 0x0100 && gb->io[BootROM] == 0) /* Run boot ROM if needed */
+    if (addr < 0x0100 && gb->io[BootROM].r == 0) /* Run boot ROM if needed */
     {
         if (!write)
             return gb->bootRom[addr];
@@ -211,7 +211,7 @@ void gb_reset(struct GB *gb, uint8_t *bootROM)
 
     gb->bootRom = bootROM;
     gb->extData.joypad = 0xFF;
-    gb->io[Joypad] = 0xCF;
+    gb->io[Joypad].r = 0xCF;
     gb_boot_register(gb, 0);
 
     gb->pc = 0;
@@ -248,24 +248,24 @@ void gb_boot_reset(struct GB *gb)
 
     /* Initalize I/O registers (DMG) */
     memset(gb->io, 0xFF, sizeof(gb->io));
-    gb->io[Joypad]      = 0xCF;
-    gb->io[SerialCtrl]  = 0x7E;
-    gb->io[Divider]     = 0xAB;
-    gb->io[TimA]        = 0x0;
-    gb->io[TMA]         = 0x0;
-    gb->io[TimerCtrl]   = 0xF8;
-    gb->io[IntrFlags]   = 0xE1;
-    gb->io[LCDControl]  = 0x91;
-    gb->io[LCDStatus]   = 0x85;
-    gb->io[ScrollY]     = 0x0;
-    gb->io[ScrollX]     = 0x0;
-    gb->io[LY]          = 0x0;
-    gb->io[LYC]         = 0x0;
-    gb->io[DMA]         = 0xFF;
-    gb->io[BGPalette]   = 0xFC;
-    gb->io[WindowY]     = 0x0;
-    gb->io[WindowX]     = 0x0;
-    gb->io[IntrEnabled] = 0x0;
+    gb->io[Joypad].r      = 0xCF;
+    gb->io[SerialCtrl].r  = 0x7E;
+    gb->io[Divider].r     = 0xAB;
+    gb->io[TimA].r        = 0x0;
+    gb->io[TMA].r         = 0x0;
+    gb->io[TimerCtrl].r   = 0xF8;
+    gb->io[IntrFlags].r   = 0xE1;
+    gb->io[LCDControl].r  = 0x91;
+    gb->io[LCDStatus].r   = 0x85;
+    gb->io[ScrollY].r     = 0x0;
+    gb->io[ScrollX].r     = 0x0;
+    gb->io[LY].r          = 0x0;
+    gb->io[LYC].r         = 0x0;
+    gb->io[DMA].r         = 0xFF;
+    gb->io[BGPalette].r   = 0xFC;
+    gb->io[WindowY].r     = 0x0;
+    gb->io[WindowX].r     = 0x0;
+    gb->io[IntrEnabled].r = 0x0;
 
     gb_init_audio(gb);
     gb_boot_register(gb, 1);
@@ -296,7 +296,7 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
                 OP(HALT);
                 if (!gb->ime)
                 {
-                    if (gb->io[IntrEnabled] && gb->io[IntrFlags] & IF_Any)
+                    if (gb->io[IntrEnabled].r && gb->io[IntrFlags].r & IF_Any)
                         gb->pcInc = 0;
                     else
                         gb->halted = 1;
@@ -465,7 +465,7 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
     if (op == 0x10 && gb->stopped)
     {
         gb->stopped = 0;
-        gb_mem_access(gb, 0xFF00 + gb->io[Divider], 0, 1);
+        gb_mem_access(gb, 0xFF00 + gb->io[Divider].r, 0, 1);
     }
 
 #ifdef ASSERT_INSTR_TIMING
@@ -536,8 +536,8 @@ void gb_exec_cb(struct GB *gb, const uint8_t op)
 void gb_handle_interrupts(struct GB *gb)
 {
     /* Get interrupt flags */
-    const uint8_t io_IE = gb->io[IntrEnabled];
-    const uint8_t io_IF = gb->io[IntrFlags];
+    const uint8_t io_IE = gb->io[IntrEnabled].r;
+    const uint8_t io_IF = gb->io[IntrFlags].r;
 
     if (!gb->pcInc)
     {
@@ -565,7 +565,7 @@ void gb_handle_interrupts(struct GB *gb)
                 gb->pc = requestAddress;
 
                 /* Clear flag bit */
-                gb->io[IntrFlags] = io_IF & ~flag;
+                gb->io[IntrFlags].r = io_IF & ~flag;
                 gb->rt += 20;
                 break;
             }
@@ -577,12 +577,12 @@ void gb_update_timer(struct GB *gb, const uint8_t change)
 {
     /* Increment div every m-cycle and save bits 6-13 to DIV register */
     gb->divClock = (change) ? gb->divClock + 1 : 0;
-    gb->io[Divider] = (gb->divClock >> 8);
+    gb->io[Divider].r = (gb->divClock >> 8);
 
     gb->lastDivClock = gb->divClock;
 
     /* Leave if timer is disabled */
-    const uint8_t tac = gb->io[TimerCtrl];
+    const uint8_t tac = gb->io[TimerCtrl].r;
     if ((tac & 4) == 0)
         return;
 
@@ -593,7 +593,7 @@ void gb_update_timer(struct GB *gb, const uint8_t change)
     if (FALLING_EDGE(gb->lastDivClock >> cBit, gb->divClock >> cBit))
     {
         /* Request timer interrupt if pending */
-        if (++gb->io[TimA] == 0)
+        if (++gb->io[TimA].r == 0)
             gb->nextTimA_IRQ = 1;
     }
 }
@@ -606,7 +606,7 @@ inline void gb_update_div(struct GB *gb)
 
     while (gb->divClock >= 256)
     {
-        ++gb->io[Divider];
+        ++gb->io[Divider].r;
         gb->divClock -= 256;
     }
 }
@@ -617,10 +617,10 @@ static const uint16_t TAC_INTERVALS[4] = {1024, 16, 64, 256};
 
 inline void gb_update_timer_simple(struct GB *gb)
 {
-    if ((gb->io[TimerCtrl] & 4) == 0) /* TIMA counter disabled */
+    if ((gb->io[TimerCtrl].r & 4) == 0) /* TIMA counter disabled */
         return;
 
-    const uint16_t clockRate = TAC_INTERVALS[gb->io[TimerCtrl] & 3];
+    const uint16_t clockRate = TAC_INTERVALS[gb->io[TimerCtrl].r & 3];
     gb->timAClock += gb->rt;
 
     /* Exit when clock didn't pass interval */
@@ -629,10 +629,10 @@ inline void gb_update_timer_simple(struct GB *gb)
         /* Reset clock */
         gb->timAClock -= clockRate;
         /* Increment TIMA and request interrupt on TIMA overflow */
-        if (++gb->io[TimA] == 0)
+        if (++gb->io[TimA].r == 0)
         {
-            gb->io[IntrFlags] |= IF_Timer;
-            gb->io[TimA] = gb->io[TMA];
+            gb->io[IntrFlags].r |= IF_Timer;
+            gb->io[TimA].r = gb->io[TMA].r;
         }
     }
 }
@@ -646,8 +646,8 @@ void gb_handle_timers(struct GB *gb)
         /* Check overflow in the next cycle */
         if (--gb->nextTimA_IRQ == 0)
         {
-            gb->io[IntrFlags] |= IF_Timer;
-            gb->io[TimA] = gb->io[TMA];
+            gb->io[IntrFlags].r |= IF_Timer;
+            gb->io[TimA].r = gb->io[TMA].r;
             gb->newTimALoaded = 1;
         }
     }
@@ -716,7 +716,7 @@ int compare_sprites(const void *in1, const void *in2)
     tileID = gb->vram[(tileMap & 0x1FFF) + (posX >> 3)];\
     px = pixelX;\
     /* Select addressing mode */\
-    const uint16_t bit12 = !(LCDC_(BG_Win_Data) || (tileID & 0x80)) << 12;\
+    const uint16_t bit12 = !(gb->io[LCDControl].BG_Win_Data || (tileID & 0x80)) << 12;\
     const uint16_t tile = bit12 + (tileID << 4) + ((posY & 7) << 1);\
     \
     rowLSB = gb->vram[tile] >> px;\
@@ -726,7 +726,7 @@ int compare_sprites(const void *in1, const void *in2)
 /* Stored BG Palette values */
 uint8_t bgpValues[172 >> 3];
 
-#define BGP_VAL    gb->io[BGPalette]
+#define BGP_VAL    gb->io[BGPalette].r
 //bgpValues[(lineX + 8) >> 3]
 
 static inline uint8_t *gb_pixel_fetch(struct GB *gb)
@@ -735,12 +735,12 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
     //assert(gb->io[LY] < DISPLAY_HEIGHT);
 
     /* If background is enabled, draw it. */
-    if (LCDC_(BG_Win_Enable))
+    if (gb->io[LCDControl].BG_Win_Enable)
     {
         uint8_t lineX, posX, tileID, px, rowLSB, rowMSB;
 
         /* Calculate current background line to draw */
-        const uint8_t posY = gb->io[LY] + gb->io[ScrollY];
+        const uint8_t posY = gb->io[LY].r + gb->io[ScrollY].r;
 
         /* BG tile fetcher gets tile ID. Bits 0-4 define X loction, bits 5-9 define Y location
          * All related calculations following are found here:
@@ -749,21 +749,21 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
         /* Get selected background map address for first tile
          * corresponding to current line  */
         const uint16_t tileMap =
-            ((LCDC_(BG_Area)) ? 0x9C00 : 0x9800) + ((posY >> 3) << 5);
+            (gb->io[LCDControl].BG_Area ? 0x9C00 : 0x9800) + ((posY >> 3) << 5);
 
         lineX = DISPLAY_WIDTH - 1;
-        if (LCDC_(Window_Enable) &&
-            gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
-            lineX = (gb->io[WindowX] < 7 ? 0 : gb->io[WindowX] - 7) - 1;
+        if (gb->io[LCDControl].Window_Enable &&
+            gb->io[LY].r >= gb->io[WindowY].r && gb->io[WindowX].r <= 166)
+            lineX = (gb->io[WindowX].r < 7 ? 0 : gb->io[WindowX].r - 7) - 1;
 
-        PPU_GET_TILE(7 - (posX & 7), lineX + gb->io[ScrollX])
+        PPU_GET_TILE(7 - (posX & 7), lineX + gb->io[ScrollX].r)
         const uint8_t end = 0xFF;
 
         for (; lineX != end; lineX--)
         {
             if (px % 8 == 0)
             {
-                PPU_GET_TILE(0, lineX + gb->io[ScrollX])
+                PPU_GET_TILE(0, lineX + gb->io[ScrollX].r)
             }
             /* Get background color */
             uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
@@ -776,25 +776,25 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
     }
 
     /* draw window */
-    if (LCDC_(Window_Enable) && gb->io[LY] >= gb->io[WindowY] && gb->io[WindowX] <= 166)
+    if (gb->io[LCDControl].Window_Enable && gb->io[LY].r >= gb->io[WindowY].r && gb->io[WindowX].r <= 166)
     {
         uint8_t lineX, posX, px, tileID, rowLSB, rowMSB;
 
         /* Calculate Window Map Address. */
         const uint16_t tileMap = 
-            ((LCDC_(Window_Area)) ? 0x9C00 : 0x9800) + ((gb->windowLY >> 3) << 5);
+            (gb->io[LCDControl].Window_Area ? 0x9C00 : 0x9800) + ((gb->windowLY >> 3) << 5);
 
         lineX = DISPLAY_WIDTH - 1;
         const uint8_t posY = gb->windowLY & 7;
 
-        PPU_GET_TILE(7 - (posX & 7), lineX - gb->io[WindowX] + 7)
-        const uint8_t end = (gb->io[WindowX] < 7 ? 0 : gb->io[WindowX] - 7) - 1;
+        PPU_GET_TILE(7 - (posX & 7), lineX - gb->io[WindowX].r + 7)
+        const uint8_t end = (gb->io[WindowX].r < 7 ? 0 : gb->io[WindowX].r - 7) - 1;
 
         for (; lineX != end; lineX--)
         {
             if (px % 8 == 0)
             {
-                PPU_GET_TILE(0, lineX - gb->io[WindowX] + 7)
+                PPU_GET_TILE(0, lineX - gb->io[WindowX].r + 7)
             }
             uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
             pixels[lineX] = (((BGP_VAL) >> (palIndex << 1)) & 3);
@@ -810,7 +810,7 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
 #define NUM_SPRITES 40
 #define SPRITE_SORTED
 
-    if (LCDC_(OBJ_Enable))
+    if (gb->io[LCDControl].OBJ_Enable)
     {
         uint8_t sprite;
         uint8_t totalSprites = 0;
@@ -827,7 +827,7 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
             uint8_t objX = gb->oam[4 * sprite + 1];
 
             /* If sprite isn't on this line, continue */
-            if (gb->io[LY] + (LCDC_(OBJ_Size) ? 0 : 8) >= objY || gb->io[LY] + 16 < objY)
+            if (gb->io[LY].r + (gb->io[LCDControl].OBJ_Size ? 0 : 8) >= objY || gb->io[LY].r + 16 < objY)
                 continue;
 
             sprites_to_render[totalSprites].sprite_number = sprite;
@@ -845,8 +845,8 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
         {
             if (gb->oam[s] == 0 && gb->oam[s] >= 160)
                 continue;
-            if (gb->io[LY] >= gb->oam[s] - (LCDC_(2) ? 0 : 8) ||
-                gb->io[LY] < gb->oam[s] - 16)
+            if (gb->io[LY].r >= gb->oam[s] - (gb->io[LCDControl].OBJ_Size ? 0 : 8) ||
+                gb->io[LY].r < gb->oam[s] - 16)
                 continue;
 
             sprites[totalSprites++] = s;
@@ -868,7 +868,8 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
             const uint8_t s = sprites[sprite];
 
             const uint8_t objY = gb->oam[s + 0], objX = gb->oam[s + 1];
-            const uint8_t objTile = gb->oam[s + 2] & (LCDC_(OBJ_Size) ? 0xFE : 0xFF);
+            const uint8_t objTile = gb->oam[s + 2] & 
+                (gb->io[LCDControl].OBJ_Size ? 0xFE : 0xFF);
             const uint8_t objFlags = gb->oam[s + 3];
 
             /* Skip sprite if not visible */
@@ -876,9 +877,9 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
                 continue;
 
             /* Handle Y flip */
-            uint8_t posY = gb->io[LY] - objY + 16;
+            uint8_t posY = gb->io[LY].r - objY + 16;
             if (objFlags & 0x40)
-                posY = (LCDC_(OBJ_Size) ? 15 : 7) - posY;
+                posY = (gb->io[LCDControl].OBJ_Size ? 15 : 7) - posY;
 
             const uint8_t rowLSB = gb->vram[(objTile << 4) + (posY << 1)];
             const uint8_t rowMSB = gb->vram[(objTile << 4) + (posY << 1) + 1];
@@ -901,8 +902,8 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
                 {
                     /* Set pixel based on palette */
                     pixels[lineX] = (objFlags & 0x10) ?
-                        ((gb->io[OBJPalette1] >> (palIndex << 1)) & 3) :
-                        ((gb->io[OBJPalette0] >> (palIndex << 1)) & 3);
+                        ((gb->io[OBJPalette1].r >> (palIndex << 1)) & 3) :
+                        ((gb->io[OBJPalette0].r >> (palIndex << 1)) & 3);
                 }
             }
         }
@@ -917,9 +918,9 @@ _FORCE_INLINE void gb_oam_read(struct GB *gb)
     /* Mode 2 - OAM read */
     if (IO_STAT_MODE != Stat_OAM_Search)
     {
-        gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_OAM_Search;
-        if STAT_ (IR_OAM)
-            gb->io[IntrFlags] |= IF_LCD_STAT; /* Mode 2 interrupt */
+        IO_STAT_MODE = Stat_OAM_Search;
+        if (gb->io[LCDStatus].stat_OAM)
+            gb->io[IntrFlags].r |= IF_LCD_STAT; /* Mode 2 interrupt */
         /* Fetch OAM data for sprites to be drawn on this line */
         // ppu_OAM_fetch (ppu, io_regs);
     }
@@ -928,12 +929,12 @@ _FORCE_INLINE void gb_oam_read(struct GB *gb)
 _FORCE_INLINE void gb_transfer(struct GB *gb)
 {
     const uint8_t bgpIndex = gb->lineClock - TICKS_OAM_READ;
-    bgpValues[bgpIndex >> 3] = gb->io[BGPalette];
+    bgpValues[bgpIndex >> 3] = gb->io[BGPalette].r;
     
     /* Mode 3 - Transfer to LCD */
     if (IO_STAT_MODE != Stat_Transfer)
     {
-        gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_Transfer;
+        IO_STAT_MODE = Stat_Transfer;
     }
 }
 
@@ -943,14 +944,14 @@ _FORCE_INLINE void gb_transfer(struct GB *gb)
 #define GB_EVAL_LYC(gb)\
     /* Set bit 02 flag for comparing lYC and LY \
        If STAT interrupt is enabled, an interrupt is requested */\
-    if (gb->io[LYC] == gb->io[LY])\
+    if (gb->io[LYC].r == gb->io[LY].r)\
     {\
-        gb->io[LCDStatus] |= (1 << LYC_LY);\
-        if (STAT_(IR_LYC))\
-            gb->io[IntrFlags] |= IF_LCD_STAT;\
+        gb->io[LCDStatus].stat_LYC_LY = 1;\
+        if (gb->io[LCDStatus].stat_LYC)\
+            gb->io[IntrFlags].r |= IF_LCD_STAT;\
     }\
     else /* Unset the flag */\
-        gb->io[LCDStatus] &= 0xFB;\
+        gb->io[LCDStatus].stat_LYC_LY = 0;\
 
 //#define DISABLE_LCD
 
@@ -960,7 +961,7 @@ void gb_render(struct GB *const gb)
 
     /* Todo: continuously fetch pixels clock by clock for LCD data transfer.
        Similarly do clock-based processing for the other actions. */
-    if (gb->io[LY] < DISPLAY_HEIGHT)
+    if (gb->io[LY].r < DISPLAY_HEIGHT)
     {
         /* Visible line, within screen bounds */
         if (gb->lineClock < TICKS_OAM_READ)
@@ -971,25 +972,25 @@ void gb_render(struct GB *const gb)
         { /* Mode 0 - H-blank */
             if (IO_STAT_MODE != Stat_HBlank)
             {
-                gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_HBlank;
+                IO_STAT_MODE = Stat_HBlank;
                 /* Mode 0 interrupt */
-                if STAT_ (IR_HBlank)
-                    gb->io[IntrFlags] |= IF_LCD_STAT;
+                if (gb->io[LCDStatus].stat_HBlank)
+                    gb->io[IntrFlags].r |= IF_LCD_STAT;
 
-                if (!LCDC_(LCD_Enable) || (gb->extData.frameSkip &&
+                if ((!gb->io[LCDControl].LCD_Enable) || (gb->extData.frameSkip &&
                     (gb->totalFrames % (gb->extData.frameSkip + 1) > 0)))
                     return;
 #ifndef DISABLE_LCD
                 /* Fetch line of pixels for the screen and draw them */
                 gb_pixel_fetch(gb);
-                gb->draw_line (gb->extData.ptr, gb->extData.pixelLine, gb->io[LY]);
+                gb->draw_line (gb->extData.ptr, gb->extData.pixelLine, gb->io[LY].r);
 #endif
             }
         }
         else
         { /* Starting new line */
             gb->lineClock -= TICKS_HBLANK;
-            gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
+            gb->io[LY].r = (gb->io[LY].r + 1) % SCAN_LINES;
             GB_EVAL_LYC(gb);
         }
     }
@@ -1000,18 +1001,18 @@ void gb_render(struct GB *const gb)
             if (IO_STAT_MODE != Stat_VBlank)
             {
                 /* Enter Vblank and indicate that a frame is completed */
-                gb->io[LCDStatus] = IO_STAT_CLEAR | Stat_VBlank;
-                gb->io[IntrFlags] |= IF_VBlank;
+                IO_STAT_MODE = Stat_VBlank;
+                gb->io[IntrFlags].r |= IF_VBlank;
                 /* Mode 1 interrupt */
-                if (STAT_ (IR_VBlank))
-                    gb->io[IntrFlags] |= IF_LCD_STAT;
+                if (gb->io[LCDStatus].stat_VBlank)
+                    gb->io[IntrFlags].r |= IF_LCD_STAT;
             }
         }
         else
         { /* Starting new line */
-            gb->io[LY] = (gb->io[LY] + 1) % SCAN_LINES;
+            gb->io[LY].r = (gb->io[LY].r + 1) % SCAN_LINES;
             gb->lineClock -= TICKS_VBLANK;
-            if (gb->io[LY] > DISPLAY_HEIGHT)
+            if (gb->io[LY].r > DISPLAY_HEIGHT)
                 gb->windowLY = 0; /* Reset window Y counter if line is 0 */
             GB_EVAL_LYC(gb);
         }
