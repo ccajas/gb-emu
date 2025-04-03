@@ -7,6 +7,7 @@
 #include "gbdebug.h"
 #include "gb.h"
 #include "texture.h"
+#include "palettes.h"
 
 /* #define GB_DEBUG */
 #define DEBUG_TEXTURE_W  320

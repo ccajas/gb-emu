@@ -38,4 +38,23 @@ static const GB_Palette palettes[] =
     { "Hollow",        { RGB_4 (0x0F0F1B, 0x565A75, 0xC6B7BE, 0XFAFBF6) }}
 };
 
+static const GB_Palette gbcPalettes[] =
+{
+    { "Default_BG",    { RGB_4 (0,        0x555555, 0xAAAAAA, 0xF0F0F0) }},
+    { "Default_OBJ0",  { RGB_4 (0,        0x555555, 0xAAAAAA, 0xF0F0F0) }},
+    { "Default_OBJ1",  { RGB_4 (0,        0x555555, 0xAAAAAA, 0xF0F0F0) }},
+
+    { "GBC_x0D_BG",    { RGB_4 (0,        0x52528C, 0x8C8CDE, 0xF5F5F5) }},
+    { "GBC_x0D_OBJ0",  { RGB_4 (0,        0x943A3A, 0xFF8484, 0xF5F5F5) }},
+    { "GBC_x0D_OBJ1",  { RGB_4 (0,        0x843100, 0xFFAD63, 0xF5F5F5) }},
+
+    { "GBC_x1A_BG",    { RGB_4 (0,        0x7B4A00, 0xFFFF00, 0xF5F5F5) }},
+    { "GBC_x1A_OBJ0",  { RGB_4 (0,        0x0000FF, 0x63A5FF, 0xF5F5F5) }},
+    { "GBC_x1A_OBJ1",  { RGB_4 (0,        0x008400, 0x7BFF31, 0xF5F5F5) }},
+
+    { "GBC_x13_BG",    { RGB_4 (0,        0x0063C5, 0x7BFF31, 0xF5F5F5) }},
+    { "GBC_x13_OBJ0",  { RGB_4 (0,        0x943A3A, 0xFF8484, 0xF5F5F5) }},
+    { "GBC_x13_OBJ1",  { RGB_4 (0,        0x943A3A, 0xFF8484, 0xF5F5F5) }}
+};
+
 #endif

@@ -2,7 +2,6 @@
 #include <sys/time.h>
 #include <time.h>
 #include "app.h"
-#include "palettes.h"
 #ifdef NO_FILE_LOAD
     #include "rom.h"
 #endif
@@ -66,10 +65,10 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
             app_resize_window (window, &app->display,  app->scale);
     }
 
-    const uint8_t totalPalettes = (sizeof(palettes) / sizeof(palettes[0]));
+    const uint8_t totalPalettes = (sizeof(gbcPalettes) / sizeof(gbcPalettes[0]));
     /* Switch palettes */
     if (key == GLFW_KEY_O && action == GLFW_PRESS)
-        app->gbData.paletteBG = (app->gbData.paletteBG  + 1) % totalPalettes;
+        app->gbData.paletteBG = (app->gbData.paletteBG + 3) % totalPalettes;
 
     /* Reset game */
     if (key == GLFW_KEY_R && action == GLFW_PRESS)
@@ -318,8 +317,9 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 	for (x = 0; x < DISPLAY_WIDTH; x++)
 	{
         /* Get color and palette to use it with */
-		const uint8_t idx = (3 - *pixels++) & 3;
-        const uint8_t * pixel = palettes[data->paletteBG].colors[idx];
+        const uint8_t idx = (3 - *pixels) & 3;
+        const uint8_t pal = ((*pixels++ >> 2) & 3) - 1;
+        const uint8_t * pixel = gbcPalettes[data->paletteBG + pal].colors[idx];
 
         coloredPixels[x * 3]     = pixel[0];
         coloredPixels[x * 3 + 1] = pixel[1];

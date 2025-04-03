@@ -662,7 +662,7 @@ modeTicks;
 /* Custom pixel palette values for the frontend */
 
 enum
-{
+{   
     PIXEL_BG   = 4,
     PIXEL_OBJ1 = 8,
     PIXEL_OBJ2 = 12
@@ -707,8 +707,7 @@ int compare_sprites(const void *in1, const void *in2)
 /* Stored BG Palette values */
 uint8_t bgpValues[172 >> 3];
 
-#define BGP_VAL    gb->io[BGPalette].r
-//bgpValues[(lineX + 8) >> 3]
+#define BGP_VAL    bgpValues[(lineX + 8) >> 3]
 
 static inline uint8_t *gb_pixel_fetch(struct GB *gb)
 {
@@ -748,7 +747,7 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
             }
             /* Get background color */
             uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
-            pixels[lineX] = ((BGP_VAL >> (palIndex << 1)) & 3);
+            pixels[lineX] = ((BGP_VAL >> (palIndex << 1)) & 3) | PIXEL_BG;
 
             rowLSB >>= 1;
             rowMSB >>= 1;
@@ -778,7 +777,7 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
                 PPU_GET_TILE(0, lineX - gb->io[WindowX].r + 7)
             }
             uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
-            pixels[lineX] = (((BGP_VAL) >> (palIndex << 1)) & 3);
+            pixels[lineX] = (((BGP_VAL) >> (palIndex << 1)) & 3) | PIXEL_BG;
 
             rowLSB >>= 1;
             rowMSB >>= 1;
@@ -883,8 +882,11 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
                 {
                     /* Set pixel based on palette */
                     pixels[lineX] = (objFlags & 0x10) ?
-                        ((gb->io[OBJPalette1].r >> (palIndex << 1)) & 3) :
+                        ((gb->io[OBJPalette1].r >> (palIndex << 1)) & 3):
                         ((gb->io[OBJPalette0].r >> (palIndex << 1)) & 3);
+
+                    pixels[lineX] &= 3;
+                    pixels[lineX] |= (objFlags & 0x10) ? PIXEL_OBJ1 : PIXEL_OBJ2;
                 }
             }
         }
@@ -961,10 +963,12 @@ void gb_render(struct GB *const gb)
                 if ((!gb->io[LCDControl].LCD_Enable) || (gb->extData.frameSkip &&
                     (gb->totalFrames % (gb->extData.frameSkip + 1) > 0)))
                     return;
+                    
 #ifndef DISABLE_LCD
                 /* Fetch line of pixels for the screen and draw them */
                 gb_pixel_fetch(gb);
-                gb->draw_line (gb->extData.ptr, gb->extData.pixelLine, gb->io[LY].r);
+                if (gb->totalFrames % (gb->extData.frameSkip + 1) == 0)
+                    gb->draw_line (gb->extData.ptr, gb->extData.pixelLine, gb->io[LY].r);
 #endif
             }
         }
