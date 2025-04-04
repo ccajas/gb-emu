@@ -16,11 +16,11 @@ static enum
 
     /* Audio */
     Ch1_Sweep   = 0x10,
-    Ch1_Length  = 0x11,
+    Ch1_LD      = 0x11,
     Ch1_Vol     = 0x12,
     Ch1_Period  = 0x13,
     Ch1_Ctrl    = 0x14,
-    Ch2_Length  = 0x16,
+    Ch2_LD      = 0x16,
     Ch2_Vol     = 0x17,
     Ch2_Period  = 0x18,
     Ch2_Ctrl    = 0x19,

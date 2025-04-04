@@ -1031,10 +1031,10 @@ void gb_update_div_apu (struct GB * const gb)
         /* Length ++ */
         if ((gb->io[Ch1_Ctrl].r >> 6) & 1)
         {
-            const uint8_t len = gb->io[Ch1_Length].r & 0x3F;
+            const uint8_t len = gb->io[Ch1_LD].r & 0x3F;
 
-            gb->io[Ch1_Length].r &= 0xC0;
-            gb->io[Ch1_Length].r |= ((len + 1) & 0x3F);
+            gb->io[Ch1_LD].r &= 0xC0;
+            gb->io[Ch1_LD].Ch_Length |= ((len + 1) & 0x3F);
         }
     }
 
@@ -1052,11 +1052,12 @@ void gb_update_audio (struct GB * const gb)
     uint8_t ch;
     for (ch = 0; ch < 2; ch++)
     {
-        uint8_t chPos = ch * 5;
         gb->audioChannel[ch].periodTick += step;
+
         while (gb->audioChannel[ch].periodTick > 2048)
         {
-            const uint8_t periodH = (gb->io[0x14 + chPos].r & 7);
+            const uint8_t chPos = ch * 5;
+            const uint8_t periodH = gb->io[0x14 + chPos].PeriodH;
             gb->audioChannel[ch].periodTick -= 2048 -
                 (gb->io[0x13 + chPos].r | (periodH << 8));
         }

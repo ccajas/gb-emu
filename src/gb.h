@@ -86,6 +86,31 @@ struct GB
     /* Assigned bit values for certain registers */
     union regValues 
     {
+        struct /* Audio register NR10 */
+        {
+            uint8_t SweepStep : 3;
+            uint8_t SweepDir  : 1;
+            uint8_t SweepPace : 3;
+            uint8_t Sweep_hb  : 1; /* Unused */
+        };
+        struct /* Audio register NRx1 */
+        {
+            uint8_t Ch_Length : 6;
+            uint8_t Duty      : 2;
+        };
+        struct /* Audio register NRx2 */
+        {
+            uint8_t EnvPace : 3;
+            uint8_t EnvDir  : 1;
+            uint8_t Volume  : 4;
+        };
+        struct /* Audio register NRx4 */
+        {
+            uint8_t PeriodH    : 3;
+            uint8_t b3_5       : 3; /* Unused */
+            uint8_t Len_Enable : 1;
+            uint8_t Trigger    : 1;
+        };
         struct /* LCD Control */
         {
             uint8_t BG_Win_Enable : 1;
