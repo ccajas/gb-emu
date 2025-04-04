@@ -126,6 +126,7 @@ struct GB
     uint16_t timAClock;
     uint8_t  timAOverflow, nextTimA_IRQ, newTimALoaded;
     int16_t  rm, rt; /* Tracks individual step cycles */
+    uint8_t  apuDiv;
 
     /* HALT and STOP status, PC increment toggle */
     uint8_t halted : 1, stopped : 1, pcInc : 1;
@@ -144,6 +145,17 @@ struct GB
     /* Interrupt master enable and PC increment */
     uint8_t ime : 1;
     uint8_t lastJoypad;
+
+    /* Audio channel data */
+    struct {
+        uint8_t  enabled   : 1;
+        uint8_t  currentVol;
+        uint16_t periodTick;
+        uint8_t  envTick   : 4;
+    }
+    audioChannel[4];
+    uint8_t  sweepTick : 4;
+    uint16_t sweepBck;
 
     /* Catridge which holds ROM and RAM */
     struct Cartridge cart;
@@ -185,6 +197,7 @@ void gb_update_timer_simple (struct GB *);
 
 void gb_render              (struct GB *);
 void gb_init_audio          (struct GB *);
+void gb_update_div_apu      (struct GB *);
 void gb_update_audio        (struct GB *);
 
 static inline uint8_t gb_rom_loaded (struct GB * gb)
@@ -298,6 +311,9 @@ static inline void gb_step (struct GB * gb)
     /* Update PPU if LCD is turned on */
     if (LCDC_(LCD_Enable))
         gb_render (gb);
+
+    /* Update APU if turned on */    
+    gb_update_audio (gb);
 
     gb->clock_t += gb->rt;
     gb->frameClock += gb->rt;

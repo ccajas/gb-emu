@@ -199,6 +199,7 @@ void gb_init(struct GB *gb, uint8_t *bootRom)
     gb->lineClock = gb->frameClock = 0;
     gb->clock_t = 0;
     gb->divClock = gb->timAClock = 0;
+    gb->apuDiv = 0;
     gb->frame = gb->totalFrames = 0;
     gb->pcInc = 1;
     LOG_("GB: CPU state done\n");
@@ -587,8 +588,12 @@ inline void gb_update_div(struct GB *gb)
 
     while (gb->divClock >= 256)
     {
+        const uint8_t lastDiv = gb->io[Divider].r;
         ++gb->io[Divider].r;
         gb->divClock -= 256;
+
+        if (lastDiv & 0x10 && !(gb->io[Divider].r & 0x10))
+            gb_update_div_apu(gb);
     }
 }
 
@@ -707,7 +712,7 @@ int compare_sprites(const void *in1, const void *in2)
 /* Stored BG Palette values */
 uint8_t bgpValues[172 >> 3];
 
-#define BGP_VAL    bgpValues[(lineX + 8) >> 3]
+#define BGP_VAL    gb->io[BGPalette].r
 
 static inline uint8_t *gb_pixel_fetch(struct GB *gb)
 {
@@ -1014,7 +1019,46 @@ void gb_init_audio (struct GB * const gb)
     
 }
 
+void gb_update_div_apu (struct GB * const gb)
+{
+    gb->apuDiv++;
+
+    if (!(gb->apuDiv & 7)) {
+        /* Envelope sweep */
+    }
+
+    if (!(gb->apuDiv & 1)) {
+        /* Length ++ */
+        if ((gb->io[Ch1_Ctrl].r >> 6) & 1)
+        {
+            const uint8_t len = gb->io[Ch1_Length].r & 0x3F;
+
+            gb->io[Ch1_Length].r &= 0xC0;
+            gb->io[Ch1_Length].r |= ((len + 1) & 0x3F);
+        }
+    }
+
+    if (!(gb->apuDiv & 3)) {
+        /* Ch 1 sweep ++ */
+    }
+}
+
 void gb_update_audio (struct GB * const gb)
 {
     gb->apuClock += gb->rt;
+    const uint8_t step    = gb->rt >> 2;
+    //const uint8_t stepWav = gb->rt >> 1;
+
+    uint8_t ch;
+    for (ch = 0; ch < 2; ch++)
+    {
+        uint8_t chPos = ch * 5;
+        gb->audioChannel[ch].periodTick += step;
+        while (gb->audioChannel[ch].periodTick > 2048)
+        {
+            const uint8_t periodH = (gb->io[0x14 + chPos].r & 7);
+            gb->audioChannel[ch].periodTick -= 2048 -
+                (gb->io[0x13 + chPos].r | (periodH << 8));
+        }
+    }
 }
