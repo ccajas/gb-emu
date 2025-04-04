@@ -3,7 +3,8 @@
 
 /* Related IO registers */
 
-static const enum
+__attribute__((unused))
+static enum
 {
     Joypad      = 0x0,
     SerialData  = 0x01,
@@ -59,7 +60,8 @@ registers;
 
 /* Interrupt request/enable flags */
 
-static const enum
+__attribute__((unused))
+static enum
 {
     IF_VBlank   = 0x1,
     IF_LCD_STAT = 0x2,
@@ -72,7 +74,8 @@ interruptFlags;
 
 /* LCD Status flags by bit */
 
-static const enum
+__attribute__((unused))
+static enum
 {
     LYC_LY    = 2,
     IR_HBlank = 3,
@@ -84,7 +87,8 @@ LCD_STAT_Flags;
 
 /* LCD Control flags by bit */
 
-static const enum
+__attribute__((unused))
+static enum
 {
     BG_Win_Enable = 0,
     OBJ_Enable,
