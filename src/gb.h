@@ -21,7 +21,7 @@
 #define IO_SIZE       0x100
 
 #define GB_FRAME_RATE    CPU_FREQ_DMG / FRAME_CYCLES
-#define INSTR_TIGHT_LOOP 1
+#define INSTR_TIGHT_LOOP 2
 
 /* Assign register pair as 16-bit union */
 
@@ -254,39 +254,36 @@ static inline void gb_step (struct GB * gb)
 {
     gb->rt = 0;
 
-    int i;
-    for (i = 0; i < INSTR_TIGHT_LOOP; ++i)
+    if (gb->stopped)
     {
-        if (gb->stopped)
-        {
-            gb->rt += 4;
+        gb->rt += 4;
 
-            gb->clock_t += gb->rt;
-            gb->frameClock += gb->rt;
-            return;
-        }
+        gb->clock_t += gb->rt;
+        gb->frameClock += gb->rt;
+        return;
+    }
 
-        if (gb->halted)
-        {
-            /* Check if interrupt is pending */
-            if (gb->io[IntrEnabled].r & gb->io[IntrFlags].r & IF_Any)
-                gb->halted = 0;
-
-            if (gb->ime)
-                gb_handle_interrupts (gb);
-
-            gb->rt += 4;
-        }
-        else
-        {   /* Load next op and execute */
-            gb->rm = 0;
-            const uint8_t op = CPU_RB (gb->pc++);
-            gb_cpu_exec (gb, op);
-            LOG_CPU_STATE (gb, op);
-        }
+    if (gb->halted)
+    {
+        /* Check if interrupt is pending */
+        if (gb->io[IntrEnabled].r & gb->io[IntrFlags].r & IF_Any)
+            gb->halted = 0;
 
         if (gb->ime)
             gb_handle_interrupts (gb);
+
+        gb->rt += 4;
+    }
+    else
+    {   /* Load next op and execute */
+        gb->rm = 0;
+        const uint8_t op = CPU_RB (gb->pc++);
+        gb_cpu_exec (gb, op);
+        LOG_CPU_STATE (gb, op);
+    }
+
+    if (gb->ime)
+        gb_handle_interrupts (gb);
 
         /* Update timers for every remaining m-cycle */
     #ifdef USE_TIMER_SIMPLE
@@ -297,7 +294,7 @@ static inline void gb_step (struct GB * gb)
         while (t++ < gb->rt)
             gb_handle_timers (gb);
     #endif
-    }
+
     /* Update PPU if LCD is turned on */
     if (LCDC_(LCD_Enable))
         gb_render (gb);
