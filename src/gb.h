@@ -111,6 +111,15 @@ struct GB
             uint8_t Len_Enable : 1;
             uint8_t Trigger    : 1;
         };
+        struct /* Audio Control */
+        {
+            uint8_t Ch1_on    : 1;
+            uint8_t Ch2_on    : 1;
+            uint8_t Ch3_on    : 1;
+            uint8_t Ch4_on    : 1;
+            uint8_t b4_6      : 3; /* Unused */
+            uint8_t Master_on : 1;
+        };
         struct /* LCD Control */
         {
             uint8_t BG_Win_Enable : 1;
@@ -334,11 +343,12 @@ static inline void gb_step (struct GB * gb)
     #endif
 
     /* Update PPU if LCD is turned on */
-    if (LCDC_(LCD_Enable))
+    if (gb->io[LCDControl].LCD_Enable)
         gb_render (gb);
 
-    /* Update APU if turned on */    
-    gb_update_audio (gb);
+    /* Update APU if turned on */
+    if (gb->io[AudioCtrl].Master_on)  
+        gb_update_audio (gb);
 
     gb->clock_t += gb->rt;
     gb->frameClock += gb->rt;

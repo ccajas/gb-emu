@@ -1016,7 +1016,21 @@ void gb_render(struct GB *const gb)
 
 void gb_init_audio (struct GB * const gb)
 {
+    gb->io[Ch1_Sweep].r = 0x80;
+    gb->io[Ch1_LD].r   = 0xBF;
+    gb->io[Ch1_Vol].r  = 0xF3;
     
+    gb->io[Ch1_Period].r = gb->io[Ch2_Period].r = 
+    gb->io[Ch3_Period].r = 0xFF;
+    gb->io[Ch1_Ctrl].r = gb->io[Ch2_Ctrl].r = 
+    gb->io[Ch3_Ctrl].r = gb->io[Ch4_Ctrl].r = 0xBF;
+    gb->io[Ch3_Length].r = gb->io[Ch4_Length].r = 0xFF;
+
+    gb->io[Ch2_LD].r   = 0x3F;
+    gb->io[Ch2_Vol].r  = 0x0;
+    gb->io[Ch3_DAC].r  = 0x7F;
+    gb->io[Ch3_Vol].r  = 0x9F;
+    gb->io[Ch4_Vol].r  = gb->io[Ch4_Freq].r = 0x0;
 }
 
 void gb_update_div_apu (struct GB * const gb)

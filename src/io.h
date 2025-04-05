@@ -103,6 +103,4 @@ LCD_Control_Flags;
 
 #define IO_STAT_MODE    gb->io[LCDStatus].stat_mode
 
-#define LCDC_(bit)  (gb->io[LCDControl].r & (1 << bit))
-
 #endif
