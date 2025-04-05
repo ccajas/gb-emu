@@ -95,8 +95,8 @@ struct GB
         };
         struct /* Audio register NRx1 */
         {
-            uint8_t Ch_Length : 6;
-            uint8_t Duty      : 2;
+            uint8_t Length  : 6;
+            uint8_t Duty    : 2;
         };
         struct /* Audio register NRx2 */
         {
@@ -183,11 +183,13 @@ struct GB
     /* Audio channel data */
     struct {
         uint8_t  enabled   : 1;
+        uint8_t  DAC       : 1;
         uint8_t  currentVol;
         uint16_t periodTick;
+        uint16_t lengthTick;
         uint8_t  envTick   : 4;
     }
-    audioChannel[4];
+    audioCh[4];
     uint8_t  sweepTick : 4;
     uint16_t sweepBck;
 
@@ -231,6 +233,7 @@ void gb_update_timer_simple (struct GB *);
 
 void gb_render              (struct GB *);
 void gb_init_audio          (struct GB *);
+void gb_ch_trigger          (struct GB *, const uint8_t);
 void gb_update_div_apu      (struct GB *);
 void gb_update_audio        (struct GB *);
 
