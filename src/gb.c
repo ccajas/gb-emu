@@ -58,6 +58,14 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 gb->io[addr % 0x80].r = val | 0xE0;
                 break;
             /* APU registers */
+            case AudioCtrl:
+                gb->io[AudioCtrl].r = val & 0x80;
+                if (!(val & 0x80))
+                {
+                    int i = 0;
+                    while (i < 4) gb->audioCh[i++].enabled = 0;
+                }
+                break;
             case Ch1_LD:
             case Ch2_LD:
             case Ch4_Length:
@@ -79,6 +87,7 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 gb->audioCh[2].currentVol = (val >> 5) & 3;
                 gb->io[Ch3_Vol].r = val;
                 break;
+
             case Ch1_Ctrl:
             case Ch2_Ctrl:
             case Ch3_Ctrl:
@@ -87,10 +96,10 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 const uint8_t channel = ((addr & 0xff) - 0x10) / 5;
                 gb->io[Ch1_Ctrl + (channel * 5)].r = val;
                 if (val & 0x80)
-                    gb_ch_trigger(gb, channel);
-                
+                    gb_ch_trigger(gb, channel);       
                 break;
             }
+            /* PPU registers */
             case LCDControl:
             { /* Check whether LCD will be turned on or off */
                 const uint8_t lcdEnabled =  gb->io[LCDControl].LCD_Enable;
@@ -925,7 +934,7 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
                         ((gb->io[OBJPalette0].r >> (palIndex << 1)) & 3);
 
                     pixels[lineX] &= 3;
-                    pixels[lineX] |= (objFlags & 0x10) ? PIXEL_OBJ1 : PIXEL_OBJ2;
+                    pixels[lineX] |= (objFlags & 0x10) ? PIXEL_OBJ2 : PIXEL_OBJ1;
                 }
             }
         }
@@ -1051,8 +1060,9 @@ void gb_render(struct GB *const gb)
  *****************  APU functions  *****************
  */
 
-#define CH_POS       (n * 5)
-#define PERIOD_MAX   2048
+#define PERIOD_MAX       2048
+#define LENGTH_MAX       64
+#define LENGTH_MAX_WAVE  256
 
 void gb_init_audio (struct GB * const gb)
 {
@@ -1075,28 +1085,35 @@ void gb_init_audio (struct GB * const gb)
 
 void gb_ch_trigger (struct GB * const gb, const uint8_t n)
 {
-    //LOG_("Trigger channel %d\n", n);
+    const uint8_t ch_pos = n * 5;
 
     gb->audioCh[n].enabled = 1;
-    gb->audioCh[n].currentVol = gb->io[CH_POS + Ch1_Vol].Volume;
 
     /* Length timer reset */
-    if (gb->audioCh[n].lengthTick > (n == 2 ? 255 : 63))
-        gb->audioCh[n].lengthTick = gb->io[CH_POS + Ch1_LD].Length;
+    if (gb->audioCh[n].lengthTick >= (n == 2 ? LENGTH_MAX_WAVE : LENGTH_MAX))
+        gb->audioCh[n].lengthTick = gb->io[ch_pos + Ch1_LD].Length;
 
-    /* Pulse trigger reset */
-    if (n < 2)
+    if (n != 2)
     {
-        const uint8_t periodH = gb->io[CH_POS + Ch1_Ctrl].PeriodH;
+        const uint8_t periodH = gb->io[ch_pos + Ch1_Ctrl].PeriodH;
+        gb->audioCh[n].periodTick = gb->io[ch_pos + Ch1_Period].r | (periodH << 8);
+        gb->audioCh[n].currentVol = gb->io[ch_pos + Ch1_Vol].Volume;
 
-        gb->audioCh[n].envTick = 0;
-        gb->audioCh[n].periodTick = (gb->io[CH_POS + Ch1_Period].r | (periodH << 8));
+        /* Pulse trigger reset */
+        if (n < 2)
+        {
+            gb->audioCh[n].envTick = 0;
+        }
+
+        /* Sweep reset */
+        if (n == 0)
+        {
+
+        }
     }
-
-    /* Sweep reset */
-    if (n == 0)
+    else /* Wave pattern channel */
     {
-
+        gb->audioCh[n].currentVol = (gb->io[Ch3_Vol].r >> 5) & 3;
     }
 }
 
@@ -1112,10 +1129,12 @@ void gb_update_div_apu (struct GB * const gb)
             if (n == 2) continue;
 
             gb->audioCh[n].envTick++;
-            if (gb->audioCh[n].envTick == gb->io[CH_POS + Ch1_Vol].EnvPace)
+            const uint8_t ch_pos = n * 5;
+
+            if (gb->audioCh[n].envTick == gb->io[ch_pos + Ch1_Vol].EnvPace)
             {
                 const int8_t volStep = 
-                    (gb->io[CH_POS + Ch1_Vol].EnvDir * 2) - 1;
+                    (gb->io[ch_pos + Ch1_Vol].EnvDir * 2) - 1;
                 gb->audioCh[n].currentVol += volStep;
                 gb->audioCh[n].envTick = 0;
             }
@@ -1127,10 +1146,12 @@ void gb_update_div_apu (struct GB * const gb)
         int n;
         for (n = 0; n < 4; n++)
         {
-            if (gb->audioCh[n].enabled && gb->io[Ch1_Ctrl + CH_POS].Len_Enable)
+            const uint8_t ch_pos = n * 5;
+
+            if (gb->audioCh[n].enabled && gb->io[Ch1_Ctrl + ch_pos].Len_Enable)
                 gb->audioCh[n].lengthTick++;
 
-            if (gb->audioCh[n].lengthTick == ((n == 2) ? 256 : 64))
+            if (gb->audioCh[n].lengthTick >= ((n == 2) ? LENGTH_MAX_WAVE : LENGTH_MAX))
                 gb->audioCh[n].enabled = 0;
         }
     }
@@ -1143,7 +1164,12 @@ void gb_update_div_apu (struct GB * const gb)
 void gb_update_audio (struct GB * const gb)
 {
     gb->apuClock += gb->rt;
-    const uint8_t step = gb->rt >> 2;
+
+    if (gb->apuClock < 128)
+        return;
+
+    const uint8_t step = gb->apuClock >> 2;
+    gb->apuClock = 0;
     //const uint8_t stepWav = gb->rt >> 1;
 
     /* Update pulse channels */
@@ -1155,16 +1181,18 @@ void gb_update_audio (struct GB * const gb)
 
         gb->audioCh[n].periodTick += step;
 
-        while (gb->audioCh[n].periodTick > PERIOD_MAX)
+        while (gb->audioCh[n].periodTick >= PERIOD_MAX)
         {
+            const uint8_t ch_pos = n * 5;
             const uint16_t period =  
-                (gb->io[Ch1_Ctrl + CH_POS].PeriodH << 8) |
-                gb->io[Ch1_Period + CH_POS].r;
+                (gb->io[Ch1_Ctrl + ch_pos].PeriodH << 8) |
+                gb->io[Ch1_Period + ch_pos].r;
 
-            gb->audioCh[n].periodTick -= PERIOD_MAX - period;
+            gb->audioCh[n].periodTick -= (PERIOD_MAX - period);
         }
     }
 }
 
-#undef CH_POS
 #undef PERIOD_MAX
+#undef LENGTH_MAX
+#undef LENGTH_MAX_WAVE
