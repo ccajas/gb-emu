@@ -150,9 +150,8 @@ struct GB
     uint16_t nn;
     uint64_t clock_t;
     uint16_t lineClock;
-    uint32_t frameClock;
     uint32_t apuClock;
-    uint8_t  frame;
+    uint8_t  frame, drawFrame;
     uint32_t totalFrames;
 
     /* Timer data */
@@ -227,7 +226,6 @@ void gb_boot_reset (struct GB *);
 
 void gb_handle_interrupts   (struct GB *);
 void gb_handle_timers       (struct GB *);
-void gb_update_div          (struct GB *);
 void gb_update_timer        (struct GB *, const uint8_t);
 void gb_update_timer_simple (struct GB *);
 
@@ -284,6 +282,8 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
     return 0;
 }
 
+#define USE_TIMER_SIMPLE
+
 #ifndef CPU_LOG_INSTRS
     #define LOG_CPU_STATE(gb, op)
     #else
@@ -298,7 +298,21 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
     }
 #endif
 
-#define USE_TIMER_SIMPLE
+#ifdef USE_TIMER_SIMPLE /* Update DIV register */
+
+#define UPDATE_DIV(gb) \
+    gb->divClock += gb->rt;\
+    while (gb->divClock >= 256)\
+    {\
+        const uint8_t lastDiv = gb->io[Divider].r;\
+        ++gb->io[Divider].r;\
+        gb->divClock -= 256;\
+        \
+        if (lastDiv & 0x10 && !(gb->io[Divider].r & 0x10))\
+            gb_update_div_apu(gb);\
+    }\
+
+#endif
 
 static inline void gb_step (struct GB * gb)
 {
@@ -307,9 +321,7 @@ static inline void gb_step (struct GB * gb)
     if (gb->stopped)
     {
         gb->rt += 4;
-
         gb->clock_t += gb->rt;
-        gb->frameClock += gb->rt;
         return;
     }
 
@@ -337,7 +349,7 @@ static inline void gb_step (struct GB * gb)
 
         /* Update timers for every remaining m-cycle */
     #ifdef USE_TIMER_SIMPLE
-        gb_update_div (gb);
+        UPDATE_DIV (gb);
         gb_update_timer_simple (gb);
     #else
         int t = 0;
@@ -350,21 +362,20 @@ static inline void gb_step (struct GB * gb)
         gb_render (gb);
 
     /* Update APU if turned on */
-    if (gb->io[AudioCtrl].Master_on)  
-        gb_update_audio (gb);
+    //if (gb->io[AudioCtrl].Master_on)  
+    //    gb_update_audio (gb);
 
     gb->clock_t += gb->rt;
-    gb->frameClock += gb->rt;
 }
 
 static inline void gb_frame (struct GB * gb)
 {
+    gb->drawFrame = 0;
     /* Returns when frame is completed (indicated by frame cycles) */
-    while (gb->frameClock < FRAME_CYCLES)
+    while (!gb->drawFrame)
     {
         gb_step (gb);
     }
-    gb->frameClock -= FRAME_CYCLES;
 
     /* Indicates odd or even frame */
     gb->frame = 1 - gb->frame;

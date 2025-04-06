@@ -239,11 +239,11 @@ void gb_init(struct GB *gb, uint8_t *bootRom)
         gb_boot_reset(gb);
 
     LOG_CPU_STATE(gb, 0);
-    gb->lineClock = gb->frameClock = 0;
+    gb->lineClock = 0;
     gb->clock_t = 0;
     gb->divClock = gb->timAClock = 0;
-    gb->apuDiv = 0;
     gb->frame = gb->totalFrames = 0;
+    gb->apuDiv = 0;
     gb->pcInc = 1;
     LOG_("GB: CPU state done\n");
 }
@@ -623,23 +623,6 @@ void gb_update_timer(struct GB *gb, const uint8_t change)
     }
 }
 
-/* Update DIV register */
-
-inline void gb_update_div(struct GB *gb)
-{
-    gb->divClock += gb->rt;
-
-    while (gb->divClock >= 256)
-    {
-        const uint8_t lastDiv = gb->io[Divider].r;
-        ++gb->io[Divider].r;
-        gb->divClock -= 256;
-
-        if (lastDiv & 0x10 && !(gb->io[Divider].r & 0x10))
-            gb_update_div_apu(gb);
-    }
-}
-
 static const uint16_t TAC_INTERVALS[4] = {1024, 16, 64, 256};
 
 /* Update TIMA register */
@@ -765,41 +748,48 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
     /* If background is enabled, draw it. */
     if (gb->io[LCDControl].BG_Win_Enable)
     {
-        uint8_t lineX, posX, tileID, px, rowLSB, rowMSB;
-
-        /* Calculate current background line to draw */
-        const uint8_t posY = gb->io[LY].r + gb->io[ScrollY].r;
-
-        /* BG tile fetcher gets tile ID. Bits 0-4 define X loction, bits 5-9 define Y location
-         * All related calculations following are found here:
-         * https://github.com/ISSOtm/pandocs/blob/rendering-internals/src/Rendering_Internals.md */
-
-        /* Get selected background map address for first tile
-         * corresponding to current line  */
-        const uint16_t tileMap =
-            (gb->io[LCDControl].BG_Area ? 0x9C00 : 0x9800) + ((posY >> 3) << 5);
-
-        lineX = DISPLAY_WIDTH - 1;
-        if (gb->io[LCDControl].Window_Enable &&
-            gb->io[LY].r >= gb->io[WindowY].r && gb->io[WindowX].r <= 166)
-            lineX = (gb->io[WindowX].r < 7 ? 0 : gb->io[WindowX].r - 7) - 1;
-
-        PPU_GET_TILE(7 - (posX & 7), lineX + gb->io[ScrollX].r)
-        const uint8_t end = 0xFF;
-
-        for (; lineX != end; lineX--)
+        if (!(gb->io[LCDControl].Window_Enable && gb->io[LY].r >= gb->io[WindowY].r))
         {
-            if (px % 8 == 0)
-            {
-                PPU_GET_TILE(0, lineX + gb->io[ScrollX].r)
-            }
-            /* Get background color */
-            uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
-            pixels[lineX] = ((BGP_VAL >> (palIndex << 1)) & 3) | PIXEL_BG;
+            uint8_t lineX, posX, tileID, px, rowLSB, rowMSB;
 
-            rowLSB >>= 1;
-            rowMSB >>= 1;
-            px++;
+            /* Calculate current background line to draw */
+            const uint8_t posY = gb->io[LY].r + gb->io[ScrollY].r;
+    
+            /* BG tile fetcher gets tile ID. Bits 0-4 define X loction, bits 5-9 define Y location
+             * All related calculations following are found here:
+             * https://github.com/ISSOtm/pandocs/blob/rendering-internals/src/Rendering_Internals.md */
+    
+            /* Get selected background map address for first tile
+             * corresponding to current line  */
+            const uint16_t tileMap =
+                (gb->io[LCDControl].BG_Area ? 0x9C00 : 0x9800) + ((posY >> 3) << 5);
+    
+            lineX = DISPLAY_WIDTH - 1;
+            if (gb->io[LCDControl].Window_Enable &&
+                gb->io[LY].r >= gb->io[WindowY].r && gb->io[WindowX].r <= 166)
+                lineX = (gb->io[WindowX].r < 7 ? 0 : gb->io[WindowX].r - 7) - 1;
+    
+            PPU_GET_TILE(7 - (posX & 7), lineX + gb->io[ScrollX].r)
+            const uint8_t end = 0xFF;
+    
+            for (; lineX != end; lineX--)
+            {
+                if (px % 8 == 0)
+                {
+                    PPU_GET_TILE(0, lineX + gb->io[ScrollX].r)
+                }
+                /* Get background color */
+                uint8_t palIndex = (rowLSB & 0x1) | ((rowMSB & 0x1) << 1);
+                pixels[lineX] = ((BGP_VAL >> (palIndex << 1)) & 3) | PIXEL_BG;
+    
+                rowLSB >>= 1;
+                rowMSB >>= 1;
+                px++;
+            }
+        }
+        else
+        {
+
         }
     }
 
@@ -1039,6 +1029,7 @@ void gb_render(struct GB *const gb)
                 /* Enter Vblank and indicate that a frame is completed */
                 IO_STAT_MODE = Stat_VBlank;
                 gb->io[IntrFlags].r |= IF_VBlank;
+                gb->drawFrame = 1;
                 /* Mode 1 interrupt */
                 if (gb->io[LCDStatus].stat_VBlank)
                     gb->io[IntrFlags].r |= IF_LCD_STAT;
