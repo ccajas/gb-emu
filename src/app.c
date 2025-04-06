@@ -440,8 +440,11 @@ void app_run (struct App * app)
                 //accu_nsec += as_nanoseconds(&finish) - as_nanoseconds(&start);
                 frames++;
                 if (frames % 30 == 29)
+                {
                     sprintf(app->fpsString, "FPS: %0.2f | Perf: %0.2fx ", 
-                    fps, (double)(frames / (GB_FRAME_RATE)) / totalTime);
+                        fps, (double)(frames / (GB_FRAME_RATE)) / totalTime);
+                    GBE_WINDOW_TITLE(app->fpsString);
+                }
             }
         }
 
