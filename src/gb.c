@@ -748,8 +748,8 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
     /* If background is enabled, draw it. */
     if (gb->io[LCDControl].BG_Win_Enable)
     {
-        if (!(gb->io[LCDControl].Window_Enable && gb->io[LY].r >= gb->io[WindowY].r))
-        {
+        //if (!(gb->io[LCDControl].Window_Enable && gb->io[LY].r >= gb->io[WindowY].r))
+        //{
             uint8_t lineX, posX, tileID, px, rowLSB, rowMSB;
 
             /* Calculate current background line to draw */
@@ -786,11 +786,7 @@ static inline uint8_t *gb_pixel_fetch(struct GB *gb)
                 rowMSB >>= 1;
                 px++;
             }
-        }
-        else
-        {
-
-        }
+        //}
     }
 
     /* draw window */
