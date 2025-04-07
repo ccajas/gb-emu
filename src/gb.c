@@ -1054,13 +1054,13 @@ void gb_render(struct GB *const gb)
 void gb_init_audio (struct GB * const gb)
 {
     gb->io[Ch1_Sweep].r = 0x80;
-    gb->io[Ch1_LD].r   = 0xBF;
-    gb->io[Ch1_Vol].r  = 0xF3;
+    gb->io[Ch1_LD].r    = 0xBF;
+    gb->io[Ch1_Vol].r   = 0xF3;
     
     gb->io[Ch1_Period].r = gb->io[Ch2_Period].r = 
     gb->io[Ch3_Period].r = 0xFF;
-    gb->io[Ch1_Ctrl].r = gb->io[Ch2_Ctrl].r = 
-    gb->io[Ch3_Ctrl].r = gb->io[Ch4_Ctrl].r = 0xBF;
+    gb->io[Ch1_Ctrl].r   = gb->io[Ch2_Ctrl].r = 
+    gb->io[Ch3_Ctrl].r   = gb->io[Ch4_Ctrl].r = 0xBF;
     gb->io[Ch3_Length].r = gb->io[Ch4_Length].r = 0xFF;
 
     gb->io[Ch2_LD].r   = 0x3F;
@@ -1166,7 +1166,7 @@ void gb_update_audio (struct GB * const gb)
         return;
 
     const uint8_t dutyCycles[4] = { 0x01, 0x03, 0x0F, 0xFC };
-    const uint8_t step = gb->apuClock >> 2;
+    const uint8_t step = gb->apuClock >> 3;
     gb->apuClock -= CYCLES_PER_SAMPLE;
     //const uint8_t stepWav = gb->rt >> 1;
 
@@ -1199,9 +1199,10 @@ void gb_update_audio (struct GB * const gb)
         pulse[n] = (pulse[n] & 1) * gb->io[Ch1_Vol + ch_pos].Volume;
     }
 
+    const uint16_t sample = (pulse[0] + pulse[1]) << 2; 
+
     /* Mix channel outputs */
-    //samples[gb->sampleCounter] = smp;
-    gb->sampleCounter++;
+    gb->render_sample (gb->extData.ptr, sample);
 }
 
 #undef PERIOD_MAX

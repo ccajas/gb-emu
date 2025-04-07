@@ -155,7 +155,6 @@ struct GB
     uint32_t apuClock;
     uint8_t  frame, drawFrame;
     uint32_t totalFrames;
-    uint16_t sampleCounter;
 
     /* Timer data */
     uint16_t divClock, lastDivClock;
@@ -213,6 +212,7 @@ struct GB
 
     /* Functions that rely on external data */
     void (*draw_line)    (void *, const uint8_t * pixels, const uint8_t line);
+    void (*render_sample)(void *, const uint16_t  sample);
     void (*debug_cpu_log)(void *, const uint8_t);
 };
 
@@ -375,7 +375,6 @@ static inline void gb_step (struct GB * gb)
 static inline void gb_frame (struct GB * gb)
 {
     gb->drawFrame = 0;
-    gb->sampleCounter = 0;
     /* Returns when frame is completed (indicated by frame cycles) */
     while (!gb->drawFrame)
     {
