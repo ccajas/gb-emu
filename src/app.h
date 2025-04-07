@@ -14,6 +14,13 @@
 #define DEBUG_TEXTURE_H  288
 #define DEFAULT_SCALE    3
 
+#define ENABLE_AUDIO
+
+#ifdef ENABLE_AUDIO
+    #define MINIAUDIO_IMPLEMENTATION
+    #include "../deps/miniaudio/extras/miniaudio_split/miniaudio.h"
+#endif
+
 #ifdef GBE_DEBUG
     #define LOG_(f_, ...) printf((f_), ##__VA_ARGS__)
 #else
@@ -33,6 +40,8 @@
     #define GBE_WINDOW_TITLE(s)     glfwSetWindowTitle (app->window, s)
     #define GBE_POLL_EVENTS()       glfwPollEvents()
     #define GBE_APP_CLEANUP()\
+        free (app->gbData.tileMap.imgData);\
+        free (app->gbData.frameBuffer.imgData);\
         glfwDestroyWindow (app->window);\
         glfwTerminate();\
 
@@ -99,6 +108,10 @@ struct App
 
     /* Pointers to main and debug functions */
     struct GB gb;
+
+#ifdef ENABLE_AUDIO
+    ma_device audioDevice;
+#endif
     
 #ifdef USE_GLFW
     /* Drawing elements */
@@ -117,6 +130,10 @@ uint8_t * app_load (struct GB *, const char * romName);
 void app_config (struct App *, uint8_t const argc, char * const argv[]);
 void app_init   (struct App *);
 void app_run    (struct App *);
+
+#ifdef ENABLE_AUDIO
+void app_audio_init (struct App *);
+#endif
 
 /* Functions that reference frontend app data from emulator */
 void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line);

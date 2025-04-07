@@ -121,6 +121,45 @@ void drop_callback(GLFWwindow * window, int count, const char** paths)
 
 #endif
 
+#ifdef ENABLE_AUDIO
+
+#include "../_docs/audiotest/testraw.h"
+#define BUF_SIZE 1000
+
+unsigned char audioBuf[BUF_SIZE];
+unsigned int ptr = 0;
+
+void data_callback(ma_device * pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
+{
+    const int frames = frameCount * pDevice->playback.channels * ma_get_bytes_per_sample(pDevice->playback.format);
+
+    memcpy(audioBuf, testraw + ptr, BUF_SIZE);
+    memcpy(pOutput, audioBuf, frames);
+
+    ptr += BUF_SIZE;
+    if (ptr > sizeof(testraw))
+        ptr = 0;
+}
+
+void app_audio_init(struct App * app)
+{
+    ma_device_config config = ma_device_config_init(ma_device_type_playback);
+    config.periodSizeInFrames = 500;
+    config.playback.format   = ma_format_s16;   // Set to ma_format_unknown to use the device's native format.
+    config.playback.channels = 1;               // Set to 0 to use the device's native channel count.
+    config.sampleRate        = 44100;           // Set to 0 to use the device's native sample rate.
+    config.dataCallback      = data_callback;   // This function will be called when miniaudio needs more data.
+    
+    if (ma_device_init(NULL, &config, &app->audioDevice) != MA_SUCCESS) {
+        printf("device initialzation failed\n");
+        return;
+    }
+
+    ma_device_start(&app->audioDevice);     // The device is sleeping by default so you'll need to start it manually.
+}
+
+#endif
+
 void app_config (struct App * app, uint8_t const argc, char * const argv[])
 {
     if (argc >= 2) {
@@ -200,6 +239,10 @@ void app_init (struct App * app)
 
     /* Assign functions to be used by emulator */
     app->gb.draw_line     = app_draw_line;
+
+#ifdef ENABLE_AUDIO
+    app_audio_init(app);
+#endif
 
 #if defined(USE_GLFW)
     /* Objects for drawing */
@@ -308,6 +351,7 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
 
 void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
 {
+#ifdef USE_GLFW
     struct gb_data * const data = dataPtr;
 
     const uint32_t yOffset = line * DISPLAY_WIDTH * 3;
@@ -326,6 +370,7 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
         coloredPixels[x * 3 + 2] = pixel[2];
 	}
     memcpy (data->frameBuffer.imgData + yOffset, coloredPixels, DISPLAY_WIDTH * 3);
+#endif
 }
 
 void app_draw (struct App * app)
@@ -465,6 +510,9 @@ void app_run (struct App * app)
     LOG_("For each second, there is on average %.2f milliseconds free for overhead.\n",
             1000.0 - (1.0f / (totalSeconds / totalTime) * 1000));
 
+#ifdef ENABLE_AUDIO
+    ma_device_uninit(&app->audioDevice);
+#endif
     GBE_APP_CLEANUP();
 
     exit (EXIT_SUCCESS);
