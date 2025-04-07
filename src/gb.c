@@ -1097,6 +1097,11 @@ void gb_ch_trigger (struct GB * const gb, const uint8_t n)
         {
 
         }
+        /* Noise reset */
+        if (n == 3)
+        {
+            gb->audioLFSR = 0xFF;
+        }
     }
     else /* Wave pattern channel */
     {
@@ -1108,7 +1113,7 @@ void gb_update_div_apu (struct GB * const gb)
 {
     gb->apuDiv++;
 
-    if (!(gb->apuDiv & 7)) {
+    if ((gb->apuDiv & 7) == 7) {
         /* Envelope sweep, 64 Hz */
         int n;
         for (n = 0; n < 4; n++)
@@ -1117,11 +1122,15 @@ void gb_update_div_apu (struct GB * const gb)
 
             gb->audioCh[n].envTick++;
             const uint8_t ch_pos = n * 5;
+            const int8_t volStep = 
+                (gb->io[ch_pos + Ch1_Vol].EnvDir * 2) - 1;
+
+            if ((gb->audioCh[n].currentVol == 0xF && volStep == 1) ||
+                (gb->audioCh[n].currentVol == 0   && volStep == -1))
+                continue;
 
             if (gb->audioCh[n].envTick == gb->io[ch_pos + Ch1_Vol].EnvPace)
             {
-                const int8_t volStep = 
-                    (gb->io[ch_pos + Ch1_Vol].EnvDir * 2) - 1;
                 gb->audioCh[n].currentVol += volStep;
                 gb->audioCh[n].envTick = 0;
             }
@@ -1152,12 +1161,16 @@ void gb_update_audio (struct GB * const gb)
 {
     gb->apuClock += gb->rt;
 
-    if (gb->apuClock < 128)
+    /* Use for better performance (lower accuracy) */
+    if (gb->apuClock < CYCLES_PER_SAMPLE)
         return;
 
+    const uint8_t dutyCycles[4] = { 0x01, 0x03, 0x0F, 0xFC };
     const uint8_t step = gb->apuClock >> 2;
-    gb->apuClock = 0;
+    gb->apuClock -= CYCLES_PER_SAMPLE;
     //const uint8_t stepWav = gb->rt >> 1;
+
+    uint16_t pulse[2] = {0};
 
     /* Update pulse channels */
     uint8_t n;
@@ -1167,17 +1180,28 @@ void gb_update_audio (struct GB * const gb)
             continue;
 
         gb->audioCh[n].periodTick += step;
+        const uint8_t ch_pos = n * 5;
 
         while (gb->audioCh[n].periodTick >= PERIOD_MAX)
         {
-            const uint8_t ch_pos = n * 5;
             const uint16_t period =  
                 (gb->io[Ch1_Ctrl + ch_pos].PeriodH << 8) |
                 gb->io[Ch1_Period + ch_pos].r;
 
-            gb->audioCh[n].periodTick -= (PERIOD_MAX - period);
+            gb->audioCh[n].periodTick -= PERIOD_MAX;
+            gb->audioCh[n].periodTick += period;
+            gb->audioCh[n].dutyStep++;
         }
+
+        const uint8_t duty = gb->io[Ch1_LD + ch_pos].Duty;
+        
+        pulse[n] = dutyCycles[duty] >> (gb->audioCh[n].dutyStep & 7);
+        pulse[n] = (pulse[n] & 1) * gb->io[Ch1_Vol + ch_pos].Volume;
     }
+
+    /* Mix channel outputs */
+    //samples[gb->sampleCounter] = smp;
+    gb->sampleCounter++;
 }
 
 #undef PERIOD_MAX

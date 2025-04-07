@@ -20,8 +20,10 @@
 #define HRAM_SIZE     0x80
 #define IO_SIZE       0x100
 
-#define GB_FRAME_RATE    CPU_FREQ_DMG / FRAME_CYCLES
-#define INSTR_TIGHT_LOOP 2
+#define SAMPLE_RATE         32768
+#define GB_FRAME_RATE       (CPU_FREQ_DMG / FRAME_CYCLES)
+#define CYCLES_PER_SAMPLE   (CPU_FREQ_DMG / SAMPLE_RATE)
+#define TOTAL_SAMPLES       (int)(FRAME_CYCLES / CYCLES_PER_SAMPLE)
 
 /* Assign register pair as 16-bit union */
 
@@ -153,6 +155,7 @@ struct GB
     uint32_t apuClock;
     uint8_t  frame, drawFrame;
     uint32_t totalFrames;
+    uint16_t sampleCounter;
 
     /* Timer data */
     uint16_t divClock, lastDivClock;
@@ -184,6 +187,7 @@ struct GB
         uint8_t  enabled   : 1;
         uint8_t  DAC       : 1;
         uint8_t  currentVol;
+        uint8_t  dutyStep;
         uint16_t periodTick;
         uint16_t lengthTick;
         uint8_t  envTick   : 4;
@@ -191,6 +195,7 @@ struct GB
     audioCh[4];
     uint8_t  sweepTick : 4;
     uint16_t sweepBck;
+    uint16_t audioLFSR;
 
     /* Catridge which holds ROM and RAM */
     struct Cartridge cart;
@@ -199,11 +204,10 @@ struct GB
     /* Directly accessible external data */
     struct gb_data_sj
     {
-        /* Joypad button inputs */
         uint8_t joypad;
         uint8_t frameSkip;
         uint8_t pixelLine[DISPLAY_WIDTH];
-        void * ptr;
+        void *  ptr;
     }
     extData;
 
@@ -362,8 +366,8 @@ static inline void gb_step (struct GB * gb)
         gb_render (gb);
 
     /* Update APU if turned on */
-    //if (gb->io[AudioCtrl].Master_on)  
-    //    gb_update_audio (gb);
+    if (gb->io[AudioCtrl].Master_on)  
+        gb_update_audio (gb);
 
     gb->clock_t += gb->rt;
 }
@@ -371,6 +375,7 @@ static inline void gb_step (struct GB * gb)
 static inline void gb_frame (struct GB * gb)
 {
     gb->drawFrame = 0;
+    gb->sampleCounter = 0;
     /* Returns when frame is completed (indicated by frame cycles) */
     while (!gb->drawFrame)
     {
