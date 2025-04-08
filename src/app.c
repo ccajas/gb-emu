@@ -430,11 +430,12 @@ void app_draw (struct App * app)
 #endif
 }
 
-void app_render_sample (void * dataPtr, const uint16_t sample)
+void app_render_sample (void * dataPtr, const int16_t sample)
 {
-    memcpy(audioBuf + samplePos, &sample, 2);
+    memcpy(audioBuf + samplePos, &sample, sizeof(int16_t));
 
-    if (++samplePos > sizeof(audioBuf))
+    samplePos += 2;
+    if (samplePos > sizeof(audioBuf))
         samplePos = 0;
 }
 

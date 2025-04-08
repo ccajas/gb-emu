@@ -79,7 +79,7 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
             case Ch4_Vol:
             {
                 const uint8_t channel = ((addr & 0xff) - 0x10) / 5;
-                gb->audioCh[channel].DAC = (val & 0xF8) != 0;
+                gb->audioCh[channel].DAC = ((val & 0xF8) == 0) ? 0 : 1;
                 gb->io[Ch1_Vol + (channel * 5)].r = val;
                 break;
             }
@@ -243,7 +243,7 @@ void gb_init(struct GB *gb, uint8_t *bootRom)
     gb->clock_t = 0;
     gb->divClock = gb->timAClock = 0;
     gb->frame = gb->totalFrames = 0;
-    gb->apuDiv = 0;
+    gb->apuDiv = gb->apuClock = 0;
     gb->pcInc = 1;
     LOG_("GB: CPU state done\n");
 }
@@ -1109,6 +1109,26 @@ void gb_ch_trigger (struct GB * const gb, const uint8_t n)
     }
 }
 
+#define GB_UPDATE_ENVELOPE(gb, ch)\
+    const uint8_t ch_pos = n * 5;\
+    const uint8_t pace = gb->io[ch_pos + Ch1_Vol].EnvPace;\
+    \
+    if (ch.envTick != pace)\
+    {\
+        if (ch.envTick < pace) ch.envTick++;\
+        if (ch.envTick == pace)\
+        {\
+            ch.envTick = 0;\
+            const int8_t volStep =\
+                gb->io[ch_pos + Ch1_Vol].EnvDir ? 1 : -1;\
+            if ((ch.currentVol < 0xF && volStep == 1) ||\
+                (ch.currentVol > 0   && volStep == -1))\
+                {\
+                    ch.currentVol += volStep;\
+                }\
+        }\
+    }\
+
 void gb_update_div_apu (struct GB * const gb)
 {
     gb->apuDiv++;
@@ -1121,19 +1141,7 @@ void gb_update_div_apu (struct GB * const gb)
             if (n == 2) continue;
 
             gb->audioCh[n].envTick++;
-            const uint8_t ch_pos = n * 5;
-            const int8_t volStep = 
-                (gb->io[ch_pos + Ch1_Vol].EnvDir * 2) - 1;
-
-            if ((gb->audioCh[n].currentVol == 0xF && volStep == 1) ||
-                (gb->audioCh[n].currentVol == 0   && volStep == -1))
-                continue;
-
-            if (gb->audioCh[n].envTick == gb->io[ch_pos + Ch1_Vol].EnvPace)
-            {
-                gb->audioCh[n].currentVol += volStep;
-                gb->audioCh[n].envTick = 0;
-            }
+            GB_UPDATE_ENVELOPE(gb, gb->audioCh[n]);
         }
     }
 
@@ -1166,11 +1174,12 @@ void gb_update_audio (struct GB * const gb)
         return;
 
     const uint8_t dutyCycles[4] = { 0x01, 0x03, 0x0F, 0xFC };
-    const uint8_t step = gb->apuClock >> 3;
+    const uint8_t step = gb->apuClock >> 2;
     gb->apuClock -= CYCLES_PER_SAMPLE;
     //const uint8_t stepWav = gb->rt >> 1;
 
-    uint16_t pulse[2] = {0};
+    int32_t pulse[2] = {0};
+    int32_t sample = 0;
 
     /* Update pulse channels */
     uint8_t n;
@@ -1190,19 +1199,20 @@ void gb_update_audio (struct GB * const gb)
 
             gb->audioCh[n].periodTick -= PERIOD_MAX;
             gb->audioCh[n].periodTick += period;
-            gb->audioCh[n].dutyStep++;
+            ++gb->audioCh[n].dutyStep;
         }
 
         const uint8_t duty = gb->io[Ch1_LD + ch_pos].Duty;
         
         pulse[n] = dutyCycles[duty] >> (gb->audioCh[n].dutyStep & 7);
-        pulse[n] = (pulse[n] & 1) * gb->io[Ch1_Vol + ch_pos].Volume;
+        pulse[n] = (pulse[n] & 1) ? INT16_MIN : INT16_MAX;
+        sample += pulse[n] / 15 * gb->io[Ch1_Vol + ch_pos].Volume;
     }
 
-    const uint16_t sample = (pulse[0] + pulse[1]) << 2; 
+    sample /= 4;
 
     /* Mix channel outputs */
-    gb->render_sample (gb->extData.ptr, sample);
+    gb->render_sample (gb->extData.ptr, (int16_t)sample);
 }
 
 #undef PERIOD_MAX

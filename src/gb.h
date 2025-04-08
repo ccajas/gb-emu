@@ -152,7 +152,7 @@ struct GB
     uint16_t nn;
     uint64_t clock_t;
     uint16_t lineClock;
-    uint32_t apuClock;
+    uint16_t apuClock;
     uint8_t  frame, drawFrame;
     uint32_t totalFrames;
 
@@ -212,7 +212,7 @@ struct GB
 
     /* Functions that rely on external data */
     void (*draw_line)    (void *, const uint8_t * pixels, const uint8_t line);
-    void (*render_sample)(void *, const uint16_t  sample);
+    void (*render_sample)(void *, const int16_t sample);
     void (*debug_cpu_log)(void *, const uint8_t);
 };
 
