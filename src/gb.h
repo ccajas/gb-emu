@@ -186,7 +186,7 @@ struct GB
         uint8_t  enabled   : 1;
         uint8_t  DAC       : 1;
         uint8_t  currentVol;
-        uint8_t  dutyStep;
+        uint8_t  patternStep;
         uint16_t periodTick;
         uint16_t lengthTick;
         uint8_t  envTick   : 4;

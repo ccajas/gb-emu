@@ -66,13 +66,10 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                     while (i < 4) gb->audioCh[i++].enabled = 0;
                 }
                 break;
-            case NR10:
-                gb->io[NR10].r = val;
-                break;
-
+                
             case NR11:
             case NR21:
-            case Ch4_Length:
+            case NR41: /* Channel 1,2,4 length */
             {
                 const uint8_t channel = ((addr & 0xff) - 0x10) / 5;
                 gb->io[NR12 + (channel * 5)].r = val;
@@ -80,22 +77,22 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
             }
             case NR12:
             case NR22:
-            case Ch4_Vol:
+            case NR42: /* Fall through */
             {
                 const uint8_t channel = ((addr & 0xff) - 0x10) / 5;
                 gb->io[NR12 + (channel * 5)].r = val;
                 gb->audioCh[channel].DAC = ((val & 0xF8) == 0) ? 0 : 1;
                 break;
             }
-            case Ch3_Vol:
+            case NR32:
                 gb->audioCh[2].currentVol = (val >> 5) & 3;
-                gb->io[Ch3_Vol].r = val;
+                gb->io[NR32].r = val;
                 break;
 
             case NR14:
             case NR24:
-            case Ch3_Ctrl:
-            case Ch4_Ctrl:
+            case NR34:
+            case NR44: /* Channel control */
             {
                 const uint8_t channel = ((addr & 0xff) - 0x10) / 5;
                 gb->io[NR14 + (channel * 5)].r = val;
@@ -133,6 +130,19 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 break;
         }
         gb->io[addr & 0xFF].r = val;
+        if ((addr & 0xFF) >= 0x30 && (addr & 0xFF) <= 0x3F)
+        {
+            uint8_t s[2] = { val >> 4, val & 0xF };
+
+            int i;
+            LOG_("Wave pattern written to: %02x ", addr & 0xFF);
+            for (i = 0; i < s[0]; i++) LOG_("=");
+            LOG_("\n");
+
+            LOG_("Wave pattern written to: %02x ", addr & 0xFF);
+            for (i = 0; i < s[1]; i++) LOG_("=");
+            LOG_("\n");
+        }
     }
     return 0;
 }
@@ -1062,16 +1072,16 @@ void gb_init_audio (struct GB * const gb)
     gb->io[NR12].r   = 0xF3;
     
     gb->io[NR13].r = gb->io[NR23].r = 
-    gb->io[Ch3_Period].r = 0xFF;
-    gb->io[NR14].r   = gb->io[NR24].r = 
-    gb->io[Ch3_Ctrl].r   = gb->io[Ch4_Ctrl].r = 0xBF;
-    gb->io[Ch3_Length].r = gb->io[Ch4_Length].r = 0xFF;
+    gb->io[NR33].r = 0xFF;
+    gb->io[NR14].r = gb->io[NR24].r = 
+    gb->io[NR34].r = gb->io[NR44].r = 0xBF;
+    gb->io[NR31].r = gb->io[NR41].r = 0xFF;
 
-    gb->io[NR21].r   = 0x3F;
-    gb->io[NR22].r  = 0x0;
-    gb->io[Ch3_DAC].r  = 0x7F;
-    gb->io[Ch3_Vol].r  = 0x9F;
-    gb->io[Ch4_Vol].r  = gb->io[Ch4_Freq].r = 0x0;
+    gb->io[NR21].r = 0x3F;
+    gb->io[NR22].r = 0x0;
+    gb->io[NR30].r = 0x7F;
+    gb->io[NR32].r = 0x9F;
+    gb->io[NR42].r = gb->io[NR43].r = 0x0;
 }
 
 void gb_ch_trigger (struct GB * const gb, const uint8_t n)
@@ -1084,72 +1094,58 @@ void gb_ch_trigger (struct GB * const gb, const uint8_t n)
     if (gb->audioCh[n].lengthTick >= (n == 2 ? LENGTH_MAX_WAVE : LENGTH_MAX))
         gb->audioCh[n].lengthTick = gb->io[ch_pos + NR11].Length;
 
-    if (n != 2)
-    {
+    if (n < 3)
+    {   /* Reset period divider */
         const uint8_t periodH = gb->io[ch_pos + NR14].PeriodH;
         const uint16_t period = gb->io[ch_pos + NR13].r | (periodH << 8);
-
         gb->audioCh[n].periodTick = period;
-        gb->audioCh[n].currentVol = gb->io[ch_pos + NR12].Volume;
 
-        /* Pulse trigger reset */
         if (n < 2)
         {
-            gb->audioCh[n].envTick = 0;
-            gb->audioCh[n].dutyStep = 0;
-        }
-
-        /* Sweep reset */
-        if (n == 0)
-        {
-            gb->sweepBck = period;
-            gb->sweepTick = 0;
-
-            /* Overflow check */
-            if (gb->io[NR10].SweepStep > 0)
-            {
-                uint16_t newPeriod = gb->sweepBck >> gb->io[NR10].SweepStep;
-
-                if (gb->io[NR10].SweepDir)
-                    newPeriod = -newPeriod;
-
-                newPeriod = gb->sweepBck + newPeriod;
+            gb->audioCh[n].currentVol = gb->io[ch_pos + NR12].Volume;
     
-                if (newPeriod > 2047)
-                    gb->audioCh[0].enabled = 0;
+            /* Pulse trigger reset */
+            if (n < 2)
+            {
+                gb->audioCh[n].envTick = 0;
+                //gb->audioCh[n].patternStep = 0;
+            }
+    
+            /* Sweep reset */
+            if (n == 0)
+            {
+                gb->sweepBck = period;
+                gb->sweepTick = 0;
+    
+                /* Overflow check */
+                if (gb->io[NR10].SweepStep > 0)
+                {
+                    uint16_t newPeriod = gb->sweepBck >> gb->io[NR10].SweepStep;
+    
+                    /* Check if decrementing */
+                    newPeriod = gb->sweepBck + (gb->io[NR10].SweepDir) ?
+                        -newPeriod : newPeriod;
+        
+                    /* Overflow check */
+                    if (newPeriod > 2047)
+                        gb->audioCh[0].enabled = 0;
+                    else
+                        gb->sweepBck = newPeriod;
+                }
+            }
+            /* Noise reset */
+            if (n == 3)
+            {
+                gb->audioLFSR = 0xFF;
             }
         }
-        /* Noise reset */
-        if (n == 3)
+        else /* Wave pattern channel */
         {
-            gb->audioLFSR = 0xFF;
+            gb->audioCh[2].currentVol = (gb->io[NR32].r >> 5) & 3;
+            gb->audioCh[2].patternStep = 1; /* Start at 2nd wave sample */
         }
     }
-    else /* Wave pattern channel */
-    {
-        gb->audioCh[n].currentVol = (gb->io[Ch3_Vol].r >> 5) & 3;
-    }
 }
-
-#define GB_UPDATE_ENVELOPE(gb, ch)\
-    const uint8_t ch_pos = n * 5;\
-    const uint8_t pace = gb->io[ch_pos + NR12].EnvPace;\
-    \
-    if (ch.envTick != pace)\
-    {\
-        if (ch.envTick < pace) ch.envTick++;\
-        if (ch.envTick == pace)\
-        {\
-            ch.envTick = 0;\
-            const int8_t volStep =\
-                gb->io[ch_pos + NR12].EnvDir ? 1 : -1;\
-            if ((ch.currentVol < 0xF && volStep == 1) ||\
-                (ch.currentVol > 0   && volStep == -1))\
-                {\
-                    ch.currentVol += volStep;\
-                }\
-        }\
-    }\
 
 void gb_update_div_apu (struct GB * const gb)
 {
@@ -1163,12 +1159,29 @@ void gb_update_div_apu (struct GB * const gb)
             if (n == 2) continue;
 
             gb->audioCh[n].envTick++;
-            GB_UPDATE_ENVELOPE(gb, gb->audioCh[n]);
+            const uint8_t ch_pos = n * 5;
+            const uint8_t pace = gb->io[ch_pos + NR12].EnvPace;
+            
+            if (gb->audioCh[n].envTick != pace)
+            {
+                if (gb->audioCh[n].envTick < pace) gb->audioCh[n].envTick++;
+                if (gb->audioCh[n].envTick == pace)
+                {
+                    gb->audioCh[n].envTick = 0;
+                    const int8_t vol = gb->audioCh[n].currentVol +
+                        gb->io[ch_pos + NR12].EnvDir ? 1 : -1;
+
+                    gb->audioCh[n].currentVol = 
+                        (vol > 0xF) ? 0xF :
+                        (vol < 0)   ? 0   : vol; 
+                }
+            }
         }
     }
 
     if (!(gb->apuDiv & 1)) {
         /* Length ++, 256 Hz */
+
         int n;
         for (n = 0; n < 4; n++)
         {
@@ -1197,16 +1210,14 @@ void gb_update_div_apu (struct GB * const gb)
                 uint16_t newPeriod = period >> gb->io[NR10].SweepStep;
 
                 /* Check if decrementing */
-                if (gb->io[NR10].SweepDir) {
-                    newPeriod = period - newPeriod;
-                } else {
-                    newPeriod = period + newPeriod;
-                }
+                newPeriod = period + (gb->io[NR10].SweepDir) ? 
+                    -newPeriod : newPeriod;
                 
-                /* overflow check */
-                if (newPeriod > 2047) {
+                /* Overflow check */
+                if (newPeriod > 2047)
                     gb->audioCh[0].enabled = 0;
-                }
+                else
+                    gb->sweepBck = newPeriod;
                 
                 gb->io[NR14].PeriodH = newPeriod >> 8;
                 gb->io[NR13].r = newPeriod & 255;
@@ -1225,9 +1236,9 @@ void gb_update_audio (struct GB * const gb)
 
     const uint8_t dutyCycles[4] = { 0x01, 0x03, 0x0F, 0xFC };
     const uint8_t step = gb->apuClock >> 2;
+    const uint8_t stepW = gb->apuClock >> 1;
 
     gb->apuClock = 0;//-= CYCLES_PER_SAMPLE;
-    //const uint8_t stepWav = gb->rt >> 1;
 
     int32_t pulse[2] = {0};
     int32_t sample = 0;
@@ -1256,14 +1267,41 @@ void gb_update_audio (struct GB * const gb)
 
             gb->audioCh[n].periodTick -= PERIOD_MAX;
             gb->audioCh[n].periodTick += period;
-            gb->audioCh[n].dutyStep++;
+            gb->audioCh[n].patternStep++;
         }
 
         const uint8_t duty = gb->io[NR11 + ch_pos].Duty;
         
-        pulse[n] = dutyCycles[duty] >> (gb->audioCh[n].dutyStep & 7);
+        pulse[n] = dutyCycles[duty] >> (gb->audioCh[n].patternStep & 7);
         pulse[n] = (pulse[n] & 1) ? INT16_MIN : INT16_MAX;
         sample += pulse[n] / 15 * gb->audioCh[n].currentVol;//gb->io[NR12 + ch_pos].Volume;
+    }
+
+    /* Update wave channels */
+    if (gb->audioCh[2].enabled)
+    {
+        gb->audioCh[2].periodTick += stepW;
+
+        while (gb->audioCh[2].periodTick >= PERIOD_MAX)
+        {
+            const uint16_t period =  
+                (gb->io[NR34].PeriodH << 8) | gb->io[NR33].r;
+
+            gb->audioCh[2].periodTick -= PERIOD_MAX;
+            gb->audioCh[2].periodTick += period;
+            gb->audioCh[2].patternStep++;
+        }
+
+        uint8_t patternStep = gb->audioCh[2].patternStep & 31;
+        int32_t wav = gb->io[Wave + (patternStep >> 1)].r;
+        //const uint8_t vol = (gb->io[NR32].r >> 5) & 3;
+
+        if (!(patternStep & 1))
+            wav = (wav >> 4) & 0xF;
+        else
+            wav = wav & 0xF;
+
+        sample += wav * INT16_MAX / 15;
     }
 
     sample /= 4;
