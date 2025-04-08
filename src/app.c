@@ -124,18 +124,34 @@ void drop_callback(GLFWwindow * window, int count, const char** paths)
 #ifdef ENABLE_AUDIO
 
 //#include "../_docs/audiotest/testraw.h"
-#define BUF_SIZE  1096
+#define BUF_SIZE  1064
 
 //unsigned char testraw[BUF_SIZE] = {0};
 unsigned char audioBuf[BUF_SIZE] = {0};
+unsigned char testraw[31920] = {0};
+
 unsigned int ptr = 0;
 unsigned int samplePos = 0;
 
 void data_callback(ma_device * pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
 {
     const int frames = frameCount * pDevice->playback.channels * ma_get_bytes_per_sample(pDevice->playback.format);
+    
+    struct GB * gb = pDevice->pUserData;
+    samplePos = 0;
 
+    int i;
+    for (i = 0; i < frames; i++)
+        gb_update_audio(gb);
+
+    //LOG_("Request no. frames: %d Pos: %d\n", frames, samplePos);
+
+    //memcpy(audioBuf, testraw + ptr, BUF_SIZE);
     memcpy(pOutput, audioBuf, frames);
+
+    ptr += BUF_SIZE;
+    if (ptr > sizeof(testraw))
+        ptr = 0;
 }
 
 void app_audio_init(struct App * app)
@@ -434,8 +450,10 @@ void app_render_sample (void * dataPtr, const int16_t sample)
 {
     memcpy(audioBuf + samplePos, &sample, sizeof(int16_t));
 
+    //LOG_("Added sample at %d\n", samplePos);
     samplePos += 2;
-    if (samplePos > sizeof(audioBuf))
+
+    if (samplePos > BUF_SIZE)
         samplePos = 0;
 }
 

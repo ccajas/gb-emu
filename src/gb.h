@@ -20,7 +20,7 @@
 #define HRAM_SIZE     0x80
 #define IO_SIZE       0x100
 
-#define SAMPLE_RATE         32768
+#define SAMPLE_RATE         32000
 #define GB_FRAME_RATE       (CPU_FREQ_DMG / FRAME_CYCLES)
 #define CYCLES_PER_SAMPLE   (CPU_FREQ_DMG / SAMPLE_RATE)
 #define TOTAL_SAMPLES       (int)(FRAME_CYCLES / CYCLES_PER_SAMPLE)
@@ -366,8 +366,6 @@ static inline void gb_step (struct GB * gb)
         gb_render (gb);
 
     /* Update APU if turned on */
-    if (gb->io[AudioCtrl].Master_on)  
-        gb_update_audio (gb);
 
     gb->clock_t += gb->rt;
 }
