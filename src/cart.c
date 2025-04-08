@@ -137,19 +137,15 @@ uint8_t mbc3_rw(struct Cartridge *cart, const uint16_t addr, const uint8_t val, 
     else /* Write to registers */
     {
         if RAM_ENABLE_REG
-            cart->usingRAM = ((val & 0xF) == 0xA); /* Enable both RAM and RTC  */
+            cart->usingRAM = ((val & 0xF) == 0xA);            /* Enable both RAM and RTC  */
         if BANK_SELECT
             cart->romBank1 = ((val == 0) ? 1 : (val & 0x7F)); /* Write lower 7 bank bits  */
         if BANK_SELECT_2
-        { /* Lower 3 bits for RAM     */
-            cart->ramBank = val;
-            if (cart->ram)
-                cart->bkRamData = cart->ramData + (cart->ramBank * 0x2000);
-        }
+            cart->ramBank = val;                              /* Lower 3 bits for RAM     */
         if (RAM_BANK && cart->ram)
-        { /* Select RAM bank and fetch data (if enabled) */
+        {                                  /* Select RAM bank and fetch data (if enabled) */
             if (!cart->usingRAM)
-                return 0xFF; /* Write only to lower 8KB if no banking */
+                return 0xFF;                     /* Write only to lower 8KB if no banking */
             if (cart->ramBank < 4)
             {
                 const uint16_t ramAddr = (cart->ramBank * 0x2000) + (addr - 0xA000);
@@ -294,7 +290,6 @@ void cart_identify(struct Cartridge *cart)
     if (cart->ramSizeKB)
     {
         cart->ramData = calloc(cart->ramSizeKB * 1024, sizeof(uint8_t));
-        cart->bkRamData = cart->ramData;
     }
 
     cart->usingRAM = 0;

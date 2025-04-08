@@ -20,10 +20,6 @@ struct Cartridge
     uint8_t
         * romData,
         * ramData;
-    /* ROM and RAM banks that can be access directly */
-    uint8_t
-        * bkRomData, 
-        * bkRamData;
     
     /* Information about the game and its hardware */
     uint8_t  
