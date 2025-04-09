@@ -151,8 +151,7 @@ struct GB
     uint16_t pc, sp;
     uint16_t nn;
     uint64_t clock_t;
-    uint16_t lineClock;
-    uint16_t apuClock;
+    uint16_t lineClock, apuClock;
     uint8_t  frame, drawFrame;
     uint32_t totalFrames;
 
@@ -237,7 +236,7 @@ void gb_render              (struct GB *);
 void gb_init_audio          (struct GB *);
 void gb_ch_trigger          (struct GB *, const uint8_t);
 void gb_update_div_apu      (struct GB *);
-void gb_update_audio        (struct GB *);
+int16_t gb_update_audio        (struct GB *);
 
 static inline uint8_t gb_rom_loaded (struct GB * gb)
 {
@@ -293,10 +292,10 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
     #else
     #define cpu_read(X)   gb_mem_access (gb, X, 0, 0)
     #define LOG_CPU_STATE(gb, op) {\
-        LOG_("fclock %08d op: %02X "\
+        LOG_("op: %02X "\
             "A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X "\
             "SP:%04X PC:%04X LY:%3d mode: %d\n",\
-            gb->frameClock, op, REG_A, gb->flags, REG_B, REG_C, REG_D, REG_E, REG_H, REG_L, \
+            op, REG_A, gb->flags, REG_B, REG_C, REG_D, REG_E, REG_H, REG_L, \
             gb->sp, gb->pc, gb->io[LY], IO_STAT_MODE\
         );\
     }
@@ -372,12 +371,12 @@ static inline void gb_step (struct GB * gb)
 
 static inline void gb_frame (struct GB * gb)
 {
-    gb->drawFrame = 0;
+    gb->drawFrame = 0;  
     /* Returns when frame is completed (indicated by frame cycles) */
     while (!gb->drawFrame)
     {
         gb_step (gb);
-    }
+    }       
 
     /* Indicates odd or even frame */
     gb->frame = 1 - gb->frame;

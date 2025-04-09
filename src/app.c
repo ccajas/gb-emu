@@ -124,30 +124,29 @@ void drop_callback(GLFWwindow * window, int count, const char** paths)
 #ifdef ENABLE_AUDIO
 
 //#include "../_docs/audiotest/testraw.h"
-#define BUF_SIZE  1064
+#define BUF_SIZE  (int)(SAMPLE_RATE / GB_FRAME_RATE)
 
 //unsigned char testraw[BUF_SIZE] = {0};
-unsigned char audioBuf[BUF_SIZE] = {0};
-unsigned char testraw[31920] = {0};
+int16_t audioBuf[BUF_SIZE] = {0};
+unsigned char testraw[32040] = {0};
 
 unsigned int ptr = 0;
 unsigned int samplePos = 0;
+ma_pcm_rb pRB;
 
 void data_callback(ma_device * pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
 {
     const int frames = frameCount * pDevice->playback.channels * ma_get_bytes_per_sample(pDevice->playback.format);
-    
     struct GB * gb = pDevice->pUserData;
-    samplePos = 0;
 
+    /* Capture samples */
+    ma_pcm_rb_acquire_read(&pRB, &frameCount, (void**)&audioBuf);
     int i;
-    for (i = 0; i < frames; i++)
-        gb_update_audio(gb);
+    for (i = 0; i < BUF_SIZE; i++)
+        audioBuf[i] = gb_update_audio(gb);
 
-    //LOG_("Request no. frames: %d Pos: %d\n", frames, samplePos);
-
-    //memcpy(audioBuf, testraw + ptr, BUF_SIZE);
     memcpy(pOutput, audioBuf, frames);
+    ma_pcm_rb_commit_read(&pRB, frameCount);
 
     ptr += BUF_SIZE;
     if (ptr > sizeof(testraw))
@@ -157,7 +156,7 @@ void data_callback(ma_device * pDevice, void* pOutput, const void* pInput, ma_ui
 void app_audio_init(struct App * app)
 {
     ma_device_config config = ma_device_config_init(ma_device_type_playback);
-    config.periodSizeInFrames = BUF_SIZE / 2;
+    config.periodSizeInFrames = BUF_SIZE;
     config.playback.format   = ma_format_s16;   // Set to ma_format_unknown to use the device's native format.
     config.playback.channels = 1;               // Set to 0 to use the device's native channel count.
     config.sampleRate        = SAMPLE_RATE;  // Set to 0 to use the device's native sample rate.
@@ -166,6 +165,12 @@ void app_audio_init(struct App * app)
     
     if (ma_device_init(NULL, &config, &app->audioDevice) != MA_SUCCESS) {
         printf("device initialzation failed\n");
+        return;
+    }
+
+    ma_result result_rb = ma_pcm_rb_init(ma_format_s16, 1, BUF_SIZE, NULL, NULL, &pRB);
+    if (result_rb != MA_SUCCESS) {
+        printf("Could not create the ring buffer\n");
         return;
     }
 
