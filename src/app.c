@@ -258,8 +258,7 @@ void app_init (struct App * app)
     }
 
     /* Assign functions to be used by emulator */
-    app->gb.draw_line     = app_draw_line;
-    app->gb.render_sample = app_render_sample;
+    app->gb.draw_line = app_draw_line;
 
 #ifdef ENABLE_AUDIO
     app_audio_init(app);
@@ -451,17 +450,6 @@ void app_draw (struct App * app)
 #endif
 }
 
-void app_render_sample (void * dataPtr, const int16_t sample)
-{
-    memcpy(audioBuf + samplePos, &sample, sizeof(int16_t));
-
-    //LOG_("Added sample at %d\n", samplePos);
-    samplePos += 2;
-
-    if (samplePos > BUF_SIZE)
-        samplePos = 0;
-}
-
 enum { NS_PER_SECOND = 1000000000 };
 
 inline uint64_t as_nanoseconds(struct timespec* ts) {
@@ -537,7 +525,7 @@ void app_run (struct App * app)
     const double totalSeconds = (double)(frames / 60.0);
     //const double totalTime    = (double)(accu_nsec / 1000000000.0);
 
-    LOG_("The emulation took %f milliseconds for %d frames.\nGB performance is %f times as fast.\n",
+    LOG_("The emulation took %f seconds for %d frames.\nGB performance is %f times as fast.\n",
         totalTime, frames, totalSeconds / totalTime);
     LOG_("For each second, there is on average %.2f milliseconds free for overhead.\n",
             1000.0 - (1.0f / (totalSeconds / totalTime) * 1000));

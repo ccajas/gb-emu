@@ -1,4 +1,4 @@
-CFLAGS = -Wall -s -O2 -std=gnu89 -DGBE_DEBUG -DUSE_GLFW
+CFLAGS = -Wall -s -O2 -std=gnu89 -DGBE_DEBUG -DUSE_GLFW -DENABLE_AUDIO
 PKG = `pkg-config --static --libs glfw3`
 src = $(wildcard ../../*.c) $(wildcard *.c)
 

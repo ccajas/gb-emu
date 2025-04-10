@@ -14,8 +14,6 @@
 #define DEBUG_TEXTURE_H  288
 #define DEFAULT_SCALE    3
 
-#define ENABLE_AUDIO
-
 #ifdef ENABLE_AUDIO
     #define MINIAUDIO_IMPLEMENTATION
     #include "../deps/miniaudio/extras/miniaudio_split/miniaudio.h"
@@ -137,7 +135,6 @@ void app_audio_init (struct App *);
 
 /* Functions that reference frontend app data from emulator */
 void app_draw_line     (void * dataPtr, const uint8_t * pixels, const uint8_t line);
-void app_render_sample (void * dataPtr, const int16_t sample);
 
 /* Drawing functions */
 static inline void app_imgPtr (struct Texture * texture, const uint32_t pos)
