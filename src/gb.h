@@ -33,7 +33,7 @@
         uint16_t r16;\
     } XY;\
 
-/* Todo: Reorganize structs so that macros for renaming regs aren't needed */
+/* TODO: Reorganize structs so that macros for renaming regs aren't needed */
 
 #define REG_A    gb->af.r8.a
 #define R_FLAGS  gb->flags    
@@ -211,7 +211,6 @@ struct GB
 
     /* Functions that rely on external data */
     void (*draw_line)    (void *, const uint8_t * pixels, const uint8_t line);
-    void (*render_sample)(void *, const int16_t sample);
     void (*debug_cpu_log)(void *, const uint8_t);
 };
 
@@ -236,7 +235,7 @@ void gb_render              (struct GB *);
 void gb_init_audio          (struct GB *);
 void gb_ch_trigger          (struct GB *, const uint8_t);
 void gb_update_div_apu      (struct GB *);
-int16_t gb_update_audio        (struct GB *);
+int16_t gb_update_audio     (struct GB *);
 
 static inline uint8_t gb_rom_loaded (struct GB * gb)
 {
@@ -311,7 +310,7 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
         ++gb->io[Divider].r;\
         gb->divClock -= 256;\
         \
-        if (lastDiv & 0x10 && !(gb->io[Divider].r & 0x10))\
+        if (!(gb->io[Divider].r & 0x10) && lastDiv & 0x10)\
             gb_update_div_apu(gb);\
     }\
 

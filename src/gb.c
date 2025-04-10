@@ -29,7 +29,7 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 gb->io[Divider].r = 0;
                 break;
             case TimA:
-                // LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A);
+                /* LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A); */
                 break;
             case TMA:
                 gb->io[TMA].r = val;
@@ -39,7 +39,6 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 gb_update_timer(gb, 0);
                 break; /* DIV reset                             */
             case TimA:
-                // LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A);
                 if (!gb->newTimALoaded)
                     gb->io[TimA].r = val; /* Update TIMA if new value wasn't loaded last cycle    */
                 if (gb->nextTimA_IRQ)
@@ -50,7 +49,7 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                     gb->io[TimA].r = val;
                 break;
 #endif
-            case TimerCtrl: /* Todo: TIMA should increase right here if last bit was 1 and current is 0  */
+            case TimerCtrl: /* TODO: TimA should increase right here if last bit was 1 and current is 0  */
                 gb->io[TimerCtrl].r = val | 0xF8;
                 break;
             case IntrFlags: /* Mask unused bits for IE and IF         */
@@ -81,12 +80,13 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
             {
                 const uint8_t channel = ((addr & 0xff) - 0x10) / 5;
                 gb->io[NR12 + (channel * 5)].r = val;
+                gb->audioCh[channel].currentVol = val >> 4;
                 gb->audioCh[channel].DAC = ((val & 0xF8) == 0) ? 0 : 1;
                 break;
             }
             case NR32:
-                gb->audioCh[2].currentVol = (val >> 5) & 3;
                 gb->io[NR32].r = val;
+                gb->audioCh[2].currentVol = (val >> 5) & 3;
                 break;
 
             case NR14:
@@ -106,13 +106,13 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 const uint8_t lcdEnabled =  gb->io[LCDControl].LCD_Enable;
                 if (lcdEnabled && !(val & (1 << LCD_Enable)))
                 {
-                    LOG_("GB: ░ LCD turn off (%d:%d)\n", gb->totalFrames, gb->io[LY].r);
+                    LOG_("GB: [ ] LCD turn off (%d:%d)\n", gb->totalFrames, gb->io[LY].r);
                     IO_STAT_MODE = 0; /* Clear STAT mode when turning off LCD       */
                     gb->io[LY].r = 0;
                 }
                 else if (!lcdEnabled && (val & (1 << LCD_Enable)))
                 {
-                    LOG_("GB: ▓ LCD turn on  (%d:%d)\n", gb->totalFrames, gb->io[LY].r);
+                    LOG_("GB: [#] LCD turn on  (%d:%d)\n", gb->totalFrames, gb->io[LY].r);
                 }
                 break;
             }
@@ -120,7 +120,7 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 break;
             case DMA: /* OAM DMA transfer     */
                 gb->io[DMA].r = val;
-                int i = 0; /* Todo: Make it write across 160 cycles */
+                int i = 0; /* TODO: Make it write across 160 cycles */
                 const uint16_t src = val << 8;
                 while (i < OAM_SIZE)
                 {
@@ -130,7 +130,7 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 break;
         }
         gb->io[addr & 0xFF].r = val;
-        if ((addr & 0xFF) >= 0x30 && (addr & 0xFF) <= 0x3F)
+        /*if ((addr & 0xFF) >= 0x30 && (addr & 0xFF) <= 0x3F)
         {
             uint8_t s[2] = { val >> 4, val & 0xF };
 
@@ -142,7 +142,7 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
             LOG_("Wave pattern written to: %02x ", addr & 0xFF);
             for (i = 0; i < s[1]; i++) LOG_("=");
             LOG_("\n");
-        }
+        }*/
     }
     return 0;
 }
@@ -519,7 +519,7 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
 #endif
 
     /* Handle effects of STOP instruction */
-    /* Todo: Read joypad button selection/press */
+    /* TODO: Read joypad button selection/press */
     if (op == 0x10 && gb->stopped)
     {
         gb->stopped = 0;
@@ -993,8 +993,6 @@ void gb_render(struct GB *const gb)
 {
     gb->lineClock += gb->rt;
 
-    /* Todo: continuously fetch pixels clock by clock for LCD data transfer.
-       Similarly do clock-based processing for the other actions. */
     if (gb->io[LY].r < DISPLAY_HEIGHT)
     {
         /* Visible line, within screen bounds */
@@ -1087,61 +1085,81 @@ void gb_init_audio (struct GB * const gb)
 void gb_ch_trigger (struct GB * const gb, const uint8_t n)
 {
     const uint8_t ch_pos = n * 5;
+    const uint8_t periodH = gb->io[ch_pos + NR14].PeriodH;
+    const uint16_t period = gb->io[ch_pos + NR13].r | (periodH << 8);
 
-    gb->audioCh[n].enabled = 1;
-
-    /* Length timer reset */
-    if (gb->audioCh[n].lengthTick >= (n == 2 ? LENGTH_MAX_WAVE : LENGTH_MAX))
-        gb->audioCh[n].lengthTick = gb->io[ch_pos + NR11].Length;
-
-    if (n < 3)
-    {   /* Reset period divider */
-        const uint8_t periodH = gb->io[ch_pos + NR14].PeriodH;
-        const uint16_t period = gb->io[ch_pos + NR13].r | (periodH << 8);
-        gb->audioCh[n].periodTick = period;
-
-        if (n != 2)
-        {
-            gb->audioCh[n].currentVol = gb->io[ch_pos + NR12].Volume;
-    
-            /* Pulse trigger reset */
-            gb->audioCh[n].envTick = 0;
-            gb->audioCh[n].patternStep = 0;
-    
+/*
+    Action                          1 2 3 4
+    ---------------------------------------
+    Enable channel                  X X X X
+    Reset length timer if expired   X X X X
+    Set period to NRx3 and NRx4     X X X -
+    Reset envelope timer            X X - X
+    Set volume to NRx2              X X X X
+    Sweep-related updates           X - - -
+    Reset Wave RAM index            - - X -
+    Reset LSFR bits                 - - - X
+*/
+    switch (n + 1)
+    {
+        case 1:
             /* Sweep reset */
-            if (n == 0)
+        case 2:
+            /* Pulse trigger reset */
+            gb->audioCh[n].patternStep = 0;
+        case 3:
+        {
+            /* Reset period divider */
+            gb->audioCh[n].periodTick = period;
+            /* Wave pattern reset */
+            if (n + 1 == 3)
             {
-                gb->sweepBck = period;
-                gb->sweepTick = 0;
-    
-                /* Overflow check */
-                if (gb->io[NR10].SweepStep > 0)
-                {
-                    uint16_t newPeriod = gb->sweepBck >> gb->io[NR10].SweepStep;
-    
-                    /* Check if decrementing */
-                    newPeriod = gb->sweepBck + (gb->io[NR10].SweepDir) ?
-                        -newPeriod : newPeriod;
-        
-                    /* Overflow check */
-                    if (newPeriod > 2047)
-                        gb->audioCh[0].enabled = 0;
-                    else
-                        gb->sweepBck = newPeriod;
-                }
+                gb->audioCh[2].currentVol = (gb->io[NR32].r >> 5) & 3;
+                gb->audioCh[2].patternStep = 1; /* Start at 2nd wave sample */
             }
         }
-        else /* Wave pattern channel */
+        case 4:
+            /* Enable channel */
+            gb->audioCh[n].enabled = 1;
+            /* Reset length timer if expired  */
+            const uint16_t max = (n == 2 ? LENGTH_MAX_WAVE : LENGTH_MAX);
+            if (gb->audioCh[n].lengthTick >= max)
+                gb->audioCh[n].lengthTick = gb->io[ch_pos + NR11].Length;
+            /* Reset envelope timer */
+            if (!(n + 1 == 3))
+                gb->audioCh[n].envTick = 0;
+            /* Reset volume */
+            gb->audioCh[n].currentVol = gb->io[ch_pos + NR12].Volume;
+            /* LFSR reset */
+            if (n + 1 == 4)
+                gb->audioLFSR = 0;
+        break;
+    }
+
+#ifdef SWEEP_RESET
+    /* Sweep reset */
+    if (n == 0)
+    {
+        gb->sweepBck = period;
+        gb->sweepTick = 0;
+
+        /* Overflow check */
+        if (gb->io[NR10].SweepStep > 0)
         {
-            gb->audioCh[2].currentVol = (gb->io[NR32].r >> 5) & 3;
-            gb->audioCh[2].patternStep = 1; /* Start at 2nd wave sample */
+            uint16_t newPeriod = gb->sweepBck >> gb->io[NR10].SweepStep;
+
+            /* Check if decrementing */
+            newPeriod = gb->sweepBck + (gb->io[NR10].SweepDir) ?
+                -newPeriod : newPeriod;
+
+            /* Overflow check */
+            if (newPeriod > 2047)
+                gb->audioCh[0].enabled = 0;
+            else
+                gb->sweepBck = newPeriod;
         }
     }
-    /* Noise reset */
-    if (n == 3)
-    {
-        gb->audioLFSR = 0xFF;
-    }
+#endif
 }
 
 void gb_update_div_apu (struct GB * const gb)
@@ -1153,25 +1171,35 @@ void gb_update_div_apu (struct GB * const gb)
         int n;
         for (n = 0; n < 4; n++)
         {
-            if (n == 2) continue;
-
-            gb->audioCh[n].envTick++;
+            if (n > 1) continue;
+            /** TODO: Envelope sweep needs to be fixed */
             const uint8_t ch_pos = n * 5;
             const uint8_t pace = gb->io[ch_pos + NR12].EnvPace;
-            
-            if (gb->audioCh[n].envTick != pace)
+       
+            if (pace == 0) 
             {
-                if (gb->audioCh[n].envTick < pace) gb->audioCh[n].envTick++;
-                if (gb->audioCh[n].envTick == pace)
-                {
-                    gb->audioCh[n].envTick = 0;
-                    const int8_t vol = gb->audioCh[n].currentVol +
-                        gb->io[ch_pos + NR12].EnvDir ? 1 : -1;
+                //gb->audioCh[n].currentVol = gb->io[ch_pos + NR12].Volume;
+                continue;
+            }
 
-                    gb->audioCh[n].currentVol = 
-                        (vol > 0xF) ? 0xF :
-                        (vol < 0)   ? 0   : vol; 
-                }
+            gb->audioCh[n].envTick++;
+
+            if (gb->audioCh[n].envTick == pace)
+            {
+                gb->audioCh[n].envTick = 0;
+                const int8_t dir = (gb->io[ch_pos + NR12].EnvDir) ? 1 : -1;
+                const int8_t vol = gb->audioCh[n].currentVol + dir;
+
+                gb->audioCh[n].currentVol =
+                    (vol > 0xF) ? 0xF :
+                    (vol < 0)   ? 0   : vol;
+                //if (n == 1)
+                /*LOG_("Step up/down for %d: %2d (%2d) %s", 
+                    n + 1, gb->audioCh[n].currentVol, dir, 
+                    gb->audioCh[n].enabled ? "on ": "off");
+                int i;
+                for (i = 0; i < gb->audioCh[n].currentVol; i++) LOG_("=");
+                LOG_("\n");*/
             }
         }
     }
@@ -1182,16 +1210,23 @@ void gb_update_div_apu (struct GB * const gb)
         for (n = 0; n < 4; n++)
         {
             const uint8_t ch_pos = n * 5;
+            //if (!(gb->io[NR14]).Len_Enable)
+            //    LOG_("Length disabled: %d (%d)\n", n + 1, gb->audioCh[n].lengthTick);
 
             if (gb->audioCh[n].enabled && gb->io[NR14 + ch_pos].Len_Enable)
+            {
                 gb->audioCh[n].lengthTick++;
+                //LOG_("Length tick: %d (%d)\n", n + 1, gb->audioCh[n].lengthTick);
 
-            if (gb->audioCh[n].lengthTick >= (n == 2 ? LENGTH_MAX_WAVE : LENGTH_MAX))
-                gb->audioCh[n].enabled = 0;
+                if (gb->audioCh[n].lengthTick == (n == 2 ? LENGTH_MAX_WAVE : LENGTH_MAX))
+                    gb->audioCh[n].enabled = 0;
+            }
         }
     }
 
     if (!(gb->apuDiv & 3)) {
+        /** TODO: Period sweep needs to be fixed */
+        #ifdef LENGTH_APU
         /* Ch 1 sweep ++, 128 Hz */
         const uint8_t pace = gb->io[NR10].SweepPace;
         if (gb->sweepTick != pace && gb->io[NR10].SweepPace)
@@ -1219,6 +1254,7 @@ void gb_update_div_apu (struct GB * const gb)
                 gb->io[NR13].r = newPeriod & 255;
             }
         }
+        #endif
     }
 }
 
@@ -1227,8 +1263,6 @@ int16_t gb_update_audio (struct GB * const gb)
     gb->apuClock += (int)CYCLES_PER_SAMPLE;
 
     /* Use for better performance (lower accuracy) */
-    //if (gb->apuClock < CYCLES_PER_SAMPLE)
-    //    return;
 
     const uint8_t dutyCycles[4] = { 0x01, 0x03, 0x0F, 0xFC };
     const uint8_t step = gb->apuClock >> 2;
@@ -1241,7 +1275,7 @@ int16_t gb_update_audio (struct GB * const gb)
 
     if (!gb->io[AudioCtrl].Master_on)
     {
-        gb->render_sample (gb->extData.ptr, (int16_t)sample);
+        LOG_("Audio turned off\n");
         return (int16_t)sample;
     }
 
@@ -1270,11 +1304,11 @@ int16_t gb_update_audio (struct GB * const gb)
         
         pulse[n] = dutyCycles[duty] >> (gb->audioCh[n].patternStep & 7);
         pulse[n] = (pulse[n] & 1) ? INT16_MIN : INT16_MAX;
-        sample += pulse[n] / 15 * gb->audioCh[n].currentVol;//gb->io[NR12 + ch_pos].Volume;
+        sample += pulse[n] / 15 * gb->audioCh[n].currentVol;
     }
 
-    /* Update wave channels */
-    if (gb->audioCh[2].enabled)
+    /* Update wave channel */
+    if (gb->audioCh[2].enabled && (gb->io[NR30].r & 0x80))
     {
         gb->audioCh[2].periodTick += stepW;
 
@@ -1300,10 +1334,11 @@ int16_t gb_update_audio (struct GB * const gb)
         sample += wav * INT16_MAX / 7;
     }
 
+    /* Update noise channel */
+
     /* Mix channel outputs */
-    sample /= 4;
+    sample /= (4 << 1);
     return (uint16_t)sample;
-    //gb->render_sample (gb->extData.ptr, (int16_t)sample);
 }
 
 #undef PERIOD_MAX
