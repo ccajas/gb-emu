@@ -300,6 +300,12 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
     }
 #endif
 
+#ifdef ENABLE_AUDIO
+    #define UPDATE_DIV_APU   { gb_update_div_apu(gb); }
+#else
+    #define UPDATE_DIV_APU   { }
+#endif
+
 #ifdef USE_TIMER_SIMPLE /* Update DIV register */
 
 #define UPDATE_DIV(gb) \
@@ -309,9 +315,8 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
         const uint8_t lastDiv = gb->io[Divider].r;\
         ++gb->io[Divider].r;\
         gb->divClock -= 256;\
-        \
         if (!(gb->io[Divider].r & 0x10) && lastDiv & 0x10)\
-            gb_update_div_apu(gb);\
+            UPDATE_DIV_APU \
     }\
 
 #endif

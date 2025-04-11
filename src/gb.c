@@ -57,6 +57,7 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 gb->io[addr % 0x80].r = val | 0xE0;
                 break;
             /* APU registers */
+#ifdef ENABLE_AUDIO
             case AudioCtrl:
                 gb->io[AudioCtrl].r = val & 0x80;
                 if (!(val & 0x80))
@@ -100,6 +101,7 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                     gb_ch_trigger(gb, channel);       
                 break;
             }
+#endif
             /* PPU registers */
             case LCDControl:
             { /* Check whether LCD will be turned on or off */
@@ -754,7 +756,7 @@ uint8_t bgpValues[172 >> 3];
 
 #define BGP_VAL    gb->io[BGPalette].r
 
-static inline uint8_t *gb_pixel_fetch(struct GB *gb)
+static inline uint8_t *gb_pixels_fetch(struct GB *gb)
 {
     uint8_t *pixels = gb->extData.pixelLine;
     //assert(gb->io[LY] < DISPLAY_HEIGHT);
@@ -987,8 +989,6 @@ _FORCE_INLINE void gb_transfer(struct GB *gb)
     else /* Unset the flag */\
         gb->io[LCDStatus].stat_LYC_LY = 0;\
 
-//#define DISABLE_LCD
-
 void gb_render(struct GB *const gb)
 {
     gb->lineClock += gb->rt;
@@ -1011,11 +1011,10 @@ void gb_render(struct GB *const gb)
 
                 if ((!gb->io[LCDControl].LCD_Enable) || (gb->extData.frameSkip &&
                     (gb->totalFrames % (gb->extData.frameSkip + 1) > 0)))
-                    return;
-                    
+                    return;        
 #ifndef DISABLE_LCD
                 /* Fetch line of pixels for the screen and draw them */
-                gb_pixel_fetch(gb);
+                gb_pixels_fetch(gb);
                 if (gb->totalFrames % (gb->extData.frameSkip + 1) == 0)
                     gb->draw_line (gb->extData.ptr, gb->extData.pixelLine, gb->io[LY].r);
 #endif
@@ -1274,10 +1273,7 @@ int16_t gb_update_audio (struct GB * const gb)
     int32_t sample = 0;
 
     if (!gb->io[AudioCtrl].Master_on)
-    {
-        LOG_("Audio turned off\n");
         return (int16_t)sample;
-    }
 
     /* Update pulse channels */
     uint8_t n;
