@@ -19,7 +19,14 @@
 inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
     if (!write)
-        return gb->io[addr % 0x80].r;
+    {
+        const uint8_t reg = addr & 0xFF;
+
+        if (reg >= NR10 && reg <= Wave + 0xF)
+            gb_apu_rw(gb, reg, val, write);
+
+        return gb->io[addr & 0xFF].r;
+    }
     else
     {
         switch (addr & 0xFF)
@@ -29,7 +36,7 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 gb->io[Divider].r = 0;
                 break;
             case TimA:
-                /* LOG_("GB: TIMA update (%d, A: $%02x)\n", (int8_t)val, REG_A); */
+                gb->io[TimA].r = val;
                 break;
             case TMA:
                 gb->io[TMA].r = val;
@@ -54,53 +61,13 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 break;
             case IntrFlags: /* Mask unused bits for IE and IF         */
             case IntrEnabled:
-                gb->io[addr % 0x80].r = val | 0xE0;
+                gb->io[addr & 0xFF].r = val | 0xE0;
                 break;
             /* APU registers */
 #ifdef ENABLE_AUDIO
-            case AudioCtrl:
-                gb->io[AudioCtrl].r = val & 0x80;
-                if (!(val & 0x80))
-                {
-                    int i = 0;
-                    while (i < 4) gb->audioCh[i++].enabled = 0;
-                }
+            case NR10 ... Wave + 0xF:
+                gb_apu_rw(gb, addr & 0xFF, val, write);
                 break;
-                
-            case NR11:
-            case NR21:
-            case NR41: /* Channel 1,2,4 length */
-            {
-                const uint8_t channel = ((addr & 0xff) - 0x10) / 5;
-                gb->io[NR12 + (channel * 5)].r = val;
-                break;
-            }
-            case NR12:
-            case NR22:
-            case NR42: /* Fall through */
-            {
-                const uint8_t channel = ((addr & 0xff) - 0x10) / 5;
-                gb->io[NR12 + (channel * 5)].r = val;
-                gb->audioCh[channel].currentVol = val >> 4;
-                gb->audioCh[channel].DAC = ((val & 0xF8) == 0) ? 0 : 1;
-                break;
-            }
-            case NR32:
-                gb->io[NR32].r = val;
-                gb->audioCh[2].currentVol = (val >> 5) & 3;
-                break;
-
-            case NR14:
-            case NR24:
-            case NR34:
-            case NR44: /* Channel control */
-            {
-                const uint8_t channel = ((addr & 0xff) - 0x10) / 5;
-                gb->io[NR14 + (channel * 5)].r = val;
-                if (val >> 7)
-                    gb_ch_trigger(gb, channel);       
-                break;
-            }
 #endif
             /* PPU registers */
             case LCDControl:
@@ -116,9 +83,11 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 {
                     LOG_("GB: [#] LCD turn on  (%d:%d)\n", gb->totalFrames, gb->io[LY].r);
                 }
+                gb->io[LCDControl].r = val;
                 break;
             }
             case LY: /* Writing to LY resets line counter      */
+                gb->io[LY].r = val;
                 break;
             case DMA: /* OAM DMA transfer     */
                 gb->io[DMA].r = val;
@@ -130,21 +99,86 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                     i++;
                 }
                 break;
+            default:
+                gb->io[addr & 0xFF].r = val;
         }
-        gb->io[addr & 0xFF].r = val;
-        /*if ((addr & 0xFF) >= 0x30 && (addr & 0xFF) <= 0x3F)
+    }
+    return 0;
+}
+
+inline uint8_t gb_apu_rw(struct GB *gb, const uint8_t reg, const uint8_t val, const uint8_t write)
+{
+    if (!write)
+    {
+        //LOG_("APU value %02x read from %02x\n", gb->io[reg].r, reg);
+        //LOG_("--> With OR %02x: %02x\n\n", 
+        //    apu_bitmasks[reg - NR10], gb->io[reg].r | apu_bitmasks[reg - NR10]);
+        return gb->io[reg].r | apu_bitmasks[reg - NR10];
+    }
+    else
+    {
+        if (reg == AudioCtrl)
         {
-            uint8_t s[2] = { val >> 4, val & 0xF };
+            gb->io[AudioCtrl].r = val & 0x80;
+            LOG_("APU new value %02x written to 26\n\n", gb->io[AudioCtrl].r);
+            if (!(gb->io[AudioCtrl].r >> 7))
+            {
+                int i = 0;
+                while (i < 4) gb->audioCh[i++].enabled = 0;
+                /* Clear registers */
+                for (i = NR10; i < AudioCtrl; i++)
+                    gb->io[i].r = 0;
+                LOG_("Clear all APU registers\n\n");
+            }
+        }
 
-            int i;
-            LOG_("Wave pattern written to: %02x ", addr & 0xFF);
-            for (i = 0; i < s[0]; i++) LOG_("=");
-            LOG_("\n");
+        /* APU registers are read only when audio is turned off */
+        if (gb->io[AudioCtrl].r == 0)
+        {
+            //LOG_("Audio is off, failed write (%02x)\n\n", reg);
+            return 0;
+        }
 
-            LOG_("Wave pattern written to: %02x ", addr & 0xFF);
-            for (i = 0; i < s[1]; i++) LOG_("=");
-            LOG_("\n");
-        }*/
+        //LOG_("== Write to APU: %02x\n", reg);
+        gb->io[reg].r = val;
+
+        switch (reg)
+        {            
+            case NR11:
+            case NR21:
+            case NR41: /* Channel 1,2,4 length */
+            {
+                const uint8_t channel = (reg - 0x10) / 5;
+                gb->io[NR12 + (channel * 5)].r = val;
+                break;
+            }
+            case NR12:
+            case NR22:
+            case NR42: /* Channel 1,2,4 volume */
+            {
+                const uint8_t channel = (reg - 0x10) / 5;
+                gb->io[NR12 + (channel * 5)].r = val;
+                gb->audioCh[channel].currentVol = val >> 4;
+                gb->audioCh[channel].DAC = ((val & 0xF8) == 0) ? 0 : 1;
+                break;
+            }
+            case NR32:
+                gb->io[NR32].r = val;
+                gb->audioCh[2].currentVol = (val >> 5) & 3;
+                break;
+
+            case NR14:
+            case NR24:
+            case NR34:
+            case NR44: /* Channel control */
+            {
+                const uint8_t channel = (reg - 0x10) / 5;
+                gb->io[NR14 + (channel * 5)].r = val;
+                if (val >> 7)
+                    gb_ch_trigger(gb, channel);       
+                break;
+            }
+        }
     }
     return 0;
 }
@@ -1065,8 +1099,8 @@ void gb_render(struct GB *const gb)
 void gb_init_audio (struct GB * const gb)
 {
     gb->io[NR10].r = 0x80;
-    gb->io[NR11].r    = 0xBF;
-    gb->io[NR12].r   = 0xF3;
+    gb->io[NR11].r = 0xBF;
+    gb->io[NR12].r = 0xF3;
     
     gb->io[NR13].r = gb->io[NR23].r = 
     gb->io[NR33].r = 0xFF;
@@ -1217,8 +1251,8 @@ void gb_update_div_apu (struct GB * const gb)
                 gb->audioCh[n].lengthTick++;
                 //LOG_("Length tick: %d (%d)\n", n + 1, gb->audioCh[n].lengthTick);
 
-                if (gb->audioCh[n].lengthTick == (n == 2 ? LENGTH_MAX_WAVE : LENGTH_MAX))
-                    gb->audioCh[n].enabled = 0;
+                //if (gb->audioCh[n].lengthTick == (n == 2 ? LENGTH_MAX_WAVE : LENGTH_MAX))
+                //    gb->audioCh[n].enabled = 0;
             }
         }
     }

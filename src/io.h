@@ -1,5 +1,15 @@
-#ifndef IO_H
-#define IO_H
+#ifndef IO_H_
+#define IO_H_
+
+static const uint8_t apu_bitmasks[] = {
+    0x80, 0x3F, 0,    0xFF, 0xBF, /* NR10 ... */
+    0xFF, 0x3F, 0,    0xFF, 0xBF, /* NR20 ... */
+    0x7F, 0xFF, 0x9F, 0xFF, 0xBF, /* NR30 ... */
+    0xFF, 0xFF, 0,    0,    0xBF, /* NR40 ... */
+    0,    0,    0x70,             /* NR50 ... */
+    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /* Wave RAM */
+};
 
 /* Related IO registers */
 

@@ -214,7 +214,7 @@ struct GB
     void (*debug_cpu_log)(void *, const uint8_t);
 };
 
-uint8_t gb_ppu_rw     (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
+uint8_t gb_apu_rw     (struct GB *, const uint8_t  reg,  const uint8_t val, const uint8_t write);
 uint8_t gb_io_rw      (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
 uint8_t gb_mem_access (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
 
