@@ -12,6 +12,8 @@
 #define BANK_SELECT_H  (addr >= 0x3000 && addr <= 0x3FFF)
 #define MODE_SELECT    (addr >= 0x6000 && addr <= 0x7FFF)
 
+#define RAM_ADDR       (cart->ramBank * 0x2000) + (addr - 0xA000)
+
 /* Read/write implementations for different MBCs */
 
 uint8_t none_rw(struct Cartridge *cart, const uint16_t addr, const uint8_t val, const uint8_t write)
@@ -127,8 +129,7 @@ uint8_t mbc3_rw(struct Cartridge *cart, const uint16_t addr, const uint8_t val, 
                 return cart->ramData[addr % 0x2000]; /* Fetch only lower 8KB     */
             if (cart->ramBank < 4)
             {
-                const uint16_t ramAddr = (cart->ramBank * 0x2000) + (addr - 0xA000);
-                return cart->ramData[ramAddr];
+                return cart->ramData[RAM_ADDR];
             }
             else
                 return 0xFF;
@@ -147,10 +148,7 @@ uint8_t mbc3_rw(struct Cartridge *cart, const uint16_t addr, const uint8_t val, 
             if (!cart->usingRAM)
                 return 0xFF;                     /* Write only to lower 8KB if no banking */
             if (cart->ramBank < 4)
-            {
-                const uint16_t ramAddr = (cart->ramBank * 0x2000) + (addr - 0xA000);
-                cart->ramData[ramAddr] = val;
-            }
+                cart->ramData[RAM_ADDR] = val;
         }
     }
     return 0xFF;
@@ -169,7 +167,7 @@ uint8_t mbc5_rw(struct Cartridge *cart, const uint16_t addr, const uint8_t val, 
             return cart->romData[(selectedBank - 1) * 0x4000 + addr];
         }
         if (RAM_BANK && cart->ram)
-            return (cart->usingRAM) ? cart->ramData[(cart->ramBank) * 0x2000 + (addr % 0x2000)] : 0xFF;
+            return (cart->usingRAM) ? cart->ramData[(cart->ramBank) * 0x2000 + (addr - 0xA000)] : 0xFF;
     }
     else /* Write to registers */
     {
@@ -197,11 +195,47 @@ uint8_t mbc5_rw(struct Cartridge *cart, const uint16_t addr, const uint8_t val, 
     return 0xFF;
 }
 
+uint8_t huc1_rw(struct Cartridge *cart, const uint16_t addr, const uint8_t val, const uint8_t write)
+{
+    if (!write) /* Read from cartridge */
+    {
+        if LOW_BANK
+            return cart->romData[addr];
+        if HIGH_BANK
+            return cart->romData[((cart->romBank1 & cart->romMask) - 1) * 0x4000 + addr];
+        if RAM_BANK
+        {
+            if (!cart->usingRAM)
+                return 0xFF;
+            return cart->ramData[RAM_ADDR];
+        }
+    }  
+    else /* Write to registers */
+    {
+        if RAM_ENABLE_REG
+            cart->usingRAM = (val != 0x0E);
+        if BANK_SELECT
+        {
+            cart->romBank1 = val;
+            if (cart->romBank1 == 0) cart->romBank1 = 1;
+        }
+        if BANK_SELECT_2
+            cart->ramBank = val;
+        if RAM_BANK
+        {
+            if (!cart->usingRAM)
+                return 0xFF;
+            cart->ramData[RAM_ADDR] = val;
+        }
+    }
+    return 0xFF;
+}
+
 /* Array to select the MBC read/write functions from */
 
 uint8_t (*cart_rw[])(struct Cartridge *, const uint16_t, const uint8_t, const uint8_t) =
 {
-    none_rw, mbc1_rw, mbc2_rw, mbc3_rw, NULL, mbc5_rw
+    none_rw, mbc1_rw, mbc2_rw, mbc3_rw, NULL, mbc5_rw, NULL, NULL, huc1_rw
 };
 
 /* Array to select whether or not the cart has a battery */
@@ -263,6 +297,9 @@ void cart_identify(struct Cartridge *cart)
             break;
         case 0x19 ... 0x1E:
             cart->mbc = 5;
+            break;
+        case 0xFF:
+            cart->mbc = 8;
             break;
         default:
             LOG_("GB: MBC not supported (%d)\n", cartType);

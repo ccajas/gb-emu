@@ -58,6 +58,7 @@ uint8_t mbc1_rw (struct Cartridge *, const uint16_t, const uint8_t, const uint8_
 uint8_t mbc2_rw (struct Cartridge *, const uint16_t, const uint8_t, const uint8_t);
 uint8_t mbc3_rw (struct Cartridge *, const uint16_t, const uint8_t, const uint8_t);
 uint8_t mbc5_rw (struct Cartridge *, const uint16_t, const uint8_t, const uint8_t);
+uint8_t huc1_rw (struct Cartridge *, const uint16_t, const uint8_t, const uint8_t);
 
 extern const uint8_t cartBattery[];
 extern uint8_t (* cart_rw[])(struct Cartridge *, const uint16_t, const uint8_t, const uint8_t);
