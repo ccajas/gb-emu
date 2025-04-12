@@ -120,7 +120,7 @@ inline uint8_t gb_apu_rw(struct GB *gb, const uint8_t reg, const uint8_t val, co
         if (reg == AudioCtrl)
         {
             gb->io[AudioCtrl].r = val & 0x80;
-            LOG_("APU new value %02x written to 26\n\n", gb->io[AudioCtrl].r);
+            //LOG_("APU new value %02x written to 26\n\n", gb->io[AudioCtrl].r);
             if (!(gb->io[AudioCtrl].r >> 7))
             {
                 int i = 0;
@@ -128,7 +128,7 @@ inline uint8_t gb_apu_rw(struct GB *gb, const uint8_t reg, const uint8_t val, co
                 /* Clear registers */
                 for (i = NR10; i < AudioCtrl; i++)
                     gb->io[i].r = 0;
-                LOG_("Clear all APU registers\n\n");
+                //LOG_("Clear all APU registers\n\n");
             }
         }
 
@@ -1143,7 +1143,7 @@ void gb_ch_trigger (struct GB * const gb, const uint8_t n)
         case 3:
         {
             /* Reset period divider */
-            gb->audioCh[n].periodTick = period;
+            gb->audioCh[n].periodTick = (period == 0) ? 8 : 0;
             /* Wave pattern reset */
             if (n + 1 == 3)
             {
@@ -1198,6 +1198,97 @@ void gb_ch_trigger (struct GB * const gb, const uint8_t n)
 void gb_update_div_apu (struct GB * const gb)
 {
     gb->apuDiv++;
+
+    switch (gb->apuDiv & 7)
+    {
+        case 7: /* Volume envelope, 64 Hz */
+        {
+            int n;
+            for (n = 0; n < 4; n++)
+            {
+                if (n > 1) continue;
+                /** TODO: Envelope sweep needs to be fixed */
+                const uint8_t ch_pos = n * 5;
+                const uint8_t pace = gb->io[ch_pos + NR12].EnvPace;
+           
+                if (pace == 0) 
+                    continue;
+    
+                gb->audioCh[n].envTick++;
+    
+                if (gb->audioCh[n].envTick == pace)
+                {
+                    gb->audioCh[n].envTick = 0;
+                    const int8_t dir = (gb->io[ch_pos + NR12].EnvDir) ? 1 : -1;
+                    const int8_t vol = gb->audioCh[n].currentVol + dir;
+    
+                    gb->audioCh[n].currentVol =
+                        (vol > 0xF) ? 0xF :
+                        (vol < 0)   ? 0   : vol;
+                }
+            }
+        }
+        break;
+        case 2:
+        case 6: /* Sweep envelope, 128 Hz */
+        {
+            /** TODO: Period sweep needs to be fixed */
+            #ifdef SWEEP_APU
+            /* Ch 1 sweep ++, 128 Hz */
+            const uint8_t pace = gb->io[NR10].SweepPace;
+            if (gb->sweepTick != pace && gb->io[NR10].SweepPace)
+            {
+                gb->sweepTick++;
+                if (gb->sweepTick == pace)
+                {
+                    gb->sweepTick = 0;
+                    const uint8_t periodH = gb->io[NR14].PeriodH;
+                    const uint16_t period = gb->io[NR13].r | (periodH << 8);
+
+                    uint16_t newPeriod = period >> gb->io[NR10].SweepStep;
+
+                    /* Check if decrementing */
+                    newPeriod = period + (gb->io[NR10].SweepDir) ? 
+                        -newPeriod : newPeriod;
+                    
+                    /* Overflow check */
+                    if (newPeriod > 2047)
+                        CHANNEL_OFF(0)
+                    else
+                        gb->sweepBck = newPeriod;
+                    
+                    gb->io[NR14].PeriodH = newPeriod >> 8;
+                    gb->io[NR13].r = newPeriod & 255;
+                }
+            }
+            #endif
+        }
+        case 0:
+        case 4: /* Period length tick, 256 Hz  */
+        {
+            int n;
+            for (n = 0; n < 4; n++)
+            {
+                const uint8_t ch_pos = n * 5;
+                if (!(gb->io[ch_pos + NR14]).Len_Enable)
+                    continue;
+
+                if (!(gb->audioCh[n].enabled))
+                    continue;
+
+                //LOG_("Length disabled: %d (%d)\n", n + 1, gb->audioCh[n].lengthTick);
+                gb->audioCh[n].lengthTick++;
+                
+                //LOG_("Length tick: %d (%d)\n", n + 1, gb->audioCh[n].lengthTick);
+
+                if (gb->audioCh[n].lengthTick == 
+                    (n == 2 ? LENGTH_MAX_WAVE : LENGTH_MAX))
+                    gb->audioCh[n].enabled = 0;
+            }
+        }
+    }
+
+    return;
 
     if ((gb->apuDiv & 7) == 7) {
         /* Envelope sweep, 64 Hz */
