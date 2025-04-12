@@ -1,0 +1,5 @@
+# For Miniaudio
+MA_FLAGS = -DMA_NO_WAV -DMA_NO_FLAC -DMA_NO_MP3 -DMA_NO_ENCODING -DMA_NO_GENERATION\
+	-DMA_NO_RESOURCE_MANAGER -DMA_NO_NODE_GRAPH -DMA_NO_ENGINE
+
+miniaudio = deps/miniaudio/miniaudio.c

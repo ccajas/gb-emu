@@ -1,31 +1,46 @@
-CFLAGS = -Wall -s -O2 -std=gnu89 -MMD -MP
+CFLAGS = -Wall -s -O2 -std=gnu89 -DGBE_DEBUG -DUSE_GLFW -DENABLE_AUDIO -MMD -MP
 CFLAGS_WIN = $(CFLAGS) -Wl,-subsystem,windows
 GLFW_PKG = `pkg-config --static --libs glfw3`
 
-#`pkg-config --cflags glfw3 freetype2`
 GLdir = src/api/gl/
 src = $(wildcard src/*.c)
 src_min = src/main.c src/app.c src/gb.c src/cart.c
 srcGL = $(wildcard src/api/gl/*.c)
 srcTIGR = $(wildcard src/api/tigr/*.c)
 
-CC = i686-w64-mingw32-gcc
+#CC = i686-w64-mingw32-gcc
 
 INC = -I../_include  -L../_lib 
+
+include Makefile.ma
 
 lib = $(src:.c=.a)
 obj = $(src:.c=.o)
 
 # Output
-target = bin/win32/gb-emu
-target_linux = bin/linux/gb-emu
+target = bin/gb-emu.exe
+target_linux = bin/gb-emu
+
 all: glfw
+
+OS_NAME := $(shell uname -s | tr A-Z a-z)
 
 .PHONY: clean
 
+# main build
+ifeq ($(OS_NAME),linux)
+glfw: $(obj)
+	@echo $(OS_NAME)
+	$(CC) $(CFLAGS) $(src) $(miniaudio) $(srcGL) $(GLFW_PKG) -o $(target_linux)
+else
+glfw: $(obj)
+	@echo $(OS_NAME)
+	$(CC) $(CFLAGS) $(src) $(miniaudio) $(srcGL) ../_lib/libglfw3.a -lgdi32 -o $(target)
+endif
+
 # no GLFW build
 min: $(obj)
-	gcc -DTEST_APP_ -o $(target_linux) src/main.c $(GLdir)glad.c $(GLFW_PKG)
+	$(CC) -DTEST_APP_ -o $(target_linux) src/main.c $(GLdir)glad.c $(GLFW_PKG)
 
 tigr: $(obj)
 	$(CC) $(CFLAGS) -DUSE_TIGR $(src_min) $(srcTIGR) -o $(target) $(includes) -lm -lopengl32 -lgdi32
