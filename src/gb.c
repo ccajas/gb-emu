@@ -293,7 +293,7 @@ void gb_init(struct GB *gb, uint8_t *bootRom)
     gb->clock_t = 0;
     gb->divClock = gb->timAClock = 0;
     gb->frame = gb->totalFrames = 0;
-    gb->apuDiv = gb->apuClock = 0;
+    gb->apuDiv = 0;
     gb->pcInc = 1;
     LOG_("GB: CPU state done\n");
 }
@@ -1206,12 +1206,12 @@ void gb_update_div_apu (struct GB * const gb)
             int n;
             for (n = 0; n < 4; n++)
             {
-                if (n > 1) continue;
+                if (n == 2) continue;
                 /** TODO: Envelope sweep needs to be fixed */
                 const uint8_t ch_pos = n * 5;
                 const uint8_t pace = gb->io[ch_pos + NR12].EnvPace;
            
-                if (pace == 0) 
+                if (pace == 0)
                     continue;
     
                 gb->audioCh[n].envTick++;
@@ -1377,19 +1377,13 @@ void gb_update_div_apu (struct GB * const gb)
 
 int16_t gb_update_audio (struct GB * const gb)
 {
-    gb->apuClock += (int)CYCLES_PER_SAMPLE;
+    const int cycles = (int)CYCLES_PER_SAMPLE;
 
     /* Use for better performance (lower accuracy) */
 
     const uint8_t dutyCycles[4] = { 0x01, 0x03, 0x0F, 0xFC };
     const uint8_t divisor[8] = 
         { 0x8, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70 };
-
-    const uint8_t step  = gb->apuClock >> 2;
-    const uint8_t stepW = gb->apuClock >> 1;
-    const uint8_t stepN = gb->apuClock;
-
-    gb->apuClock -= CYCLES_PER_SAMPLE;
 
     int32_t pulse[2] = {0};
     int32_t sample = 0;
@@ -1404,7 +1398,7 @@ int16_t gb_update_audio (struct GB * const gb)
         if (!gb->audioCh[n].DAC || !gb->audioCh[n].enabled)
             continue;
 
-        gb->audioCh[n].periodTick += step;
+        gb->audioCh[n].periodTick += (cycles >> 2);
         const uint8_t ch_pos = n * 5;
 
         while (gb->audioCh[n].periodTick >= PERIOD_MAX)
@@ -1428,7 +1422,7 @@ int16_t gb_update_audio (struct GB * const gb)
     /* Update wave channel */
     if (gb->audioCh[2].enabled && (gb->io[NR30].r & 0x80))
     {
-        gb->audioCh[2].periodTick += stepW;
+        gb->audioCh[2].periodTick += (cycles >> 1);
 
         while (gb->audioCh[2].periodTick >= PERIOD_MAX)
         {
@@ -1456,11 +1450,10 @@ int16_t gb_update_audio (struct GB * const gb)
     if (gb->audioCh[3].DAC && gb->audioCh[3].enabled)
     {
         /* "Period" determines how often LFSR is clocked */
-        gb->audioCh[3].periodTick += stepN;
+        gb->audioCh[3].periodTick += cycles;
 
         const uint8_t shift = (gb->io[NR43].r >> 4) & 15;
         const uint8_t clock = gb->io[NR43].r & 7;
-
         const uint16_t freq = divisor[clock] << shift;
 
         while (gb->audioCh[3].periodTick >= freq)
@@ -1470,8 +1463,6 @@ int16_t gb_update_audio (struct GB * const gb)
             uint8_t nextBit = ((gb->audioLFSR & 1) == ((gb->audioLFSR & 2) >> 1));
             gb->audioLFSR >>= 1;
             gb->audioLFSR |= (nextBit << 14);
-
-            //LOG_("LSFR shift: %04x\n", gb->audioLFSR);
 
             /* Adjust LSFR according to width */
             if ((gb->io[NR43].r >> 3) & 1) {

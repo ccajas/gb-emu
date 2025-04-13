@@ -151,7 +151,7 @@ struct GB
     uint16_t pc, sp;
     uint16_t nn;
     uint64_t clock_t;
-    uint16_t lineClock, apuClock;
+    uint16_t lineClock;
     uint8_t  frame, drawFrame;
     uint32_t totalFrames;
 
@@ -186,7 +186,7 @@ struct GB
         uint8_t  DAC       : 1;
         uint8_t  currentVol;
         uint8_t  patternStep;
-        uint16_t periodTick;
+        uint32_t periodTick;
         uint16_t lengthTick;
         uint8_t  envTick   : 4;
     }
