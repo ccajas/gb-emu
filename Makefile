@@ -1,6 +1,7 @@
 CFLAGS = -Wall -s -O2 -std=gnu89 -DGBE_DEBUG -DUSE_GLFW -DENABLE_AUDIO -MMD -MP
 CFLAGS_WIN = $(CFLAGS) -Wl,-subsystem,windows
 GLFW_PKG = `pkg-config --static --libs glfw3`
+CC = gcc
 
 GLdir = src/api/gl/
 src = $(wildcard src/*.c)
@@ -50,7 +51,10 @@ minifb: $(obj)
 
 # headless
 core: $(obj)
-	gcc -DGBE_DEBUG $(CFLAGS) $(src_min) -o $(target_linux) -lrt -lm
+	gcc -Wall -s -O2 -std=gnu89 -DGBE_DEBUG $(src_min) -o $(target_linux) -lrt -lm
+
+corew: $(obj)
+	gcc -Wall -s -O2 -std=gnu89 -DGBE_DEBUG $(src_min) -o $(target)
 
 clean:
 	rm -f $(obj) $(target)
