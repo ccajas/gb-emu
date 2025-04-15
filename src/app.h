@@ -71,6 +71,8 @@
 
 #endif
 
+#define USE_BOOT_ROM
+
 struct App
 {
     uint8_t draw, paused, step;

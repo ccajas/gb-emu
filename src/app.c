@@ -344,7 +344,7 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
 
 #ifdef  USE_BOOT_ROM
     /* Load boot file if present */
-    FILE * fb = fopen ("test/mgb_bootix.bin", "rb");
+    FILE * fb = fopen ("_test/mgb_boot.bin", "rb");
     
     boot = calloc(BOOT_ROM_SIZE, sizeof (uint8_t));
     if (!fread (boot, BOOT_ROM_SIZE, 1, f))
@@ -355,7 +355,8 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
     /* Copy ROM to cart */
     LOG_("Loading \"%s\"\n", fileName);
     gb->cart.romData = rom;
-    if (gb->cart.romData) gb_init (gb, boot);
+    if (gb->cart.romData) 
+        gb_init (gb, boot);
 
     return rom;
 #else
@@ -525,8 +526,9 @@ void app_run (struct App * app)
     const double totalSeconds = (double)(frames / 60.0);
     //const double totalTime    = (double)(accu_nsec / 1000000000.0);
 
-    LOG_("The emulation took %f seconds for %d frames.\nGB performance is %f times as fast.\n",
-        totalTime, frames, totalSeconds / totalTime);
+    LOG_("The emulation took %f seconds for %d frames.\n"
+        "GB performance is %f times as fast (%d FPS average).\n",
+        totalTime, frames, totalSeconds / totalTime, (int)(totalSeconds / totalTime * 60.0f));
     LOG_("For each second, there is on average %.2f milliseconds free for overhead.\n",
             1000.0 - (1.0f / (totalSeconds / totalTime) * 1000));
 
