@@ -347,7 +347,7 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
     FILE * fb = fopen ("_test/mgb_boot.bin", "rb");
     
     boot = calloc(BOOT_ROM_SIZE, sizeof (uint8_t));
-    if (!fread (boot, BOOT_ROM_SIZE, 1, f))
+    if (!fread (boot, BOOT_ROM_SIZE, 1, fb))
         boot = NULL;
     else
         fclose (fb);
