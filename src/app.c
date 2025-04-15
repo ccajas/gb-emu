@@ -376,7 +376,7 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
     struct gb_data * const data = dataPtr;
 
     const uint32_t yOffset = line * DISPLAY_WIDTH * 3;
-    uint8_t coloredPixels[DISPLAY_WIDTH * 3];
+    uint8_t * pixel = NULL;
 
     uint8_t x;
 	for (x = 0; x < DISPLAY_WIDTH; x++)
@@ -384,13 +384,10 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
         /* Get color and palette to use it with */
         const uint8_t idx = (3 - *pixels) & 3;
         const uint8_t pal = ((*pixels++ >> 2) & 3) - 1;
-        const uint8_t * pixel = gbcPalettes[data->paletteBG + pal].colors[idx];
-
-        coloredPixels[x * 3]     = pixel[0];
-        coloredPixels[x * 3 + 1] = pixel[1];
-        coloredPixels[x * 3 + 2] = pixel[2];
+        pixel = (uint8_t*) gbcPalettes[data->paletteBG + pal].colors[idx];
+        
+        memcpy (data->frameBuffer.imgData + yOffset + x * 3, pixel, 3);
 	}
-    memcpy (data->frameBuffer.imgData + yOffset, coloredPixels, DISPLAY_WIDTH * 3);
 #endif
 }
 
