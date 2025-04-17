@@ -1,12 +1,11 @@
-CFLAGS = -Wall -s -O2 -std=gnu89 -DGBE_DEBUG -DUSE_GLFW -DENABLE_AUDIO -MMD -MP
-CFLAGS_WIN = $(CFLAGS) -Wl,-subsystem,windows
+CFLAGS   = -Wall -s -O2 -std=gnu89 -DGBE_DEBUG -DUSE_GLFW -DENABLE_AUDIO -MMD -MP
 GLFW_PKG = `pkg-config --static --libs glfw3`
-CC = gcc
+CC       = gcc
 
-GLdir = src/api/gl/
-src = $(wildcard src/*.c)
+GLdir   = src/api/gl/
+src     = $(wildcard src/*.c)
 src_min = src/main.c src/app.c src/gb.c src/cart.c
-srcGL = $(wildcard src/api/gl/*.c)
+srcGL   = $(wildcard src/api/gl/*.c)
 srcTIGR = $(wildcard src/api/tigr/*.c)
 
 #CC = i686-w64-mingw32-gcc
