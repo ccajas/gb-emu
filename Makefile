@@ -32,11 +32,11 @@ OS_NAME := $(shell uname -s | tr A-Z a-z)
 ifeq ($(OS_NAME),linux)
 glfw: $(obj)
 	@echo $(OS_NAME)
-	$(CC) $(CFLAGS) $(src) $(miniaudio) $(srcGL) $(GLFW_PKG) -o $(target_linux)
+	$(CC) $(CFLAGS) $(MA_FLAGS) $(src) $(miniaudio) $(srcGL) $(GLFW_PKG) -o $(target_linux)
 else
 glfw: $(obj)
 	@echo $(OS_NAME)
-	$(CC) $(CFLAGS) $(src) $(miniaudio) $(srcGL) ../_lib/libglfw3.a -lgdi32 -o $(target)
+	$(CC) $(CFLAGS) $(MA_FLAGS) $(src) $(miniaudio) $(srcGL) ../_lib/libglfw3.a -lgdi32 -o $(target)
 endif
 
 # no GLFW build
