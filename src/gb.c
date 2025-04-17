@@ -25,8 +25,8 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
         if (reg >= NR10 && reg <= Wave + 0xF)
             return gb_apu_rw(gb, reg, val, write);
 
-        if (reg == IntrEnabled)
-            return gb->io[reg].r | ~bitmasksIO[reg];
+        if (reg == IntrEnabled && gb->io[reg].r == 0)
+            return gb->io[reg].r;
 
         /* Return bitmasked value */
         return gb->io[reg].r | bitmasksIO[reg];
@@ -64,7 +64,7 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 gb->io[TimerCtrl].r = val | 0xF8;
                 break;
             case IntrFlags: /* Mask unused bits for IE and IF         */
-                gb->io[IntrFlags].r = val | 0xE0;
+                gb->io[reg].r = val | 0xE0;
                 break;
             /* APU registers */
 #ifdef ENABLE_AUDIO
@@ -763,7 +763,7 @@ struct sprite_data
     uint8_t x;
 };
 
-//#define HIGH_SORT_ACCURACY
+#define HIGH_SORT_ACCURACY
 #ifdef HIGH_SORT_ACCURACY
 int compare_sprites(const void *in1, const void *in2)
 {
@@ -895,8 +895,8 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
 #ifdef SPRITE_SORTED
         for (sprite = 0; sprite < (sizeof(sprites_to_render) / sizeof(sprites_to_render[0])); sprite++)
         {
-            uint8_t objY = gb->oam[4 * sprite];
-            uint8_t objX = gb->oam[4 * sprite + 1];
+            const uint8_t objY = gb->oam[4 * sprite];
+            const uint8_t objX = gb->oam[4 * sprite + 1];
 
             /* If sprite isn't on this line, continue */
             if (gb->io[LY].r + (gb->io[LCDControl].OBJ_Size ? 0 : 8) >= objY || gb->io[LY].r + 16 < objY)
@@ -928,7 +928,7 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
 #ifdef HIGH_SORT_ACCURACY
         /* If maximum number of sprites reached, prioritise X
          * coordinate and object location in OAM. */
-        qsort(&sprites_to_render[0], totalSprites,
+        qsort(sprites_to_render, totalSprites,
               sizeof(sprites_to_render[0]), compare_sprites);
 #endif
         if (totalSprites > MAX_SPRITES_LINE)
@@ -1145,13 +1145,21 @@ void gb_ch_trigger (struct GB * const gb, const uint8_t n)
     {
         case 1:
             /* Sweep reset */
+            const uint8_t pace = gb->io[NR10].SweepPace;
+            gb->sweepBck = period;
+            gb->sweepTick = (pace == 0) ? 8 : pace;
+    
+            if (gb->io[NR10].SweepStep > 0 || gb->io[NR10].SweepPace > 0)
+                gb->audioCh[0].enabled = 1;
+            else
+                gb->audioCh[0].enabled = 0;
         case 2:
             /* Pulse trigger reset */
             gb->audioCh[n].patternStep = 0;
         case 3:
         {
             /* Reset period divider */
-            gb->audioCh[n].periodTick = (period == 0) ? 8 : 0;
+            gb->audioCh[n].periodTick = period;
             /* Wave pattern reset */
             if (n + 1 == 3)
             {
@@ -1168,7 +1176,7 @@ void gb_ch_trigger (struct GB * const gb, const uint8_t n)
                 gb->audioCh[n].lengthTick = gb->io[ch_pos + NR11].Length;
             /* Reset envelope timer */
             if (!(n + 1 == 3))
-                gb->audioCh[n].envTick = 0;
+                gb->audioCh[n].envTick = gb->io[ch_pos + NR12].EnvPace;
             /* Reset volume */
             gb->audioCh[n].currentVol = gb->io[ch_pos + NR12].Volume;
             /* LFSR reset */
@@ -1176,31 +1184,6 @@ void gb_ch_trigger (struct GB * const gb, const uint8_t n)
                 gb->audioLFSR = 0;
         break;
     }
-
-#ifdef SWEEP_RESET
-    /* Sweep reset */
-    if (n == 0)
-    {
-        gb->sweepBck = period;
-        gb->sweepTick = 0;
-
-        /* Overflow check */
-        if (gb->io[NR10].SweepStep > 0)
-        {
-            uint16_t newPeriod = gb->sweepBck >> gb->io[NR10].SweepStep;
-
-            /* Check if decrementing */
-            newPeriod = gb->sweepBck + (gb->io[NR10].SweepDir) ?
-                -newPeriod : newPeriod;
-
-            /* Overflow check */
-            if (newPeriod > 2047)
-                gb->audioCh[0].enabled = 0;
-            else
-                gb->sweepBck = newPeriod;
-        }
-    }
-#endif
 }
 
 void gb_update_div_apu (struct GB * const gb)
@@ -1298,12 +1281,11 @@ void gb_update_div_apu (struct GB * const gb)
 
     return;
 #endif
-    if ((gb->apuDiv & 7) == 7) {
-        /* Envelope sweep, 64 Hz */
+    if ((gb->apuDiv & 7) == 7) /* Envelope sweep, 64 Hz */
+    {
         int n;
         for (n = 0; n < 4; n++)
         {
-            if (n == 2) continue;
             /** TODO: Envelope sweep needs to be fixed */
             const uint8_t ch_pos = n * 5;
             const uint8_t pace = gb->io[ch_pos + NR12].EnvPace;
@@ -1314,11 +1296,11 @@ void gb_update_div_apu (struct GB * const gb)
                 continue;
             }
 
-            gb->audioCh[n].envTick++;
+            gb->audioCh[n].envTick--;
 
-            if (gb->audioCh[n].envTick == pace)
+            if (gb->audioCh[n].envTick == 0)
             {
-                gb->audioCh[n].envTick = 0;
+                gb->audioCh[n].envTick = pace;
                 const int8_t dir = (gb->io[ch_pos + NR12].EnvDir) ? 1 : -1;
                 const int8_t vol = gb->audioCh[n].currentVol + dir;
 
@@ -1329,61 +1311,56 @@ void gb_update_div_apu (struct GB * const gb)
         }
     }
 
-    if ((gb->apuDiv & 1) == 0) {
-        /* Length ++, 256 Hz */
+    if ((gb->apuDiv & 1) == 0) /* Length ++, 256 Hz */
+    {
         int n;
         for (n = 0; n < 4; n++)
         {
             const uint8_t ch_pos = n * 5;
-            //if (!(gb->io[NR14]).Len_Enable)
-            //    LOG_("Length disabled: %d (%d)\n", n + 1, gb->audioCh[n].lengthTick);
-            //if (n == 3)
-            //    LOG_("Noise channel (%d)\n", gb->audioCh[n].lengthTick);
 
             if (gb->audioCh[n].enabled && gb->io[NR14 + ch_pos].Len_Enable)
             {
                 gb->audioCh[n].lengthTick++;
-                /*if (n == 3)
-                    LOG_("Length tick for %d: %d (%d)\n", n + 1, 
-                        gb->audioCh[n].lengthTick, gb->audioCh[n].currentVol);
 
-                if (gb->audioCh[n].lengthTick == (n == 2 ? LENGTH_MAX_WAVE : LENGTH_MAX))
-                    gb->audioCh[n].enabled = 0;*/
+                const uint16_t max = (n == 2) ? LENGTH_MAX_WAVE : LENGTH_MAX;
+                if (gb->audioCh[n].lengthTick == max)
+                {
+                    gb->audioCh[n].enabled = 0;
+                    gb->audioCh[n].lengthTick = 0;
+                }
             }
         }
     }
 
-    if ((gb->apuDiv & 3) == 0) {
-        /** TODO: Period sweep needs to be fixed */
-        #ifdef LENGTH_APU
-        /* Ch 1 sweep ++, 128 Hz */
+    if ((gb->apuDiv & 3) == 2) /* Ch 1 sweep ++, 128 Hz */
+    {
+        /** TODO: Finish overflow check */
+#define APU_DIV_3
+#ifdef APU_DIV_3
         const uint8_t pace = gb->io[NR10].SweepPace;
-        if (gb->sweepTick != pace && gb->io[NR10].SweepPace)
+        if (gb->sweepTick > 0)
+            gb->sweepTick--;
+
+        if (gb->sweepTick == 0)
         {
-            gb->sweepTick++;
-            if (gb->sweepTick == pace)
+            gb->sweepTick = (pace == 0) ? 8 : pace;
+
+            if (gb->audioCh[0].enabled)
             {
-                gb->sweepTick = 0;
-                const uint8_t periodH = gb->io[NR14].PeriodH;
-                const uint16_t period = gb->io[NR13].r | (periodH << 8);
-
-                uint16_t newPeriod = period >> gb->io[NR10].SweepStep;
-
+                uint16_t newPeriod = gb->sweepBck >> gb->io[NR10].SweepStep;
                 /* Check if decrementing */
-                newPeriod = period + (gb->io[NR10].SweepDir) ? 
-                    -newPeriod : newPeriod;
-                
-                /* Overflow check */
-                if (newPeriod > 2047)
-                    gb->audioCh[0].enabled = 0;
-                else
+                newPeriod = gb->sweepBck + ((gb->io[NR10].SweepDir == 1) ? 
+                    -newPeriod : newPeriod);
+
+                if (newPeriod < PERIOD_MAX)
+                {
+                    gb->io[NR14].PeriodH = newPeriod >> 8;
+                    gb->io[NR13].r = newPeriod & 255;
                     gb->sweepBck = newPeriod;
-                
-                gb->io[NR14].PeriodH = newPeriod >> 8;
-                gb->io[NR13].r = newPeriod & 255;
+                }
             }
         }
-        #endif
+#endif
     }
 }
 
