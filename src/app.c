@@ -103,7 +103,7 @@ void app_resize_window (GLFWwindow * window, Scene * display, const uint8_t scal
     display->fbHeight = newWindow.height;
 }
 
-void drop_callback(GLFWwindow * window, int count, const char** paths)
+void drop_callback (GLFWwindow * window, int count, const char** paths)
 {
     struct App * app = glfwGetWindowUserPointer (window);
 
@@ -134,16 +134,19 @@ unsigned int ptr = 0;
 unsigned int samplePos = 0;
 ma_pcm_rb pRB;
 
-void data_callback(ma_device * pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
+void audio_data_callback (ma_device * pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
 {
     const int frames = frameCount * pDevice->playback.channels * ma_get_bytes_per_sample(pDevice->playback.format);
-    struct GB * gb = pDevice->pUserData;
+    struct App * app = pDevice->pUserData;
+
+    if (app->paused)
+        return;
 
     /* Capture samples */
     ma_pcm_rb_acquire_read(&pRB, &frameCount, (void**)&audioBuf);
     int i;
     for (i = 0; i < BUF_SIZE; i++)
-        audioBuf[i] = gb_update_audio(gb);
+        audioBuf[i] = gb_update_audio(&app->gb);
 
     memcpy(pOutput, audioBuf, frames);
     ma_pcm_rb_commit_read(&pRB, frameCount);
@@ -157,11 +160,11 @@ void app_audio_init(struct App * app)
 {
     ma_device_config config = ma_device_config_init(ma_device_type_playback);
     config.periodSizeInFrames = BUF_SIZE;
-    config.playback.format   = ma_format_s16;   // Set to ma_format_unknown to use the device's native format.
-    config.playback.channels = 1;               // Set to 0 to use the device's native channel count.
-    config.sampleRate        = SAMPLE_RATE;  // Set to 0 to use the device's native sample rate.
-    config.dataCallback      = data_callback;   // This function will be called when miniaudio needs more data.
-    config.pUserData         = &app->gb;
+    config.playback.format   = ma_format_s16;
+    config.playback.channels = 1;
+    config.sampleRate        = SAMPLE_RATE;
+    config.dataCallback      = audio_data_callback;
+    config.pUserData         = app;
     
     if (ma_device_init(NULL, &config, &app->audioDevice) != MA_SUCCESS) {
         printf("device initialzation failed\n");
@@ -175,7 +178,7 @@ void app_audio_init(struct App * app)
     }
 
     LOG_("Using %d Hz sample rate\n", app->audioDevice.sampleRate);
-    ma_device_start(&app->audioDevice);     // The device is sleeping by default so you'll need to start it manually.
+    ma_device_start(&app->audioDevice);
 }
 
 #endif
