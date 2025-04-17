@@ -275,7 +275,7 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
 
         if (!(gb->io[Joypad].r & 0xF))
             LOG_("GB: Joypad reset detected!\n");
-        return gb->io[Joypad].r;
+        return gb->io[Joypad].r | bitmasksIO[Joypad];
     }
     else { /* Set only bits 5 and 6 for selecting action/direction */
         gb->io[Joypad].r = (val & 0x30);

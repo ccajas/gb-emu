@@ -18,18 +18,22 @@
 
 inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
+    const uint8_t reg = addr & 0xFF;
+
     if (!write)
     {
-        const uint8_t reg = addr & 0xFF;
-
         if (reg >= NR10 && reg <= Wave + 0xF)
-            gb_apu_rw(gb, reg, val, write);
+            return gb_apu_rw(gb, reg, val, write);
 
-        return gb->io[addr & 0xFF].r;
+        if (reg == IntrEnabled)
+            return gb->io[reg].r | ~bitmasksIO[reg];
+
+        /* Return bitmasked value */
+        return gb->io[reg].r | bitmasksIO[reg];
     }
     else
     {
-        switch (addr & 0xFF)
+        switch (reg)
         {
 #ifdef USE_TIMER_SIMPLE
             case Divider:
@@ -60,8 +64,7 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 gb->io[TimerCtrl].r = val | 0xF8;
                 break;
             case IntrFlags: /* Mask unused bits for IE and IF         */
-            case IntrEnabled:
-                gb->io[addr & 0xFF].r = val | 0xE0;
+                gb->io[IntrFlags].r = val | 0xE0;
                 break;
             /* APU registers */
 #ifdef ENABLE_AUDIO
@@ -98,6 +101,11 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                     gb->oam[i] = CPU_RB(src + i);
                     i++;
                 }
+                break;
+            case 3: /* Other unmapped registers */
+            case 0x8  ... 0xE:
+            case 0x4C ... 0x7F:
+                gb->io[addr & 0xFF].r = val | 0xFF;
                 break;
             default:
                 gb->io[addr & 0xFF].r = val;
@@ -1198,7 +1206,7 @@ void gb_ch_trigger (struct GB * const gb, const uint8_t n)
 void gb_update_div_apu (struct GB * const gb)
 {
     gb->apuDiv++;
-
+#ifdef GB_APU_DIV_S
     switch (gb->apuDiv & 7)
     {
         case 7: /* Volume envelope, 64 Hz */
@@ -1289,7 +1297,7 @@ void gb_update_div_apu (struct GB * const gb)
     }
 
     return;
-
+#endif
     if ((gb->apuDiv & 7) == 7) {
         /* Envelope sweep, 64 Hz */
         int n;
@@ -1321,7 +1329,7 @@ void gb_update_div_apu (struct GB * const gb)
         }
     }
 
-    if (!(gb->apuDiv & 1)) {
+    if ((gb->apuDiv & 1) == 0) {
         /* Length ++, 256 Hz */
         int n;
         for (n = 0; n < 4; n++)
@@ -1329,19 +1337,23 @@ void gb_update_div_apu (struct GB * const gb)
             const uint8_t ch_pos = n * 5;
             //if (!(gb->io[NR14]).Len_Enable)
             //    LOG_("Length disabled: %d (%d)\n", n + 1, gb->audioCh[n].lengthTick);
+            //if (n == 3)
+            //    LOG_("Noise channel (%d)\n", gb->audioCh[n].lengthTick);
 
             if (gb->audioCh[n].enabled && gb->io[NR14 + ch_pos].Len_Enable)
             {
                 gb->audioCh[n].lengthTick++;
-                //LOG_("Length tick: %d (%d)\n", n + 1, gb->audioCh[n].lengthTick);
+                /*if (n == 3)
+                    LOG_("Length tick for %d: %d (%d)\n", n + 1, 
+                        gb->audioCh[n].lengthTick, gb->audioCh[n].currentVol);
 
-                //if (gb->audioCh[n].lengthTick == (n == 2 ? LENGTH_MAX_WAVE : LENGTH_MAX))
-                //    gb->audioCh[n].enabled = 0;
+                if (gb->audioCh[n].lengthTick == (n == 2 ? LENGTH_MAX_WAVE : LENGTH_MAX))
+                    gb->audioCh[n].enabled = 0;*/
             }
         }
     }
 
-    if (!(gb->apuDiv & 3)) {
+    if ((gb->apuDiv & 3) == 0) {
         /** TODO: Period sweep needs to be fixed */
         #ifdef LENGTH_APU
         /* Ch 1 sweep ++, 128 Hz */

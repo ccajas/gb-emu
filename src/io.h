@@ -69,6 +69,14 @@ static enum
 }
 registers;
 
+static const uint8_t bitmasksIO[0x100] = {
+    [Joypad]      = 0xC0,
+    [SerialCtrl]  = 0x7E,
+    [IntrFlags]   = 0xE0,
+    [LCDStatus]   = 0x80,
+    [IntrEnabled] = 0xE0
+};
+
 /* Interrupt request/enable flags */
 
 __attribute__((unused))
@@ -111,6 +119,14 @@ static enum
     LCD_Enable
 }
 LCD_Control_Flags;
+
+#define CHANNEL_ON(n) \
+    gb->audioCh[n].enabled = 1;\
+    gb->io[AudioCtrl].r |= (1 << n);\
+
+#define CHANNEL_OFF(n) \
+    gb->audioCh[n].enabled = 0;\
+    gb->io[AudioCtrl].r &= ~(1 << n);\
 
 #define IO_STAT_MODE    gb->io[LCDStatus].stat_mode
 
