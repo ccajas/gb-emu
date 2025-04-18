@@ -1,13 +1,3 @@
-/* Instruction helpers */
-
-#define ADDR_XY(X,Y)  ((X << 8) + Y)
-
-#define CPU_RB(A)     gb_mem_access (gb, A, 0, 0)
-#define CPU_WB(A,X)   gb_mem_access (gb, A, (X), 1)
-#define CPU_RB_PC     CPU_RB (gb->pc++)
-#define CPU_RW(A)     ( CPU_RB (A) +  (CPU_RB (A + 1) << 8) )
-#define CPU_WW(A,X)   { CPU_WB (A, X); CPU_WB (A + 1, (X >> 8)); }
-
 #ifdef GB_OPS_DEBUG
 
 #define NYI(S)           LOG_("Instruction not implemented! (%s)", S); gb->ni++;
@@ -34,6 +24,14 @@
 #define INC_MCYCLE  ++gb->rm
 #endif
 
+/** CPU bus read/write **/
+
+#define CPU_RB(A)     gb_mem_access (gb, A, 0, 0)
+#define CPU_WB(A,X)   gb_mem_access (gb, A, (X), 1)
+#define CPU_RB_PC     CPU_RB (gb->pc++)
+#define CPU_RW(A)     ( CPU_RB (A) +  (CPU_RB (A + 1) << 8) )
+#define CPU_WW(A,X)   { CPU_WB (A, X); CPU_WB (A + 1, (X >> 8)); }
+
 /** Choose between operations based on position **/
 
 #define OPR_2_(op_, name) \
@@ -45,10 +43,6 @@
     case op_ + 5: name (REG_L); break;\
     case op_ + 6: name (hl); break;\
     case op_ + 7: name (REG_A); break;\
-/*
-    //switch (op_r8) { case 0 ... 5: case 7: name(*reg1); break;\
-    //default: name(hl); }\
-*/
 
 #define OPR_2R_(op_, name) \
     OPR_2_(op_, name)\
@@ -181,28 +175,28 @@
     #define FLAGS_OR_(X)     gb->flags = 0; SET_FLAG_Z (REG_A |= X);
     #define FLAGS_CP         SET_FLAGS (0, tmp, 1, ((tmp & 0xF) > (REG_A & 0xF)), (tmp > REG_A));
 
-#define AND_r8(_, r8)    OP(AND)    FLAGS_AND_(r8);
-#define XOR_r8(_, r8)    OP(XOR)    FLAGS_XOR_(r8);
-#define OR_r8(_, r8)     OP(OR)     FLAGS_OR_(r8);
-#define CP_r8(_, r8)     OP(CP)     tmp -= r8; FLAGS_CP;
+#define AND_r8(_, r8)   OP(AND)  FLAGS_AND_(r8);
+#define XOR_r8(_, r8)   OP(XOR)  FLAGS_XOR_(r8);
+#define OR_r8(_, r8)    OP(OR)   FLAGS_OR_(r8);
+#define CP_r8(_, r8)    OP(CP)   tmp -= r8; FLAGS_CP;
 
-#define ADDm     OP(ADDm)     { uint8_t m = CPU_RB_PC; ADC_A_(m, 0); }
-#define ADCm     OP(ADCm)     { uint8_t m = CPU_RB_PC; ADC_A_(m, gb->f_c); }
+#define ADDm        OP(ADDm)     { uint8_t m = CPU_RB_PC; ADC_A_(m, 0); }
+#define ADCm        OP(ADCm)     { uint8_t m = CPU_RB_PC; ADC_A_(m, gb->f_c); }
 
-#define SUBm     OP(SUBm)     { uint8_t m = CPU_RB_PC; SBC_A_(m, 0); }
-#define SBCm     OP(SBCm)     { uint8_t m = CPU_RB_PC; SBC_A_(m, gb->f_c); }
+#define SUBm        OP(SUBm)     { uint8_t m = CPU_RB_PC; SBC_A_(m, 0); }
+#define SBCm        OP(SBCm)     { uint8_t m = CPU_RB_PC; SBC_A_(m, gb->f_c); }
 
-#define ANDm     OP(ANDm)     FLAGS_AND_(CPU_RB_PC);
-#define XORm     OP(XORm)     FLAGS_XOR_(CPU_RB_PC);
-#define ORm      OP(ORm)      FLAGS_OR_(CPU_RB_PC);
-#define CPm      OP(CPm)      tmp -= CPU_RB_PC; FLAGS_CP;
+#define ANDm        OP(ANDm)     FLAGS_AND_(CPU_RB_PC);
+#define XORm        OP(XORm)     FLAGS_XOR_(CPU_RB_PC);
+#define ORm         OP(ORm)      FLAGS_OR_(CPU_RB_PC);
+#define CPm         OP(CPm)      tmp -= CPU_RB_PC; FLAGS_CP;
 
-#define INC(X)   OP(INC)      SET_FLAGS (16, X, 0, ((X & 0xF) == 0),   0);
-#define DEC(X)   OP(DEC)      SET_FLAGS (16, X, 1, ((X & 0xF) == 0xF), 0);
+#define INC(X)      OP(INC)      SET_FLAGS (16, X, 0, ((X & 0xF) == 0),   0);
+#define DEC(X)      OP(DEC)      SET_FLAGS (16, X, 1, ((X & 0xF) == 0xF), 0);
 
-#define CCF      OP(CCF)      gb->f_c = !gb->f_c; gb->f_n = gb->f_h = 0;
-#define SCF      OP(SCF)      gb->f_c = 1;        gb->f_n = gb->f_h = 0;
-#define CPL      OP(CPL)      REG_A ^= 0xFF; gb->flags |= 0x60;
+#define CCF         OP(CCF)      gb->f_c = !gb->f_c; gb->f_n = gb->f_h = 0;
+#define SCF         OP(SCF)      gb->f_c = 1;        gb->f_n = gb->f_h = 0;
+#define CPL         OP(CPL)      REG_A ^= 0xFF; gb->flags |= 0x60;
 
 #define INC_r8(reg, _)  OP(INC)  reg++; INC(reg)
 #define DEC_r8(reg, _)  OP(DEC)  reg--; DEC(reg)
