@@ -20,10 +20,9 @@
 #define HRAM_SIZE     0x80
 #define IO_SIZE       0x100
 
-#define SAMPLE_RATE         32000
+#define SAMPLE_RATE         48000
 #define GB_FRAME_RATE       (CPU_FREQ_DMG / FRAME_CYCLES)
 #define CYCLES_PER_SAMPLE   (CPU_FREQ_DMG / SAMPLE_RATE)
-#define TOTAL_SAMPLES       (int)(FRAME_CYCLES / CYCLES_PER_SAMPLE)
 
 /* Assign register pair as 16-bit union */
 
@@ -191,6 +190,7 @@ struct GB
         uint8_t  envTick   : 4;
     }
     audioCh[4];
+    uint8_t  sweepEnabled : 1;
     uint8_t  sweepTick : 4;
     uint16_t sweepBck;
     uint16_t audioLFSR;

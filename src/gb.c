@@ -1144,15 +1144,17 @@ void gb_ch_trigger (struct GB * const gb, const uint8_t n)
     switch (n + 1)
     {
         case 1:
+        {
             /* Sweep reset */
             const uint8_t pace = gb->io[NR10].SweepPace;
             gb->sweepBck = period;
             gb->sweepTick = (pace == 0) ? 8 : pace;
     
             if (gb->io[NR10].SweepStep > 0 || gb->io[NR10].SweepPace > 0)
-                gb->audioCh[0].enabled = 1;
+                gb->sweepEnabled = 1;
             else
-                gb->audioCh[0].enabled = 0;
+                gb->sweepEnabled = 0;
+        }
         case 2:
             /* Pulse trigger reset */
             gb->audioCh[n].patternStep = 0;
@@ -1345,7 +1347,7 @@ void gb_update_div_apu (struct GB * const gb)
         {
             gb->sweepTick = (pace == 0) ? 8 : pace;
 
-            if (gb->audioCh[0].enabled)
+            if (gb->sweepEnabled && gb->sweepTick > 0)
             {
                 uint16_t newPeriod = gb->sweepBck >> gb->io[NR10].SweepStep;
                 /* Check if decrementing */
@@ -1460,7 +1462,6 @@ int16_t gb_update_audio (struct GB * const gb)
             }
         }
 
-        //LOG_("Sample added: %d\n", (gb->audioLFSR & 1));
         int32_t noise = (gb->audioLFSR & 1) ? INT16_MIN : INT16_MAX;
         sample += noise / 15 * gb->audioCh[3].currentVol;
     }
