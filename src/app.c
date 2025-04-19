@@ -124,7 +124,7 @@ void drop_callback (GLFWwindow * window, int count, const char** paths)
 #ifdef ENABLE_AUDIO
 
 //#include "../_docs/audiotest/testraw.h"
-#define BUF_SIZE  (int)(SAMPLE_RATE / GB_FRAME_RATE)
+#define BUF_SIZE  (int)(SAMPLE_RATE / 60)
 
 //unsigned char testraw[BUF_SIZE] = {0};
 int16_t audioBuf[BUF_SIZE] = {0};
