@@ -28,8 +28,15 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
         if (reg == IntrEnabled && gb->io[reg].r == 0)
             return gb->io[reg].r;
 
+        const uint8_t bitmask = 
+            (reg == Joypad)      ? 0xC0 :
+            (reg == SerialCtrl)  ? 0x7E :
+            (reg == IntrFlags)   ? 0xE0 :
+            (reg == LCDStatus)   ? 0x80 :
+            (reg == IntrEnabled) ? 0xE0 : 0;
+
         /* Return bitmasked value */
-        return gb->io[reg].r | bitmasksIO[reg];
+        return gb->io[reg].r | bitmask;
     }
     else
     {
@@ -125,10 +132,11 @@ inline uint8_t gb_apu_rw(struct GB *gb, const uint8_t reg, const uint8_t val, co
     }
     else
     {
+        //LOG_("== Write %02x to APU: %02x\n", val, reg);
         if (reg == AudioCtrl)
         {
             gb->io[AudioCtrl].r = val & 0x80;
-            //LOG_("APU new value %02x written to 26\n\n", gb->io[AudioCtrl].r);
+
             if (!(gb->io[AudioCtrl].r >> 7))
             {
                 int i = 0;
@@ -136,8 +144,8 @@ inline uint8_t gb_apu_rw(struct GB *gb, const uint8_t reg, const uint8_t val, co
                 /* Clear registers */
                 for (i = NR10; i < AudioCtrl; i++)
                     gb->io[i].r = 0;
-                //LOG_("Clear all APU registers\n\n");
             }
+            return 0;
         }
 
         /* APU registers are read only when audio is turned off */
@@ -147,7 +155,6 @@ inline uint8_t gb_apu_rw(struct GB *gb, const uint8_t reg, const uint8_t val, co
             return 0;
         }
 
-        //LOG_("== Write to APU: %02x\n", reg);
         gb->io[reg].r = val;
 
         switch (reg)
