@@ -350,4 +350,4 @@
 /* Misc instructions */
 
 #define PREFIX    OP(PREFIX)
-#define INVALID   OP(INVALID)   gb->invalid = 1;
+#define INVALID   OP(INVALID)

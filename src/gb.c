@@ -231,7 +231,7 @@ uint8_t gb_mem_access(struct GB *gb, const uint16_t addr, const uint8_t val, con
         return cart->rw(cart, addr, val, write); /* ROM from MBC     */
     if (addr < 0xA000)
     {
-        if (gb->vramBlocked)
+        if (!gb->vramAccess)
             return 0xFF;
         if (!write)
             return gb->vram[addr & 0x1FFF];
@@ -253,7 +253,7 @@ uint8_t gb_mem_access(struct GB *gb, const uint16_t addr, const uint8_t val, con
     } /* Echo RAM         */
     if (addr < 0xFEA0) /* OAM              */
     {
-        if (gb->oamBlocked)
+        if (!gb->oamAccess)
             return 0xFF;
         if (!write)
             return gb->oam[addr - 0xFE00];
@@ -293,7 +293,6 @@ void gb_init(struct GB *gb, uint8_t *bootRom)
     memset(gb->vram, 0, VRAM_SIZE);
     memset(gb->hram, 0, HRAM_SIZE);
     memset(gb->oam, 0, OAM_SIZE);
-    gb->vramBlocked = gb->oamBlocked = 0;
 
     memset(gb->io, 0, sizeof(gb->io));
     LOG_("GB: Memset done\n");
@@ -325,9 +324,10 @@ void gb_reset(struct GB *gb, uint8_t *bootROM)
 
     gb->pc = 0;
     gb->ime = 0;
-    gb->invalid = 0;
     gb->halted = 0;
     gb->stopped = 0;
+
+    gb->vramAccess = gb->oamAccess = 1;
 }
 
 void gb_boot_reset(struct GB *gb)
@@ -348,9 +348,10 @@ void gb_boot_reset(struct GB *gb)
     gb->pc = 0x0100;
 
     gb->ime = 1;
-    gb->invalid = 0;
     gb->halted = 0;
     gb->stopped = 0;
+
+    gb->vramAccess = gb->oamAccess = 1;
 
     LOG_("GB: Launch without boot ROM\n");
     LOG_("GB: Set I/O\n");
@@ -1452,8 +1453,9 @@ int16_t gb_update_audio (struct GB * const gb)
 
         const uint8_t shift = (gb->io[NR43].r >> 4) & 15;
         const uint8_t clock = gb->io[NR43].r & 7;
-        const uint16_t freq = divisor[clock] << shift;
+        const uint32_t freq = divisor[clock] << shift;
 
+        assert (freq != 0);
         while (gb->audioCh[3].periodTick >= freq)
         {
             gb->audioCh[3].periodTick -= freq;
@@ -1470,8 +1472,9 @@ int16_t gb_update_audio (struct GB * const gb)
         }
 
         int32_t noise = (gb->audioLFSR & 1) ? INT16_MIN : INT16_MAX;
-        sample += noise / 15 * gb->audioCh[3].currentVol;
+        sample += (noise / 15) * gb->audioCh[3].currentVol;
     }
+
     /* Mix channel outputs */
     sample /= (4 << 1);
     return (uint16_t)sample;

@@ -165,9 +165,8 @@ struct GB
     uint8_t halted : 1, stopped : 1, pcInc : 1;
 
     /* PPU related tracking */
-    uint8_t vramBlocked, oamBlocked;
+    uint8_t vramAccess : 1, oamAccess : 1;
     uint8_t windowLY;
-    uint8_t invalid;
 
     /* Memory and I/O registers */
     uint8_t ram [WRAM_SIZE];   /* Work RAM  */
