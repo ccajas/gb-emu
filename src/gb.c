@@ -164,7 +164,7 @@ inline uint8_t gb_apu_rw(struct GB *gb, const uint8_t reg, const uint8_t val, co
             case NR41: /* Channel 1,2,4 length */
             {
                 const uint8_t channel = (reg - 0x10) / 5;
-                gb->io[NR12 + (channel * 5)].r = val;
+                gb->io[NR11 + (channel * 5)].r = val;
                 break;
             }
             case NR12:
@@ -803,8 +803,11 @@ int compare_sprites(const void *in1, const void *in2)
 
 /* Stored BG Palette values */
 uint8_t bgpValues[172 >> 3];
+uint8_t bgAreaValues[172 >> 3];
 
-#define BGP_VAL    gb->io[BGPalette].r
+#define BGP_VAL       gb->io[BGPalette].r
+#define BGAREA_VAL    gb->io[LCDControl].BG_Area
+//bgpValues[lineX >> 3]
 
 static inline uint8_t *gb_pixels_fetch(struct GB *gb)
 {
@@ -825,23 +828,24 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
              * All related calculations following are found here:
              * https://github.com/ISSOtm/pandocs/blob/rendering-internals/src/Rendering_Internals.md */
     
-            /* Get selected background map address for first tile
-             * corresponding to current line  */
-            const uint16_t tileMap =
-                (gb->io[LCDControl].BG_Area ? 0x9C00 : 0x9800) + ((posY >> 3) << 5);
-    
             lineX = DISPLAY_WIDTH - 1;
             if (gb->io[LCDControl].Window_Enable &&
                 gb->io[LY].r >= gb->io[WindowY].r && gb->io[WindowX].r <= 166)
                 lineX = (gb->io[WindowX].r < 7 ? 0 : gb->io[WindowX].r - 7) - 1;
     
+            /* Get selected background map address for first tile
+             * corresponding to current line  */
+            uint16_t tileMap =
+                (BGAREA_VAL ? 0x9C00 : 0x9800) + ((posY >> 3) << 5);
+
             PPU_GET_TILE(7 - (posX & 7), lineX + gb->io[ScrollX].r)
             const uint8_t end = 0xFF;
     
-            for (; lineX != end; lineX--)
+            for (; lineX != end; --lineX)
             {
-                if (px % 8 == 0)
+                if ((px & 7) == 0)
                 {
+                    tileMap = (BGAREA_VAL ? 0x9C00 : 0x9800) + ((posY >> 3) << 5);
                     PPU_GET_TILE(0, lineX + gb->io[ScrollX].r)
                 }
                 /* Get background color */
@@ -850,7 +854,7 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
     
                 rowLSB >>= 1;
                 rowMSB >>= 1;
-                px++;
+                ++px;
             }
         //}
     }
@@ -870,9 +874,9 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
         PPU_GET_TILE(7 - (posX & 7), lineX - gb->io[WindowX].r + 7)
         const uint8_t end = (gb->io[WindowX].r < 7 ? 0 : gb->io[WindowX].r - 7) - 1;
 
-        for (; lineX != end; lineX--)
+        for (; lineX != end; --lineX)
         {
-            if (px % 8 == 0)
+            if ((px & 7) == 0)
             {
                 PPU_GET_TILE(0, lineX - gb->io[WindowX].r + 7)
             }
@@ -881,9 +885,9 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
 
             rowLSB >>= 1;
             rowMSB >>= 1;
-            px++;
+            ++px;
         }
-        gb->windowLY++;
+        ++gb->windowLY;
     }
 
 #define MAX_SPRITES_LINE 10
@@ -1015,7 +1019,8 @@ _FORCE_INLINE void gb_oam_read(struct GB *gb)
 _FORCE_INLINE void gb_transfer(struct GB *gb)
 {
     const uint8_t bgpIndex = gb->lineClock - TICKS_OAM_READ;
-    bgpValues[bgpIndex >> 3] = gb->io[BGPalette].r;
+    bgpValues[bgpIndex >> 3]    = gb->io[BGPalette].r;
+    bgAreaValues[bgpIndex >> 3] = gb->io[LCDControl].BG_Area;
     
     /* Mode 3 - Transfer to LCD */
     if (IO_STAT_MODE != Stat_Transfer)
@@ -1199,98 +1204,7 @@ void gb_ch_trigger (struct GB * const gb, const uint8_t n)
 void gb_update_div_apu (struct GB * const gb)
 {
     gb->apuDiv++;
-#ifdef GB_APU_DIV_S
-    switch (gb->apuDiv & 7)
-    {
-        case 7: /* Volume envelope, 64 Hz */
-        {
-            int n;
-            for (n = 0; n < 4; n++)
-            {
-                if (n == 2) continue;
-                /** TODO: Envelope sweep needs to be fixed */
-                const uint8_t ch_pos = n * 5;
-                const uint8_t pace = gb->io[ch_pos + NR12].EnvPace;
-           
-                if (pace == 0)
-                    continue;
-    
-                gb->audioCh[n].envTick++;
-    
-                if (gb->audioCh[n].envTick == pace)
-                {
-                    gb->audioCh[n].envTick = 0;
-                    const int8_t dir = (gb->io[ch_pos + NR12].EnvDir) ? 1 : -1;
-                    const int8_t vol = gb->audioCh[n].currentVol + dir;
-    
-                    gb->audioCh[n].currentVol =
-                        (vol > 0xF) ? 0xF :
-                        (vol < 0)   ? 0   : vol;
-                }
-            }
-        }
-        break;
-        case 2:
-        case 6: /* Sweep envelope, 128 Hz */
-        {
-            /** TODO: Period sweep needs to be fixed */
-            #ifdef SWEEP_APU
-            /* Ch 1 sweep ++, 128 Hz */
-            const uint8_t pace = gb->io[NR10].SweepPace;
-            if (gb->sweepTick != pace && gb->io[NR10].SweepPace)
-            {
-                gb->sweepTick++;
-                if (gb->sweepTick == pace)
-                {
-                    gb->sweepTick = 0;
-                    const uint8_t periodH = gb->io[NR14].PeriodH;
-                    const uint16_t period = gb->io[NR13].r | (periodH << 8);
 
-                    uint16_t newPeriod = period >> gb->io[NR10].SweepStep;
-
-                    /* Check if decrementing */
-                    newPeriod = period + (gb->io[NR10].SweepDir) ? 
-                        -newPeriod : newPeriod;
-                    
-                    /* Overflow check */
-                    if (newPeriod > 2047)
-                        CHANNEL_OFF(0)
-                    else
-                        gb->sweepBck = newPeriod;
-                    
-                    gb->io[NR14].PeriodH = newPeriod >> 8;
-                    gb->io[NR13].r = newPeriod & 255;
-                }
-            }
-            #endif
-        }
-        case 0:
-        case 4: /* Period length tick, 256 Hz  */
-        {
-            int n;
-            for (n = 0; n < 4; n++)
-            {
-                const uint8_t ch_pos = n * 5;
-                if (!(gb->io[ch_pos + NR14]).Len_Enable)
-                    continue;
-
-                if (!(gb->audioCh[n].enabled))
-                    continue;
-
-                //LOG_("Length disabled: %d (%d)\n", n + 1, gb->audioCh[n].lengthTick);
-                gb->audioCh[n].lengthTick++;
-                
-                //LOG_("Length tick: %d (%d)\n", n + 1, gb->audioCh[n].lengthTick);
-
-                if (gb->audioCh[n].lengthTick == 
-                    (n == 2 ? LENGTH_MAX_WAVE : LENGTH_MAX))
-                    gb->audioCh[n].enabled = 0;
-            }
-        }
-    }
-
-    return;
-#endif
     if ((gb->apuDiv & 7) == 7) /* Envelope sweep, 64 Hz */
     {
         int n;
@@ -1312,11 +1226,11 @@ void gb_update_div_apu (struct GB * const gb)
             {
                 gb->audioCh[n].envTick = pace;
                 const int8_t dir = (gb->io[ch_pos + NR12].EnvDir) ? 1 : -1;
-                const int8_t vol = gb->audioCh[n].currentVol + dir;
+                int8_t vol = gb->audioCh[n].currentVol + dir;
 
-                gb->audioCh[n].currentVol =
-                    (vol > 0xF) ? 0xF :
-                    (vol < 0)   ? 0   : vol;
+                if (vol > 0xF) vol = 0xF;
+                if (vol < 0)   vol = 0;
+                gb->audioCh[n].currentVol = vol;
             }
         }
     }
@@ -1397,8 +1311,9 @@ int16_t gb_update_audio (struct GB * const gb)
         if (!gb->audioCh[n].DAC || !gb->audioCh[n].enabled)
             continue;
 
-        gb->audioCh[n].periodTick += (cycles >> 2);
         const uint8_t ch_pos = n * 5;
+
+        gb->audioCh[n].periodTick += (cycles >> 2);
 
         while (gb->audioCh[n].periodTick >= PERIOD_MAX)
         {
@@ -1460,14 +1375,15 @@ int16_t gb_update_audio (struct GB * const gb)
         {
             gb->audioCh[3].periodTick -= freq;
             /* Shift LFSR */
-            uint8_t nextBit = ((gb->audioLFSR & 1) == ((gb->audioLFSR & 2) >> 1));
+            uint16_t nextBit = ~((gb->audioLFSR & 1) ^ ((gb->audioLFSR & 2) >> 1));
+            nextBit &= 1;
             gb->audioLFSR >>= 1;
             gb->audioLFSR |= (nextBit << 14);
 
             /* Adjust LSFR according to width */
-            if ((gb->io[NR43].r >> 3) & 1) {
-                gb->audioLFSR &= !(1 << 7);
-                gb->audioLFSR |= (nextBit << 7);
+            if (gb->io[NR43].r & 8) {
+                gb->audioLFSR &= ~(1 << 6);
+                gb->audioLFSR |= (nextBit << 6);
             }
         }
 
