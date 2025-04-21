@@ -60,9 +60,9 @@ static const GB_Palette manualPalettes[] =
 static const GB_Palette gbcPalettes[] =
 {
     /* Default palette */
-    { "GBC_x16_BG",    { RGB_4 (0x0B0D08, 0x383E36, 0x626957, 0x8E9677) }},
-    { "GBC_x16_OBJ0",  { RGB_4 (0x0B0D08, 0x383E36, 0x626957, 0x8E9677) }},
-    { "GBC_x16_OBJ1",  { RGB_4 (0x0B0D08, 0x383E36, 0x626957, 0x8E9677) }},
+    { "GBC_x16_BG",    { RGB_4 (0x131616, 0x2E3232, 0x4E5A4F, 0x95A694) }},
+    { "GBC_x16_OBJ0",  { RGB_4 (0x131616, 0x2E3232, 0x4E5A4F, 0x95A694) }},
+    { "GBC_x16_OBJ1",  { RGB_4 (0x131616, 0x2E3232, 0x4E5A4F, 0x95A694) }},
 
     { "GBC_x16_BG",    { RGB_4 (0,        0x525252, 0xA5A5A5, 0xF5F5F5) }},
     { "GBC_x16_OBJ0",  { RGB_4 (0,        0x525252, 0xA5A5A5, 0xF5F5F5) }},
