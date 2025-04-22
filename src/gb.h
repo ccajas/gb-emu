@@ -379,7 +379,7 @@ static inline void gb_frame (struct GB * gb)
     while (!gb->drawFrame)
     {
         gb_step (gb);
-    }       
+    }
 
     /* Indicates odd or even frame */
     gb->frame = 1 - gb->frame;

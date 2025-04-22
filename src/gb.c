@@ -22,9 +22,10 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
 
     if (!write)
     {
+#ifdef ENABLE_AUDIO
         if (reg >= NR10 && reg <= Wave + 0xF)
             return gb_apu_rw(gb, reg, val, write);
-
+#endif
         if (reg == IntrEnabled && gb->io[reg].r == 0)
             return gb->io[reg].r;
 
@@ -74,11 +75,13 @@ inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, c
                 gb->io[reg].r = val | 0xE0;
                 break;
             /* APU registers */
-#ifdef ENABLE_AUDIO
             case NR10 ... Wave + 0xF:
+#ifdef ENABLE_AUDIO
                 gb_apu_rw(gb, addr & 0xFF, val, write);
-                break;
+#else
+                gb->io[reg].r = val;
 #endif
+                break;
             /* PPU registers */
             case LCDControl:
             { /* Check whether LCD will be turned on or off */
@@ -164,7 +167,7 @@ inline uint8_t gb_apu_rw(struct GB *gb, const uint8_t reg, const uint8_t val, co
             case NR41: /* Channel 1,2,4 length */
             {
                 const uint8_t channel = (reg - 0x10) / 5;
-                gb->io[NR11 + (channel * 5)].r = val;
+                gb->io[(channel * 5) + NR11].r = val;
                 break;
             }
             case NR12:
@@ -172,7 +175,7 @@ inline uint8_t gb_apu_rw(struct GB *gb, const uint8_t reg, const uint8_t val, co
             case NR42: /* Channel 1,2,4 volume */
             {
                 const uint8_t channel = (reg - 0x10) / 5;
-                gb->io[NR12 + (channel * 5)].r = val;
+                gb->io[(channel * 5) + NR12].r = val;
                 gb->audioCh[channel].currentVol = val >> 4;
                 gb->audioCh[channel].DAC = ((val & 0xF8) == 0) ? 0 : 1;
                 break;
@@ -188,7 +191,7 @@ inline uint8_t gb_apu_rw(struct GB *gb, const uint8_t reg, const uint8_t val, co
             case NR44: /* Channel control */
             {
                 const uint8_t channel = (reg - 0x10) / 5;
-                gb->io[NR14 + (channel * 5)].r = val;
+                gb->io[(channel * 5) + NR14].r = val;
                 if (val >> 7)
                     gb_ch_trigger(gb, channel);       
                 break;
@@ -771,7 +774,9 @@ struct sprite_data
     uint8_t x;
 };
 
-#define HIGH_SORT_ACCURACY
+#define SPRITE_SORTED__
+#define HIGH_SORT_ACCURACY__
+
 #ifdef HIGH_SORT_ACCURACY
 int compare_sprites(const void *in1, const void *in2)
 {
@@ -892,19 +897,18 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
 
 #define MAX_SPRITES_LINE 10
 #define NUM_SPRITES 40
-#define SPRITE_SORTED
 
     if (gb->io[LCDControl].OBJ_Enable)
     {
         uint8_t sprite;
         uint8_t totalSprites = 0;
 
-        struct sprite_data sprites_to_render[NUM_SPRITES];
-
         /* Record number of sprites on the line being rendered, limited
          * to the maximum number sprites that the Game Boy is able to
          * render on each line (10 sprites). */
 #ifdef SPRITE_SORTED
+        struct sprite_data sprites_to_render[NUM_SPRITES];
+
         for (sprite = 0; sprite < (sizeof(sprites_to_render) / sizeof(sprites_to_render[0])); sprite++)
         {
             const uint8_t objY = gb->oam[4 * sprite];
@@ -1290,7 +1294,8 @@ void gb_update_div_apu (struct GB * const gb)
 
 int16_t gb_update_audio (struct GB * const gb)
 {
-    const int cycles = (int)CYCLES_PER_SAMPLE;
+    /* Approx. ceiling for more correct sounding pitch */
+    const int cycles = ((int)CYCLES_PER_SAMPLE) + 1;
 
     /* Use for better performance (lower accuracy) */
 
