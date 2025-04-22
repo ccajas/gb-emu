@@ -60,9 +60,13 @@ static const GB_Palette manualPalettes[] =
 static const GB_Palette gbcPalettes[] =
 {
     /* Default palette */
-    { "GBC_x16_BG",    { RGB_4 (0x131616, 0x2E3232, 0x4E5A4F, 0x95A694) }},
-    { "GBC_x16_OBJ0",  { RGB_4 (0x131616, 0x2E3232, 0x4E5A4F, 0x95A694) }},
-    { "GBC_x16_OBJ1",  { RGB_4 (0x131616, 0x2E3232, 0x4E5A4F, 0x95A694) }},
+    { "GBC_x16_BG",    { RGB_4 (0x131616, 0x374242, 0x5E6C61, 0x95A694) }},
+    { "GBC_x16_OBJ0",  { RGB_4 (0x131616, 0x374242, 0x5E6C61, 0x95A694) }},
+    { "GBC_x16_OBJ1",  { RGB_4 (0x131616, 0x374242, 0x5E6C61, 0x95A694) }},
+
+    { "DMG Original",  { RGB_4 (0x044140, 0x1B6D62, 0x2C9B6A, 0x93B805) }},
+    { "DMG Original",  { RGB_4 (0x044140, 0x1B6D62, 0x2C9B6A, 0x93B805) }},
+    { "DMG Original",  { RGB_4 (0x044140, 0x1B6D62, 0x2C9B6A, 0x93B805) }},
 
     { "GBC_x16_BG",    { RGB_4 (0,        0x525252, 0xA5A5A5, 0xF5F5F5) }},
     { "GBC_x16_OBJ0",  { RGB_4 (0,        0x525252, 0xA5A5A5, 0xF5F5F5) }},
