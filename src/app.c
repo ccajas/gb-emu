@@ -467,6 +467,7 @@ void app_run (struct App * app)
 
     /* Start clock */
     clock_t time;
+    clock_t startTime = clock();
     double totalTime = 0;
     double lastUpdate = 0;
 
@@ -504,7 +505,7 @@ void app_run (struct App * app)
                 //clock_gettime(CLOCK_REALTIME, &finish);
                 totalTime += (double)(clock() - time) / CLOCKS_PER_SEC;
                 //accu_nsec += as_nanoseconds(&finish) - as_nanoseconds(&start);
-                frames++;
+                ++frames;
                 if (frames % 30 == 29)
                 {
                     sprintf(app->fpsString, "FPS: %0.2f | Perf: %0.2fx ", 
@@ -526,10 +527,16 @@ void app_run (struct App * app)
     const double totalSeconds = (double)(frames / 60.0);
     //const double totalTime    = (double)(accu_nsec / 1000000000.0);
 
-    LOG_("The emulation took %f seconds for %d frames.\n"
+    double duration =
+        (double)(clock() - startTime) / CLOCKS_PER_SEC;
+    double fps = frames / duration;
+
+    printf("%f FPS, dur: %f\n", fps, duration);
+
+    printf("The emulation took %f seconds for %d frames.\n"
         "GB performance is %f times as fast (%d FPS average).\n",
         totalTime, frames, totalSeconds / totalTime, (int)(totalSeconds / totalTime * 60.0f));
-    LOG_("For each second, there is on average %.2f milliseconds free for overhead.\n",
+    printf("For each second, there is on average %.2f milliseconds free for overhead.\n",
             1000.0 - (1.0f / (totalSeconds / totalTime) * 1000));
 
 #ifdef ENABLE_AUDIO

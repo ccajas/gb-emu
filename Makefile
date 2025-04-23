@@ -1,12 +1,13 @@
-CFLAGS   = -Wall -s -O2 -std=gnu89 -DGBE_DEBUG -DUSE_GLFW -DENABLE_AUDIO -MMD -MP
+CFLAGS   = -Wall -s -Ofast -std=gnu89 -DGBE_DEBUG -DUSE_GLFW -DENABLE_AUDIO -MMD -MP
 GLFW_PKG = `pkg-config --static --libs glfw3`
 CC       = gcc
 
-GLdir   = src/api/gl/
-src     = $(wildcard src/*.c)
-src_min = src/main.c src/app.c src/gb.c src/cart.c
-srcGL   = $(wildcard src/api/gl/*.c)
-srcTIGR = $(wildcard src/api/tigr/*.c)
+GLdir     = src/api/gl/
+src       = $(wildcard src/*.c)
+src_min   = src/main.c src/app.c src/gb.c src/cart.c
+src_bench = src/bench/bench.c src/gb.c src/cart.c
+srcGL     = $(wildcard src/api/gl/*.c)
+srcTIGR   = $(wildcard src/api/tigr/*.c)
 
 #CC = i686-w64-mingw32-gcc
 
@@ -25,7 +26,7 @@ all: glfw
 
 OS_NAME := $(shell uname -s | tr A-Z a-z)
 
-.PHONY: clean
+.PHONY: bench clean
 
 # main build
 ifeq ($(OS_NAME),linux)
@@ -33,6 +34,7 @@ glfw: $(obj)
 	@echo $(OS_NAME)
 	$(CC) $(CFLAGS) $(MA_FLAGS) $(src) $(miniaudio) $(srcGL) $(GLFW_PKG) -o $(target_linux)
 else
+#-Wl,-subsystem,windows 
 glfw: $(obj)
 	@echo $(OS_NAME)
 	$(CC) $(CFLAGS) $(MA_FLAGS) $(src) $(miniaudio) $(srcGL) ../_lib/libglfw3.a -lgdi32 -o $(target)
@@ -48,9 +50,12 @@ tigr: $(obj)
 minifb: $(obj)
 	$(CC) $(CFLAGS) src/main.c src/app.c src/gb.c src/cart.c -o $(target) -lgdi32
 
+bench: $(obj)
+	gcc -Wall -s -Ofast -std=c99 $(src_bench) -o $(target_linux)
+
 # headless
 core: $(obj)
-	gcc -Wall -s -O2 -std=gnu89 -DGBE_DEBUG $(src_min) -o $(target_linux) -lrt -lm
+	gcc -Wall -s -Ofast -std=gnu89 $(src_min) -o $(target_linux) -lrt -lm
 
 corew: $(obj)
 	gcc -Wall -s -O2 -std=gnu89 -DGBE_DEBUG $(src_min) -o $(target)
