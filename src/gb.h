@@ -151,15 +151,16 @@ struct GB
     uint16_t nn;
     uint64_t clock_t;
     uint16_t lineClock;
+    uint16_t lineClockSt;
     uint8_t  frame, drawFrame;
     uint32_t totalFrames;
 
     /* Timer data */
-    uint16_t divClock, lastDivClock;
-    uint16_t timAClock;
-    uint8_t  timAOverflow, nextTimA_IRQ, newTimALoaded;
-    int16_t  rm, rt; /* Tracks individual step cycles */
-    uint8_t  apuDiv;
+    uint_fast16_t divClock, lastDivClock;
+    uint_fast16_t timAClock;
+    uint_fast8_t  timAOverflow, nextTimA_IRQ, newTimALoaded;
+    uint_fast16_t rm, rt; /* Tracks individual step cycles */
+    uint_fast8_t  apuDiv;
 
     /* HALT and STOP status, PC increment toggle */
     uint8_t halted : 1, stopped : 1, pcInc : 1;
@@ -311,7 +312,7 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
     gb->divClock += gb->rt;\
     while (gb->divClock >= 256)\
     {\
-        const uint8_t lastDiv = gb->io[Divider].r;\
+        const uint_fast8_t lastDiv = gb->io[Divider].r;\
         ++gb->io[Divider].r;\
         gb->divClock -= 256;\
         if (!(gb->io[Divider].r & 0x10) && lastDiv & 0x10)\

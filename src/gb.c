@@ -307,6 +307,7 @@ void gb_init(struct GB *gb, uint8_t *bootRom)
 
     LOG_CPU_STATE(gb, 0);
     gb->lineClock = 0;
+    gb->lineClockSt = 0;
     gb->clock_t = 0;
     gb->divClock = gb->timAClock = 0;
     gb->frame = gb->totalFrames = 0;
@@ -393,9 +394,6 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
     /* Copied value for operands (can be overridden for other opcodes) */
     uint8_t tmp = REG_A;
     const uint8_t opHh = op >> 3; /* Octal divisions */
-
-    /* For conditional jump / call instructions */
-    const uint8_t cond = ((op >> 3) & 3);
 
     switch (opHh)
     {
@@ -531,22 +529,34 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
                 case 0x28:
                 case 0x30:
                 case 0x38:
+                {
+                    const uint8_t cond = ((op >> 3) & 3);
                     JR_(cond) break;
+                }
                 case 0xC0:
                 case 0xC8:
                 case 0xD0:
                 case 0xD8:
+                {
+                    const uint8_t cond = ((op >> 3) & 3);
                     RET_(cond) break;
+                }
                 case 0xC2:
                 case 0xCA:
                 case 0xD2:
                 case 0xDA:
+                {
+                    const uint8_t cond = ((op >> 3) & 3);
                     JP_(cond) break;
+                }
                 case 0xC4:
                 case 0xCC:
                 case 0xD4:
                 case 0xDC:
+                {
+                    const uint8_t cond = ((op >> 3) & 3);
                     CALL_(cond) break;
+                }
                 /* Call routines at addresses 0x00 to 0x38 */
                 case 0xC7:
                 case 0xCF:
@@ -594,12 +604,11 @@ void gb_exec_cb(struct GB *gb, const uint8_t op)
     ++gb->rm;
     #endif
 
-    const uint8_t opL = op & 0xf;
     const uint8_t opHh = op >> 3; /* Octal divisions */
     const uint8_t r_bit = opHh & 7;
 
     /* Fetch value at address (HL) if it's needed */
-    uint8_t hl = (opL == 0x6 || opL == 0xE) ? CPU_RB(REG_HL) : 0;
+    uint8_t hl = 0;
 
     switch (op)
     {
@@ -822,8 +831,8 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
     /* If background is enabled, draw it. */
     if (gb->io[LCDControl].BG_Win_Enable)
     {
-        //if (!(gb->io[LCDControl].Window_Enable && gb->io[LY].r >= gb->io[WindowY].r))
-        //{
+        if (!(gb->io[LCDControl].Window_Enable && gb->io[LY].r >= gb->io[WindowY].r))
+        {
             uint8_t lineX, posX, tileID, px, rowLSB, rowMSB;
 
             /* Calculate current background line to draw */
@@ -850,7 +859,7 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
             {
                 if ((px & 7) == 0)
                 {
-                    tileMap = (BGAREA_VAL ? 0x9C00 : 0x9800) + ((posY >> 3) << 5);
+                    tileMap = (BGAREA_VAL ? 0x9C00 : 0x9800) | ((posY >> 3) << 5);
                     PPU_GET_TILE(0, lineX + gb->io[ScrollX].r)
                 }
                 /* Get background color */
@@ -861,7 +870,7 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
                 rowMSB >>= 1;
                 ++px;
             }
-        //}
+        }
     }
 
     /* draw window */
@@ -871,7 +880,7 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
 
         /* Calculate Window Map Address. */
         const uint16_t tileMap = 
-            (gb->io[LCDControl].Window_Area ? 0x9C00 : 0x9800) + ((gb->windowLY >> 3) << 5);
+            (gb->io[LCDControl].Window_Area ? 0x9C00 : 0x9800) | ((gb->windowLY >> 3) << 5);
 
         lineX = DISPLAY_WIDTH - 1;
         const uint8_t posY = gb->windowLY & 7;
@@ -931,7 +940,7 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
         uint8_t s;
         for (s = 0; s < OAM_SIZE; s += 4)
         {
-            if (gb->oam[s] == 0 && gb->oam[s] >= 160)
+            if (gb->oam[s] == 0 && gb->oam[s] >= DISPLAY_WIDTH)
                 continue;
             if (gb->io[LY].r >= gb->oam[s] - (gb->io[LCDControl].OBJ_Size ? 0 : 8) ||
                 gb->io[LY].r < gb->oam[s] - 16)
@@ -955,29 +964,31 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
         {
             const uint8_t s = sprites[sprite];
 
-            const uint8_t objY = gb->oam[s + 0], objX = gb->oam[s + 1];
-            const uint8_t objTile = gb->oam[s + 2] & 
-                (gb->io[LCDControl].OBJ_Size ? 0xFE : 0xFF);
-            const uint8_t objFlags = gb->oam[s + 3];
+            const uint8_t objX = gb->oam[s + 1];
 
             /* Skip sprite if not visible */
             if (objX == 0 || objX >= DISPLAY_WIDTH + 8)
                 continue;
 
+            const uint8_t objY = gb->oam[s + 0];
             /* Handle Y flip */
+            const uint8_t objFlags = gb->oam[s + 3];
             uint8_t posY = gb->io[LY].r - objY + 16;
             if (objFlags & 0x40)
                 posY = (gb->io[LCDControl].OBJ_Size ? 15 : 7) - posY;
 
-            const uint8_t rowLSB = gb->vram[(objTile << 4) + (posY << 1)];
-            const uint8_t rowMSB = gb->vram[(objTile << 4) + (posY << 1) + 1];
+            const uint8_t objTile = gb->oam[s + 2] & 
+                (gb->io[LCDControl].OBJ_Size ? 0xFE : 0xFF);
 
-            const uint8_t sLeft = (objX - 8 < 0) ? 0 : objX - 8;
+            const uint8_t rowLSB = gb->vram[(objTile << 4) | (posY << 1)];
+            const uint8_t rowMSB = gb->vram[(objTile << 4) | ((posY << 1) + 1)];
+
+            const uint8_t sLeft = (objX < 8) ? 8 : objX;
             const uint8_t sRight = (objX >= DISPLAY_WIDTH) ? DISPLAY_WIDTH : objX;
 
             /* Loop through tile row pixels */
             uint8_t lineX;
-            for (lineX = sLeft; lineX != sRight; lineX++)
+            for (lineX = sLeft - 8; lineX != sRight; lineX++)
             {
                 /* handle X flip */
                 const uint8_t relX = (gb->oam[s + 3] & 0x20) ? lineX - objX : 7 - (lineX - objX);
@@ -1048,9 +1059,17 @@ _FORCE_INLINE void gb_transfer(struct GB *gb)
     else /* Unset the flag */\
         gb->io[LCDStatus].stat_LYC_LY = 0;\
 
+
+#define TICKS_PPU_PACE  TICKS_HBLANK / 8
+
 void gb_render(struct GB *const gb)
 {
     gb->lineClock += gb->rt;
+    gb->lineClockSt += gb->rt;
+
+    if (gb->lineClockSt < TICKS_PPU_PACE) return;
+
+    gb->lineClockSt -= TICKS_PPU_PACE;
 
     if (gb->io[LY].r < DISPLAY_HEIGHT)
     {
