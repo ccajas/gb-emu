@@ -71,7 +71,7 @@
 
 #endif
 
-#define USE_BOOT_ROM
+#define USE_BOOT_ROM__
 
 struct App
 {
@@ -136,7 +136,8 @@ void app_audio_init (struct App *);
 #endif
 
 /* Functions that reference frontend app data from emulator */
-void app_draw_line     (void * dataPtr, const uint8_t * pixels, const uint8_t line);
+uint8_t app_cart_rom_read (void * dataPtr, const uint32_t addr);
+void    app_draw_line     (void * dataPtr, const uint8_t * pixels, const uint8_t line);
 
 /* Drawing functions */
 static inline void app_imgPtr (struct Texture * texture, const uint32_t pos)

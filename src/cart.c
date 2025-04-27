@@ -20,7 +20,7 @@ uint8_t none_rw(struct Cartridge *cart, const uint16_t addr, const uint8_t val, 
 {
     if (!write) /* Read from cartridge */
         if (addr <= 0x7FFF)
-            return cart->romData[addr];
+            return cart->rom_read(cart, addr);
     /* Nothing to write here */
     return 0xFF;
 }
@@ -32,13 +32,13 @@ uint8_t mbc1_rw(struct Cartridge *cart, const uint16_t addr, const uint8_t val, 
         if LOW_BANK
         { /* User upper 2 bank bits in mode 1 */
             const uint8_t selectedBank = (cart->romBank2 << 5) & cart->romMask;
-            return cart->romData[addr + ((cart->mode == 1) ? (selectedBank * 0x4000) : 0)];
+            return cart->rom_read(cart, addr + ((cart->mode == 1) ? (selectedBank * ROM_BANK_SIZE) : 0));
         }
         if HIGH_BANK
         {
             const uint8_t bank = (cart->romBank1 == 0) ? 1 : cart->romBank1;
             const uint8_t selectedBank = ((cart->romBank2 << 5) + bank) & cart->romMask;
-            return cart->romData[(selectedBank - 1) * 0x4000 + addr];
+            return cart->rom_read(cart, (selectedBank - 1) * ROM_BANK_SIZE + addr);
         }
         if (RAM_BANK && cart->ram)
         { /* Select RAM bank and fetch data (if enabled) */
@@ -82,11 +82,11 @@ uint8_t mbc2_rw(struct Cartridge *cart, const uint16_t addr, const uint8_t val, 
     if (!write) /* Read from cartridge */
     {
         if LOW_BANK
-            return cart->romData[addr];
+            return cart->rom_read(cart, addr);
         if HIGH_BANK
         {
             const uint8_t selectedBank = (cart->romBank1 == 0 ? 1 : cart->romBank1) & cart->romMask;
-            return cart->romData[(selectedBank - 1) * 0x4000 + addr];
+            return cart->rom_read(cart, (selectedBank - 1) * ROM_BANK_SIZE + addr);
         }
         if RAM_BANK
         {
@@ -120,9 +120,9 @@ uint8_t mbc3_rw(struct Cartridge *cart, const uint16_t addr, const uint8_t val, 
     if (!write) /* Read from cartridge */
     {
         if LOW_BANK
-            return cart->romData[addr];
+            return cart->rom_read(cart, addr);
         if HIGH_BANK
-            return cart->romData[((cart->romBank1 & cart->romMask) - 1) * 0x4000 + addr];
+            return cart->rom_read(cart, ((cart->romBank1 & cart->romMask) - 1) * ROM_BANK_SIZE + addr);
         if (RAM_BANK && cart->ram)
         { /* Select RAM bank and fetch data (if enabled) */
             if (cart->ramSizeKB == 8)
@@ -160,10 +160,10 @@ uint8_t mbc5_rw(struct Cartridge *cart, const uint16_t addr, const uint8_t val, 
             (((cart->romBank2 << 8) + cart->romBank1) & cart->romMask);
 
         if LOW_BANK
-            return cart->romData[addr];
+            return cart->rom_read(cart, addr);
         if HIGH_BANK
         {
-            return cart->romData[(selectedBank - 1) * 0x4000 + addr];
+            return cart->rom_read(cart, (selectedBank - 1) * ROM_BANK_SIZE + addr);
         }
         if (RAM_BANK && cart->ram)
         { /* Select RAM bank and fetch data (if enabled) */
@@ -201,9 +201,9 @@ uint8_t huc1_rw(struct Cartridge *cart, const uint16_t addr, const uint8_t val, 
     if (!write) /* Read from cartridge */
     {
         if LOW_BANK
-            return cart->romData[addr];
+            return cart->rom_read(cart, addr);
         if HIGH_BANK
-            return cart->romData[((cart->romBank1 & cart->romMask) - 1) * 0x4000 + addr];
+            return cart->rom_read(cart, ((cart->romBank1 & cart->romMask) - 1) * ROM_BANK_SIZE + addr);
         if RAM_BANK
         {
             if (!cart->usingRAM)

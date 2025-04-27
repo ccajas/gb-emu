@@ -13,6 +13,7 @@
 #endif
 
 #define GB_HEADER_SIZE   0x50
+#define ROM_BANK_SIZE    0x4000
 
 struct Cartridge 
 {
@@ -20,7 +21,7 @@ struct Cartridge
     uint8_t
         * romData,
         * ramData;
-    
+
     /* Information about the game and its hardware */
     uint8_t  
         header[GB_HEADER_SIZE],
@@ -39,6 +40,9 @@ struct Cartridge
 
     /* Pointer to MBC read/write function */
     uint8_t (* rw)(struct Cartridge *, const uint16_t addr, const uint8_t val, const uint8_t write);
+
+    /* Functions that rely on external data */
+    uint8_t (* rom_read)(void *, const uint32_t addr);
 
     uint16_t 
         romSizeKB,

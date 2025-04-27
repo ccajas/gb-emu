@@ -261,7 +261,8 @@ void app_init (struct App * app)
     }
 
     /* Assign functions to be used by emulator */
-    app->gb.draw_line = app_draw_line;
+    app->gb.cart.rom_read = app_cart_rom_read;
+    app->gb.draw_line     = app_draw_line;
 
 #ifdef ENABLE_AUDIO
     app_audio_init(app);
@@ -358,7 +359,7 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
     /* Copy ROM to cart */
     LOG_("Loading \"%s\"\n", fileName);
     gb->cart.romData = rom;
-    if (gb->cart.romData) 
+    if (gb->cart.romData)
         gb_init (gb, boot);
 
     return rom;
@@ -371,6 +372,13 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
 
     return rom_gb240p_gb;
 #endif
+}
+
+uint8_t app_cart_rom_read (void * dataPtr, const uint32_t addr)
+{
+    struct Cartridge * const cart = dataPtr;
+
+    return cart->romData[addr];
 }
 
 void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
