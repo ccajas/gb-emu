@@ -41,7 +41,7 @@
     case op_ + 3: name (REG_E); break;\
     case op_ + 4: name (REG_H); break;\
     case op_ + 5: name (REG_L); break;\
-    case op_ + 6: name (hl); break;\
+    case op_ + 6: hl = CPU_RB(REG_HL); name (hl); break;\
     case op_ + 7: name (REG_A); break;\
 
 #define OPR_2R_(op_, name) \
