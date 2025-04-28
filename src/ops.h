@@ -26,8 +26,8 @@
 
 /** CPU bus read/write **/
 
-#define CPU_RB(A)     gb_mem_access (gb, A, 0, 0)
-#define CPU_WB(A,X)   gb_mem_access (gb, A, (X), 1)
+#define CPU_RB(A)     gb_mem_read (gb, A)
+#define CPU_WB(A,X)   gb_mem_write (gb, A, (X))
 #define CPU_RB_PC     CPU_RB (gb->pc++)
 #define CPU_RW(A)     ( CPU_RB (A) +  (CPU_RB (A + 1) << 8) )
 #define CPU_WW(A,X)   { CPU_WB (A, X); CPU_WB (A + 1, (X >> 8)); }

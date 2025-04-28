@@ -87,6 +87,7 @@ struct GB
     /* Assigned bit values for certain registers */
     union regValues 
     {
+#ifdef ENABLE_AUDIO
         struct /* Audio register NR10 */
         {
             uint8_t SweepStep : 3;
@@ -121,6 +122,7 @@ struct GB
             uint8_t b4_6      : 3; /* Unused */
             uint8_t Master_on : 1;
         };
+#endif
         struct /* LCD Control */
         {
             uint8_t BG_Win_Enable : 1;
@@ -152,7 +154,7 @@ struct GB
     uint64_t clock_t;
     uint16_t lineClock;
     uint16_t lineClockSt;
-    uint8_t  frame, drawFrame;
+    uint8_t  drawFrame;
     uint32_t totalFrames;
 
     /* Timer data */
@@ -178,7 +180,7 @@ struct GB
     /* Interrupt master enable and PC increment */
     uint8_t ime : 1;
     uint8_t lastJoypad;
-
+#ifdef ENABLE_AUDIO
     /* Audio channel data */
     struct {
         uint8_t  enabled   : 1;
@@ -194,13 +196,13 @@ struct GB
     uint8_t  sweepTick : 4;
     uint16_t sweepBck;
     uint16_t audioLFSR;
-
+#endif
     /* Catridge which holds ROM and RAM */
     struct Cartridge cart;
     uint8_t * bootRom;
 
     /* Directly accessible external data */
-    struct gb_data_sj
+    struct gb_data_st
     {
         uint8_t joypad;
         uint8_t frameSkip;
@@ -215,8 +217,10 @@ struct GB
 };
 
 uint8_t gb_apu_rw     (struct GB *, const uint8_t  reg,  const uint8_t val, const uint8_t write);
-uint8_t gb_io_rw      (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
 uint8_t gb_mem_access (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
+
+uint8_t gb_mem_read   (struct GB *, const uint16_t addr);
+uint8_t gb_mem_write  (struct GB *, const uint16_t addr, const uint8_t val);
 
 void gb_init       (struct GB *, uint8_t *);
 void gb_cpu_exec   (struct GB *, const uint8_t op);
@@ -226,16 +230,20 @@ void gb_boot_reset (struct GB *);
 
 /* Other update-specific functions */
 
-void gb_handle_interrupts   (struct GB *);
 void gb_handle_timers       (struct GB *);
 void gb_update_timer        (struct GB *, const uint8_t);
 void gb_update_timer_simple (struct GB *);
 
 void gb_render              (struct GB *);
+uint8_t * gb_pixels_fetch   (struct GB *);
+
 void gb_init_audio          (struct GB *);
 void gb_ch_trigger          (struct GB *, const uint8_t);
 void gb_update_div_apu      (struct GB *);
+
+#ifdef ENABLE_AUDIO
 int16_t gb_update_audio     (struct GB *);
+#endif
 
 static inline uint8_t gb_rom_loaded (struct GB * gb)
 {
@@ -282,6 +290,40 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
     }
     
     return 0;
+}
+
+static inline void gb_handle_interrupts(struct GB *gb)
+{
+    /* Get interrupt flags */
+    const uint8_t io_IE = gb->io[IntrEnabled].r;
+    const uint8_t io_IF = gb->io[IntrFlags].r;
+
+    if (!gb->ime) return;
+
+    /* Run if CPU ran HALT instruction or IME enabled w/flags */
+    if (io_IE & io_IF & IF_Any)
+    {
+        gb->ime = 0;
+        /* Check all 5 IE and IF bits for flag confirmations
+           This loop also services interrupts by priority (0 = highest) */
+        uint8_t f;
+        uint8_t addr = 0x40;
+        for (f = IF_VBlank; f <= IF_Joypad; f <<= 1)
+        {
+            if ((io_IE & f) && (io_IF & f))
+            {
+                gb->sp -= 2;
+                CPU_WW(gb->sp, gb->pc);
+                gb->pc = addr;
+
+                /* Clear flag bit */
+                gb->io[IntrFlags].r = io_IF & ~f;
+                gb->rt += 20;
+                break;
+            }
+            addr += 8;
+        }
+    }
 }
 
 #define USE_TIMER_SIMPLE
@@ -337,9 +379,8 @@ static inline void gb_step (struct GB * gb)
         /* Check if interrupt is pending */
         if (gb->io[IntrEnabled].r & gb->io[IntrFlags].r & IF_Any)
             gb->halted = 0;
-
-        if (gb->ime)
-            gb_handle_interrupts (gb);
+        
+        //gb_handle_interrupts (gb);
 
         gb->rt += 4;
     }
@@ -351,8 +392,7 @@ static inline void gb_step (struct GB * gb)
         LOG_CPU_STATE (gb, op);
     }
 
-    if (gb->ime)
-        gb_handle_interrupts (gb);
+    gb_handle_interrupts (gb);
 
         /* Update timers for every remaining m-cycle */
     #ifdef USE_TIMER_SIMPLE
@@ -382,8 +422,6 @@ static inline void gb_frame (struct GB * gb)
         gb_step (gb);
     }
 
-    /* Indicates odd or even frame */
-    gb->frame = 1 - gb->frame;
     gb->totalFrames++;
 }
 

@@ -9,14 +9,15 @@
 #include "opcycles.h"
 #endif
 
+#define _FORCE_INLINE __attribute__((always_inline)) inline
+
 /*
  **********  Memory/bus read and write  ************
  */
-
 #define RISING_EDGE(before, after)  ((before & 1) < (after & 1))
 #define FALLING_EDGE(before, after) ((before & 1) > (after & 1))
 
-inline uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, const uint8_t write)
+uint8_t gb_io_rw(struct GB *gb, const uint16_t addr, const uint8_t val, const uint8_t write)
 {
     const uint8_t reg = addr & 0xFF;
 
@@ -135,6 +136,7 @@ inline uint8_t gb_apu_rw(struct GB *gb, const uint8_t reg, const uint8_t val, co
     }
     else
     {
+#ifdef ENABLE_AUDIO
         //LOG_("== Write %02x to APU: %02x\n", val, reg);
         if (reg == AudioCtrl)
         {
@@ -197,7 +199,151 @@ inline uint8_t gb_apu_rw(struct GB *gb, const uint8_t reg, const uint8_t val, co
                 break;
             }
         }
+#endif
     }
+    return 0;
+}
+
+#define LOW_BANK       (addr <= 0x3FFF)
+#define HIGH_BANK      (addr >= 0x4000 && addr <= 0x7FFF)
+#define RAM_BANK       (addr >= 0xA000 && addr <= 0xBFFF)
+#define RAM_ENABLE_REG (addr <= 0x1FFF)
+#define BANK_SELECT    (addr >= 0x2000 && addr <= 0x3FFF)
+#define BANK_SELECT_2  (addr >= 0x4000 && addr <= 0x5FFF)
+#define BANK_SELECT_L  (addr >= 0x2000 && addr <= 0x2FFF)
+#define BANK_SELECT_H  (addr >= 0x3000 && addr <= 0x3FFF)
+#define MODE_SELECT    (addr >= 0x6000 && addr <= 0x7FFF)
+
+#define RAM_ADDR       (cart->ramBank * 0x2000) + (addr - 0xA000)
+
+uint8_t gb_mem_read(struct GB *gb, const uint16_t addr)
+{
+    const uint8_t val = 0;
+    /* For Blargg's CPU instruction tests */
+#ifdef CPU_INSTRS_TESTING
+    if (addr == 0xFF44)
+        return 0x90;
+    if (gb->io[SerialCtrl] == 0x81)
+    {
+        LOG_("%c", gb->io[SerialData]);
+        gb->io[SerialCtrl] = 0x0;
+    }
+#endif
+    INC_MCYCLE;
+
+    if (addr < 0x0100 && gb->io[BootROM].r == 0) /* Run boot ROM if needed */
+    {
+        return gb->bootRom[addr];
+    }
+    if (addr < 0x8000)
+    {
+        return gb->cart.rw(&gb->cart, addr, val, 0); /* ROM from MBC     */
+    }
+    if (addr < 0xA000)
+    {
+        if (!gb->vramAccess)
+            return 0xFF;
+ 
+        return gb->vram[addr & 0x1FFF];
+    } /* Video RAM        */
+    if (addr < 0xC000)
+    {
+        return gb->cart.rw(&gb->cart, addr, val, 0); /* External RAM     */
+    }
+    if (addr < 0xE000)
+    {
+        return gb->ram[addr % WRAM_SIZE];
+    } /* Work RAM         */
+    if (addr < 0xFE00)
+    {
+        return gb->ram[addr % WRAM_SIZE];
+    } /* Echo RAM         */
+    if (addr < 0xFEA0) /* OAM              */
+    {
+        if (!gb->oamAccess)
+            return 0xFF;
+
+        return gb->oam[addr - 0xFE00];
+    }
+    if (addr < 0xFF00)
+        return 0xFF; /* Not usable       */
+    if (addr == 0xFF00)
+        return gb_joypad(gb, val, 0);      /* Joypad           */
+    if (addr < 0xFF80)
+        return gb_io_rw(gb, addr, val, 0); /* I/O registers    */
+    if (addr < 0xFFFF)
+    {
+        return gb->hram[addr % HRAM_SIZE];
+    } /* High RAM         */
+    if (addr == 0xFFFF)
+        return gb->io[IntrEnabled].r;
+        //return gb_io_rw(gb, addr, val, 0); /* Interrupt enable */
+    return 0;
+}
+
+uint8_t gb_mem_write(struct GB *gb, const uint16_t addr, const uint8_t val)
+{
+    /* For Blargg's CPU instruction tests */
+#ifdef CPU_INSTRS_TESTING
+    if (gb->io[SerialCtrl] == 0x81)
+    {
+        LOG_("%c", gb->io[SerialData]);
+        gb->io[SerialCtrl] = 0x0;
+    }
+#endif
+    INC_MCYCLE;
+
+    if (addr < 0x0100 && gb->io[BootROM].r == 0) /* Run boot ROM if needed */
+    {
+        return 0;
+    }
+    if (addr < 0x8000)
+    {
+        return gb->cart.rw(&gb->cart, addr, val, 1); /* ROM from MBC     */
+    }
+    if (addr < 0xA000)
+    {
+        if (!gb->vramAccess)
+            return 0xFF;
+
+        gb->vram[addr & 0x1FFF] = val;
+        return 0;
+    } /* Video RAM        */
+    if (addr < 0xC000)
+    {
+        return gb->cart.rw(&gb->cart, addr, val, 1); /* External RAM     */
+    }
+    if (addr < 0xE000)
+    {
+        gb->ram[addr % WRAM_SIZE] = val;
+        return 0;
+    } /* Work RAM         */
+    if (addr < 0xFE00)
+    {
+        gb->ram[addr % WRAM_SIZE] = val;
+        return 0;
+    } /* Echo RAM         */
+    if (addr < 0xFEA0) /* OAM              */
+    {
+        if (!gb->oamAccess)
+            return 0xFF;
+
+        gb->oam[addr - 0xFE00] = val;
+        return 0;
+    }
+    if (addr < 0xFF00)
+        return 0xFF; /* Not usable       */
+    if (addr == 0xFF00)
+        return gb_joypad(gb, val, 1);      /* Joypad           */
+    if (addr < 0xFF80)
+        return gb_io_rw(gb, addr, val, 1); /* I/O registers    */
+    if (addr < 0xFFFF)
+    {
+        gb->hram[addr % HRAM_SIZE] = val;
+    } /* High RAM         */
+    if (addr == 0xFFFF)
+        gb->io[IntrEnabled].r = val;
+        //return gb_io_rw(gb, addr, val, 1); /* Interrupt enable */
     return 0;
 }
 
@@ -231,7 +377,31 @@ uint8_t gb_mem_access(struct GB *gb, const uint16_t addr, const uint8_t val, con
             return 0;
     }
     if (addr < 0x8000)
+    {
         return cart->rw(cart, addr, val, write); /* ROM from MBC     */
+        if (!write) /* Read from cartridge */
+        {
+            if LOW_BANK
+                return cart->rom_read(cart, addr);
+            if HIGH_BANK
+            {
+                const uint8_t selectedBank = (cart->romBank1 == 0 ? 1 : cart->romBank1) & cart->romMask;
+                return cart->rom_read(cart, (selectedBank - 1) * ROM_BANK_SIZE + addr);
+            }
+        }
+        else /* Write to registers */
+        {
+            if LOW_BANK
+            {
+                const uint8_t setRomBank = (addr >> 8) & 1;
+                if (setRomBank)
+                    cart->romBank1 = val & 0xF; /* LSB == 1, ROM bank select */
+                else
+                    cart->usingRAM = ((val & 0xF) == 0xA); /* LSB == 0, RAM switch      */
+            }
+        }
+        return 0;
+    }
     if (addr < 0xA000)
     {
         if (!gb->vramAccess)
@@ -243,7 +413,22 @@ uint8_t gb_mem_access(struct GB *gb, const uint16_t addr, const uint8_t val, con
         return 0;
     } /* Video RAM        */
     if (addr < 0xC000)
+    {
         return cart->rw(cart, addr, val, write); /* External RAM     */
+        if (!write) /* Read from cartridge */
+        {
+            if (!cart->usingRAM)
+                return 0;
+            return cart->ramData[addr & 0x1FF] & 0xF; /* Return only lower 4 bits  */
+        }
+        else /* Write to registers */
+        {
+            if (!cart->usingRAM)
+                return 0xFF;
+            cart->ramData[addr & 0x1FFF] = (val & 0xF) | 0xF0; /* Write only lower 4 bits   */
+        }
+        return 0;
+    }
     if (addr < 0xE000)
     {
         b = &gb->ram[addr % WRAM_SIZE];
@@ -310,7 +495,7 @@ void gb_init(struct GB *gb, uint8_t *bootRom)
     gb->lineClockSt = 0;
     gb->clock_t = 0;
     gb->divClock = gb->timAClock = 0;
-    gb->frame = gb->totalFrames = 0;
+    gb->totalFrames = 0;
     gb->apuDiv = 0;
     gb->pcInc = 1;
     LOG_("GB: CPU state done\n");
@@ -404,17 +589,17 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
             {
                 /* Halt */
                 case 0x76:
-                OP(HALT)
-                if (!gb->ime)
-                {
-                    if (gb->io[IntrEnabled].r && gb->io[IntrFlags].r & IF_Any)
-                        gb->pcInc = 0;
+                    OP(HALT)
+                    if (!gb->ime)
+                    {
+                        if (gb->io[IntrEnabled].r && gb->io[IntrFlags].r & IF_Any)
+                            gb->pcInc = 0;
+                        else
+                            gb->halted = 1;
+                    }
                     else
                         gb->halted = 1;
-                }
-                else
-                    gb->halted = 1;
-                break;
+                    break;
                 /* 8-bit load, LD or LDrHL */
                 LD_OPS
                 /* 8-bit load, LDHLr */
@@ -588,7 +773,8 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
     if (op == 0x10 && gb->stopped)
     {
         gb->stopped = 0;
-        gb_mem_access(gb, 0xFF00 + gb->io[Divider].r, 0, 1);
+        gb_mem_write(gb, 0xFF00 + gb->io[Divider].r, 0);
+        //gb_mem_access(gb, 0xFF00 + gb->io[Divider].r, 0, 1);
     }
 
 #ifdef ASSERT_INSTR_TIMING
@@ -633,46 +819,6 @@ void gb_exec_cb(struct GB *gb, const uint8_t op)
         ++gb->rm;
         #endif
         CPU_WB(REG_HL, hl);
-    }
-}
-
-void gb_handle_interrupts(struct GB *gb)
-{
-    /* Get interrupt flags */
-    const uint8_t io_IE = gb->io[IntrEnabled].r;
-    const uint8_t io_IF = gb->io[IntrFlags].r;
-
-    if (!gb->pcInc)
-    {
-        --gb->pc;
-        gb->pcInc = 1;
-    }
-    /* Run if CPU ran HALT instruction or IME enabled w/flags */
-    if (io_IE & io_IF & IF_Any)
-    {
-        gb->ime = 0;
-        /* Check all 5 IE and IF bits for flag confirmations
-           This loop also services interrupts by priority (0 = highest) */
-        uint8_t i;
-        uint8_t addr = 0x40;
-        for (i = IF_VBlank; i <= IF_Joypad; i <<= 1)
-        {
-            const uint8_t requestAddress = addr;
-            const uint8_t flag = i;
-            addr += 8;
-
-            if ((io_IE & flag) && (io_IF & flag))
-            {
-                gb->sp -= 2;
-                CPU_WW(gb->sp, gb->pc);
-                gb->pc = requestAddress;
-
-                /* Clear flag bit */
-                gb->io[IntrFlags].r = io_IF & ~flag;
-                gb->rt += 20;
-                break;
-            }
-        }
     }
 }
 
@@ -823,7 +969,9 @@ uint8_t bgAreaValues[172 >> 3];
 #define BGAREA_VAL    gb->io[LCDControl].BG_Area
 //bgpValues[lineX >> 3]
 
-static inline uint8_t *gb_pixels_fetch(struct GB *gb)
+static const int_fast16_t bgWinMapAddr[2] = { 0x9800, 0x9C00 };
+
+uint8_t * gb_pixels_fetch(struct GB *gb)
 {
     uint8_t *pixels = gb->extData.pixelLine;
     //assert(gb->io[LY] < DISPLAY_HEIGHT);
@@ -831,27 +979,26 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
     /* If background is enabled, draw it. */
     if (gb->io[LCDControl].BG_Win_Enable)
     {
-        if (!(gb->io[LCDControl].Window_Enable && gb->io[LY].r >= gb->io[WindowY].r))
-        {
-            uint8_t lineX, posX, tileID, px, rowLSB, rowMSB;
-
-            /* Calculate current background line to draw */
-            const uint8_t posY = gb->io[LY].r + gb->io[ScrollY].r;
-    
+        //if (!(gb->io[LCDControl].Window_Enable && gb->io[LY].r >= gb->io[WindowY].r))
+        //{    
             /* BG tile fetcher gets tile ID. Bits 0-4 define X loction, bits 5-9 define Y location
              * All related calculations following are found here:
              * https://github.com/ISSOtm/pandocs/blob/rendering-internals/src/Rendering_Internals.md */
     
-            lineX = DISPLAY_WIDTH - 1;
+            uint8_t lineX = DISPLAY_WIDTH - 1;
             if (gb->io[LCDControl].Window_Enable &&
                 gb->io[LY].r >= gb->io[WindowY].r && gb->io[WindowX].r <= 166)
+            {
                 lineX = (gb->io[WindowX].r < 7 ? 0 : gb->io[WindowX].r - 7) - 1;
+            }
     
+            /* Calculate current background line to draw */
+            const uint8_t posY = gb->io[LY].r + gb->io[ScrollY].r;
             /* Get selected background map address for first tile
              * corresponding to current line  */
-            uint16_t tileMap =
-                (BGAREA_VAL ? 0x9C00 : 0x9800) + ((posY >> 3) << 5);
+            uint16_t tileMap = bgWinMapAddr[BGAREA_VAL] | ((posY >> 3) << 5);
 
+            uint8_t posX, px, tileID, rowLSB, rowMSB;
             PPU_GET_TILE(7 - (posX & 7), lineX + gb->io[ScrollX].r)
             const uint8_t end = 0xFF;
     
@@ -859,7 +1006,7 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
             {
                 if ((px & 7) == 0)
                 {
-                    tileMap = (BGAREA_VAL ? 0x9C00 : 0x9800) | ((posY >> 3) << 5);
+                    tileMap = bgWinMapAddr[BGAREA_VAL] | ((posY >> 3) << 5);
                     PPU_GET_TILE(0, lineX + gb->io[ScrollX].r)
                 }
                 /* Get background color */
@@ -870,21 +1017,21 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
                 rowMSB >>= 1;
                 ++px;
             }
-        }
+        //}
     }
 
     /* draw window */
-    if (gb->io[LCDControl].Window_Enable && gb->io[LY].r >= gb->io[WindowY].r && gb->io[WindowX].r <= 166)
+    if (gb->io[LCDControl].Window_Enable && 
+        gb->io[LY].r >= gb->io[WindowY].r && gb->io[WindowX].r <= 166)
     {
-        uint8_t lineX, posX, px, tileID, rowLSB, rowMSB;
-
         /* Calculate Window Map Address. */
-        const uint16_t tileMap = 
-            (gb->io[LCDControl].Window_Area ? 0x9C00 : 0x9800) | ((gb->windowLY >> 3) << 5);
+        const uint16_t tileMap = bgWinMapAddr[gb->io[LCDControl].Window_Area] |
+                ((gb->windowLY >> 3) << 5);
 
-        lineX = DISPLAY_WIDTH - 1;
+        uint8_t lineX = DISPLAY_WIDTH - 1;
         const uint8_t posY = gb->windowLY & 7;
 
+        uint8_t posX, px, tileID, rowLSB, rowMSB;
         PPU_GET_TILE(7 - (posX & 7), lineX - gb->io[WindowX].r + 7)
         const uint8_t end = (gb->io[WindowX].r < 7 ? 0 : gb->io[WindowX].r - 7) - 1;
 
@@ -977,8 +1124,8 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
             if (objFlags & 0x40)
                 posY = (gb->io[LCDControl].OBJ_Size ? 15 : 7) - posY;
 
-            const uint8_t objTile = gb->oam[s + 2] & 
-                (gb->io[LCDControl].OBJ_Size ? 0xFE : 0xFF);
+            const uint8_t objTile = (gb->oam[s + 2] & 
+                (gb->io[LCDControl].OBJ_Size ? 0xFE : 0xFF));
 
             const uint8_t rowLSB = gb->vram[(objTile << 4) | (posY << 1)];
             const uint8_t rowMSB = gb->vram[(objTile << 4) | ((posY << 1) + 1)];
@@ -1015,8 +1162,6 @@ static inline uint8_t *gb_pixels_fetch(struct GB *gb)
 
 #undef MAX_SPRITES_LINE
 #undef NUM_SPRITES
-
-#define _FORCE_INLINE __attribute__((always_inline)) inline
 
 _FORCE_INLINE void gb_oam_read(struct GB *gb)
 {
@@ -1060,17 +1205,17 @@ _FORCE_INLINE void gb_transfer(struct GB *gb)
         gb->io[LCDStatus].stat_LYC_LY = 0;\
 
 
-#define TICKS_PPU_PACE  TICKS_HBLANK / 8
+#define PPU_PACE  TICKS_HBLANK / 6
 
 void gb_render(struct GB *const gb)
 {
     gb->lineClock += gb->rt;
-    gb->lineClockSt += gb->rt;
+/*  gb->lineClockSt += gb->rt;
 
-    if (gb->lineClockSt < TICKS_PPU_PACE) return;
+    if (gb->lineClockSt < PPU_PACE) return;
 
-    gb->lineClockSt -= TICKS_PPU_PACE;
-
+    gb->lineClockSt -= PPU_PACE;
+*/
     if (gb->io[LY].r < DISPLAY_HEIGHT)
     {
         /* Visible line, within screen bounds */
@@ -1090,7 +1235,8 @@ void gb_render(struct GB *const gb)
                 if ((!gb->io[LCDControl].LCD_Enable) || (gb->extData.frameSkip &&
                     (gb->totalFrames % (gb->extData.frameSkip + 1) > 0)))
                     return;        
-#ifndef DISABLE_LCD
+#define ENABLE_LCD 1
+#ifdef ENABLE_LCD
                 /* Fetch line of pixels for the screen and draw them */
                 gb_pixels_fetch(gb);
                 if (gb->totalFrames % (gb->extData.frameSkip + 1) == 0)
@@ -1136,9 +1282,13 @@ void gb_render(struct GB *const gb)
  *****************  APU functions  *****************
  */
 
+#ifdef ENABLE_AUDIO
+
 #define PERIOD_MAX       2048
 #define LENGTH_MAX       64
 #define LENGTH_MAX_WAVE  256
+
+#endif
 
 void gb_init_audio (struct GB * const gb)
 {
@@ -1161,6 +1311,7 @@ void gb_init_audio (struct GB * const gb)
 
 void gb_ch_trigger (struct GB * const gb, const uint8_t n)
 {
+#ifdef ENABLE_AUDIO
     const uint8_t ch_pos = n * 5;
     const uint8_t periodH = gb->io[ch_pos + NR14].PeriodH;
     const uint16_t period = gb->io[ch_pos + NR13].r | (periodH << 8);
@@ -1222,12 +1373,13 @@ void gb_ch_trigger (struct GB * const gb, const uint8_t n)
                 gb->audioLFSR = 0;
         break;
     }
+#endif
 }
 
 void gb_update_div_apu (struct GB * const gb)
 {
     gb->apuDiv++;
-
+#ifdef ENABLE_AUDIO
     if ((gb->apuDiv & 7) == 7) /* Envelope sweep, 64 Hz */
     {
         int n;
@@ -1282,8 +1434,6 @@ void gb_update_div_apu (struct GB * const gb)
     if ((gb->apuDiv & 3) == 2) /* Ch 1 sweep ++, 128 Hz */
     {
         /** TODO: Finish overflow check */
-#define APU_DIV_3
-#ifdef APU_DIV_3
         const uint8_t pace = gb->io[NR10].SweepPace;
         if (gb->sweepTick > 0)
             gb->sweepTick--;
@@ -1307,10 +1457,11 @@ void gb_update_div_apu (struct GB * const gb)
                 }
             }
         }
-#endif
     }
+#endif
 }
 
+#ifdef ENABLE_AUDIO
 int16_t gb_update_audio (struct GB * const gb)
 {
     /* Approx. ceiling for more correct sounding pitch */
@@ -1423,3 +1574,5 @@ int16_t gb_update_audio (struct GB * const gb)
 #undef PERIOD_MAX
 #undef LENGTH_MAX
 #undef LENGTH_MAX_WAVE
+
+#endif
