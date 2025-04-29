@@ -4,9 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
-#include "gbdebug.h"
 #include "gb.h"
-#include "texture.h"
 #include "palettes.h"
 
 /* #define GB_DEBUG */
@@ -28,6 +26,9 @@
 /* Common functions for different APIs */
 
 #if defined(USE_GLFW)
+    #include "gbdebug.h"
+    #include "texture.h"
+
     #define GLFW_INCLUDE_NONE
     #include "api/gl/graphics.h"
     #include <GLFW/glfw3.h>
@@ -93,15 +94,16 @@ struct App
     /* Container for GB emulation data */
     struct gb_data
     {
+#ifdef USE_GLFW
         /* Used for drawing the display and tilemap */
         struct Texture tileMap;
         struct Texture frameBuffer;
-
+#endif
 #ifdef USE_TIGR
         Tigr * tileMap;
         Tigr * frameBuffer;
 #endif        
-        uint8_t paletteBG, paletteOBJ;
+        uint8_t palette;
         uint8_t pixelTint;
     }
     gbData;
@@ -139,6 +141,7 @@ void app_audio_init (struct App *);
 uint8_t app_cart_rom_read (void * dataPtr, const uint32_t addr);
 void    app_draw_line     (void * dataPtr, const uint8_t * pixels, const uint8_t line);
 
+#if defined(USE_GLFW)
 /* Drawing functions */
 static inline void app_imgPtr (struct Texture * texture, const uint32_t pos)
 {
@@ -149,6 +152,7 @@ static inline void app_imgPtr_XY (struct Texture * texture, const uint16_t x, co
 {
     app_imgPtr (texture, (texture->width * y + x) * 3);
 }
+#endif
 
 void app_draw (struct App *);
 

@@ -68,7 +68,7 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
     const uint8_t totalPalettes = (sizeof(gbcPalettes) / sizeof(gbcPalettes[0]));
     /* Switch palettes */
     if (key == GLFW_KEY_O && action == GLFW_PRESS)
-        app->gbData.paletteBG = (app->gbData.paletteBG + 3) % totalPalettes;
+        app->gbData.palette = (app->gbData.palette + 3) % totalPalettes;
 
     /* Reset game */
     if (key == GLFW_KEY_R && action == GLFW_PRESS)
@@ -227,8 +227,7 @@ void app_init (struct App * app)
 
     app->gbData = (struct gb_data) 
     {
-        .paletteBG = 0,
-        .paletteOBJ = 0,
+        .palette = 0,
         .pixelTint = 0,
 #if defined(USE_GLFW)
         .tileMap = {
@@ -395,7 +394,7 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
         /* Get color and palette to use it with */
         const uint8_t idx = (3 - *pixels) & 3;
         const uint8_t pal = ((*pixels++ >> 2) & 3) - 1;
-        pixel = (uint8_t*) gbcPalettes[data->paletteBG + pal].colors[idx];
+        pixel = (uint8_t*) gbcPalettes[data->palette + pal].colors[idx];
         
         memcpy (data->frameBuffer.imgData + yOffset + x * 3, pixel, 3);
 	}
