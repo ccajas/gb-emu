@@ -60,17 +60,21 @@ static const GB_Palette manualPalettes[] =
 static const GB_Palette gbcPalettes[] =
 {
     /* Default palette */
-    { "GBC_x16_BG",    { RGB_4 (0x131616, 0x374242, 0x5E6C61, 0x95A694) }},
+    { "GBC_x16_BG",    { RGB_4 (0x131614, 0x515652, 0x8F9791, 0xB9C3BC) }},
+    { "GBC_x16_OBJ0",  { RGB_4 (0x131614, 0x515652, 0x8F9791, 0xB9C3BC) }},
+    { "GBC_x16_OBJ1",  { RGB_4 (0x131614, 0x515652, 0x8F9791, 0xB9C3BC) }},
+
+/*  { "GBC_x16_BG",    { RGB_4 (0x131616, 0x374242, 0x5E6C61, 0x95A694) }},
     { "GBC_x16_OBJ0",  { RGB_4 (0x131616, 0x374242, 0x5E6C61, 0x95A694) }},
-    { "GBC_x16_OBJ1",  { RGB_4 (0x131616, 0x374242, 0x5E6C61, 0x95A694) }},
+    { "GBC_x16_OBJ1",  { RGB_4 (0x131616, 0x374242, 0x5E6C61, 0x95A694) }},*/
 
     { "DMG Original",  { RGB_4 (0x044140, 0x1B6D62, 0x2C9B6A, 0x93B805) }},
     { "DMG Original",  { RGB_4 (0x044140, 0x1B6D62, 0x2C9B6A, 0x93B805) }},
     { "DMG Original",  { RGB_4 (0x044140, 0x1B6D62, 0x2C9B6A, 0x93B805) }},
 
-    { "GBC_x16_BG",    { RGB_4 (0,        0x525252, 0xA5A5A5, 0xF5F5F5) }},
-    { "GBC_x16_OBJ0",  { RGB_4 (0,        0x525252, 0xA5A5A5, 0xF5F5F5) }},
-    { "GBC_x16_OBJ1",  { RGB_4 (0,        0x525252, 0xA5A5A5, 0xF5F5F5) }},
+    { "GBC_x16_BG",    { RGB_4 (0,        0x555555, 0xAAAAAA, 0xFFFFFF) }},
+    { "GBC_x16_OBJ0",  { RGB_4 (0,        0x555555, 0xAAAAAA, 0xFFFFFF) }},
+    { "GBC_x16_OBJ1",  { RGB_4 (0,        0x555555, 0xAAAAAA, 0xFFFFFF) }},
     /* Kirby */
     { "GB_x0805_BG",   { RGB_4 (0,        0x006300, 0xFFFF00, 0xA59CFF) }},
     { "GB_x0805_OBJ0", { RGB_4 (0,        0x630000, 0xD60000, 0xFF6352) }},

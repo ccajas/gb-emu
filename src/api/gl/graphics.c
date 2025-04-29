@@ -36,7 +36,7 @@ const char * ppu_fs_source =
 "{\n"
 "    vec2 position = (TexCoords.xy);\n"
 "    float dotTint = 0.15;\n"
-"    if (color.r + color.g + color.b > 1.2) dotTint = 0.02;\n"
+"    if (color.r + color.g + color.b > 2.0) dotTint = 0.02;\n"
 "    //color = vec3(0.05) + (color * vec3(0.95)) - 0.05;\n"
 "    if (fract(position.x * screenSize.x) <= 0.2) color = mix(color, vec3(1), dotTint * 1.25);\n"
 "    if (fract(position.y * screenSize.y) <= 0.2) color = mix(color, vec3(1), dotTint);\n"
