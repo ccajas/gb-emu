@@ -537,6 +537,7 @@ void gb_boot_reset(struct GB *gb)
     gb->pc = 0x0100;
 
     gb->ime = 1;
+    gb->imePending = 0;
     gb->halted = 0;
     gb->stopped = 0;
 
@@ -757,7 +758,7 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
                 OP_r16_g3(0xC5, PUSHrr)
                 /* CB prefix ops */
                 case 0xCB:
-                    gb_exec_cb(gb, CPU_RB(gb->pc++));
+                    gb_exec_cb(gb, CPU_RB(gb->pc));
                     break;
                 default:
                     INVALID
@@ -790,6 +791,7 @@ void gb_exec_cb(struct GB *gb, const uint8_t op)
     ++gb->rm;
     #endif
 
+    PREFETCH_BYTE
     const uint8_t opHh = op >> 3; /* Octal divisions */
     const uint8_t r_bit = opHh & 7;
 

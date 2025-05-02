@@ -179,6 +179,7 @@ struct GB
 
     /* Interrupt master enable and PC increment */
     uint8_t ime : 1;
+    uint8_t imePending : 1;
     uint8_t lastJoypad;
 #ifdef ENABLE_AUDIO
     /* Audio channel data */
@@ -363,6 +364,13 @@ static inline void gb_handle_interrupts(struct GB *gb)
 
 #endif
 
+#define PREFETCH_BYTE \
+    if (!gb->pcInc) {\
+        LOG_("GB: == HALT bug found at %04x\n", gb->pc);\
+        gb->pcInc = 1;\
+    } else \
+        gb->pc++;\
+
 static inline void gb_step (struct GB * gb)
 {
     gb->rt = 0;
@@ -381,18 +389,23 @@ static inline void gb_step (struct GB * gb)
             gb->halted = 0;
         
         //gb_handle_interrupts (gb);
-
         gb->rt += 4;
     }
     else
     {   /* Load next op and execute */
         gb->rm = 0;
-        const uint8_t op = CPU_RB (gb->pc++);
+        const uint8_t op = CPU_RB (gb->pc);
+        PREFETCH_BYTE
         gb_cpu_exec (gb, op);
         LOG_CPU_STATE (gb, op);
     }
 
     gb_handle_interrupts (gb);
+    if (gb->imePending)
+    {
+        gb->imePending = 0;
+        gb->ime = 1;
+    }
 
         /* Update timers for every remaining m-cycle */
     #ifdef USE_TIMER_SIMPLE

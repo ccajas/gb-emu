@@ -28,7 +28,7 @@
 
 #define CPU_RB(A)     gb_mem_read (gb, A)
 #define CPU_WB(A,X)   gb_mem_write (gb, A, (X))
-#define CPU_RB_PC     CPU_RB (gb->pc++)
+#define CPU_RB_PC     gb_mem_read (gb, gb->pc)
 #define CPU_RW(A)     ( CPU_RB (A) +  (CPU_RB (A + 1) << 8) )
 #define CPU_WW(A,X)   { CPU_WB (A, X); CPU_WB (A + 1, (X >> 8)); }
 
@@ -110,15 +110,15 @@
     OP_r8_hl(0x68, LD, REG_L)\
     OP_r8_hl(0x78, LD, REG_A)\
 
-#define LDrm_r8(r8, _)   OP(LD m)  r8 = CPU_RB_PC
-#define LDrm_hl(r8, _)   OP(LD m)  CPU_WB (REG_HL, CPU_RB_PC)
+#define LDrm_r8(r8, _)   OP(LD m)  r8 = CPU_RB_PC; PREFETCH_BYTE
+#define LDrm_hl(r8, _)   OP(LD m)  CPU_WB (REG_HL, CPU_RB_PC); PREFETCH_BYTE
 
-#define LDAmm   OP(LDAmm)   REG_A = CPU_RB (CPU_RW (gb->pc)); gb->pc += 2;
-#define LDmmA   OP(LDmmA)   CPU_WB (CPU_RW (gb->pc), REG_A);  gb->pc += 2;
+#define LDAmm   OP(LDAmm)   REG_A = CPU_RB (CPU_RW (gb->pc)); PREFETCH_BYTE  gb->pc++;
+#define LDmmA   OP(LDmmA)   CPU_WB (CPU_RW (gb->pc), REG_A);  PREFETCH_BYTE  gb->pc++;
 
-#define LDHmA   OP(LDH mA)  CPU_WB (0xFF00 + CPU_RB_PC, REG_A);
+#define LDHmA   OP(LDH mA)  CPU_WB (0xFF00 + CPU_RB_PC, REG_A); PREFETCH_BYTE
 #define LDHCA   OP(LDH CA)  CPU_WB (0xFF00 + REG_C, REG_A);
-#define LDHAm   OP(LDH Am)  REG_A = CPU_RB (0xFF00 + CPU_RB_PC);
+#define LDHAm   OP(LDH Am)  REG_A = CPU_RB (0xFF00 + CPU_RB_PC); PREFETCH_BYTE
 #define LDHAC   OP(LDH AC)  REG_A = CPU_RB (0xFF00 + REG_C); 
 
 #define LDrrmA(r16)  OP(LDrrmA)\
@@ -129,10 +129,10 @@
 
 /** 16-bit load instructions **/
 
-#define LDmSP           OP(LDmSP)   { gb->nn = CPU_RW (gb->pc); CPU_WW (gb->nn, gb->sp); gb->pc += 2; }
-#define LDSP            OP(LDSP)    gb->sp = CPU_RW (gb->pc); gb->pc += 2;
+#define LDmSP           OP(LDmSP)   { gb->nn = CPU_RW (gb->pc); CPU_WW (gb->nn, gb->sp); PREFETCH_BYTE  gb->pc++; }
+#define LDSP            OP(LDSP)    gb->sp = CPU_RW (gb->pc); PREFETCH_BYTE  gb->pc++;
 #define LDSPHL          OP(LDSPHL)  gb->sp = REG_HL; INC_MCYCLE;
-#define LDrr(r16)       OP(LDrr)    r16 = CPU_RW (gb->pc); gb->pc += 2;
+#define LDrr(r16)       OP(LDrr)    r16 = CPU_RW (gb->pc); PREFETCH_BYTE  gb->pc++;
 
 #define PUSH_(X, Y)     gb->sp--; INC_MCYCLE; CPU_WB (gb->sp, X); gb->sp--; CPU_WB (gb->sp, Y);
 
@@ -180,16 +180,16 @@
 #define OR_r8(_, r8)    OP(OR)   FLAGS_OR_(r8);
 #define CP_r8(_, r8)    OP(CP)   tmp -= r8; FLAGS_CP;
 
-#define ADDm        OP(ADDm)     { uint8_t m = CPU_RB_PC; ADC_A_(m, 0); }
-#define ADCm        OP(ADCm)     { uint8_t m = CPU_RB_PC; ADC_A_(m, gb->f_c); }
+#define ADDm        OP(ADDm)     { uint8_t m = CPU_RB_PC; PREFETCH_BYTE  ADC_A_(m, 0); }
+#define ADCm        OP(ADCm)     { uint8_t m = CPU_RB_PC; PREFETCH_BYTE  ADC_A_(m, gb->f_c); }
 
-#define SUBm        OP(SUBm)     { uint8_t m = CPU_RB_PC; SBC_A_(m, 0); }
-#define SBCm        OP(SBCm)     { uint8_t m = CPU_RB_PC; SBC_A_(m, gb->f_c); }
+#define SUBm        OP(SUBm)     { uint8_t m = CPU_RB_PC; PREFETCH_BYTE  SBC_A_(m, 0); }
+#define SBCm        OP(SBCm)     { uint8_t m = CPU_RB_PC; PREFETCH_BYTE  SBC_A_(m, gb->f_c); }
 
-#define ANDm        OP(ANDm)     FLAGS_AND_(CPU_RB_PC);
-#define XORm        OP(XORm)     FLAGS_XOR_(CPU_RB_PC);
-#define ORm         OP(ORm)      FLAGS_OR_(CPU_RB_PC);
-#define CPm         OP(CPm)      tmp -= CPU_RB_PC; FLAGS_CP;
+#define ANDm        OP(ANDm)     FLAGS_AND_(CPU_RB_PC); PREFETCH_BYTE
+#define XORm        OP(XORm)     FLAGS_XOR_(CPU_RB_PC); PREFETCH_BYTE
+#define ORm         OP(ORm)      FLAGS_OR_(CPU_RB_PC); PREFETCH_BYTE
+#define CPm         OP(CPm)      tmp -= CPU_RB_PC; PREFETCH_BYTE  FLAGS_CP;
 
 #define INC(X)      OP(INC)      SET_FLAGS (16, X, 0, ((X & 0xF) == 0),   0);
 #define DEC(X)      OP(DEC)      SET_FLAGS (16, X, 1, ((X & 0xF) == 0xF), 0);
@@ -230,10 +230,10 @@
 }
 
 #define ADDSPm   OP(ADDSPm)   {\
-    const int8_t i = (int8_t) CPU_RB_PC; INC_MCYCLE; FLAGS_SPm; INC_MCYCLE; gb->sp += i; }
+    const int8_t i = (int8_t) CPU_RB_PC; PREFETCH_BYTE  INC_MCYCLE; FLAGS_SPm; INC_MCYCLE; gb->sp += i; }
 
 #define LDHLSP   OP(LDHLSP)   { const int8_t i = (int8_t) CPU_RB_PC;\
-    INC_MCYCLE; gb->flags = 0;\
+    PREFETCH_BYTE  INC_MCYCLE; gb->flags = 0;\
     gb->f_h = ((gb->sp & 0xF) + (i & 0xF) > 0xF);\
     gb->f_c = ((gb->sp & 0xFF) + (i & 0xFF) > 0xFF);\
     REG_H = ((gb->sp + i) >> 8); REG_L = (gb->sp + i) & 0xFF;\
@@ -246,19 +246,20 @@
 
 #define STOP    OP(STOP)  gb->stopped = 1; /* STOP is handled after switch/case */
 #define NOP     OP(NOP)
-#define DI      OP(DI)    gb->ime = 0; 
-#define EI      OP(EI)    gb->ime = 1; 
+#define DI      OP(DI)    gb->imePending = 0; gb->ime = 0; 
+#define EI      OP(EI)    gb->imePending = 1; 
 
 /** Jump and call instructions **/
 
 /* Jump to | relative jump */
 #define JPNN    OP(JPNN)  gb->pc = CPU_RW (gb->pc); INC_MCYCLE;
 #define JPHL    OP(JPHL)  gb->pc = REG_HL; 
-#define JRm     OP(JRm)   gb->pc += (int8_t) CPU_RB (gb->pc); gb->pc++; INC_MCYCLE;
+#define JRm     OP(JRm)   const int8_t inc = (int8_t) CPU_RB (gb->pc);\
+    gb->pc += inc; if(!gb->pcInc) { gb->pc--; gb->pcInc = 1; } gb->pc++; INC_MCYCLE;\
 
 /* Calls */
 #define CALLm   OP(CALLm);  {\
-    gb->nn = CPU_RW (gb->pc); gb->pc += 2; gb->sp -= 2;\
+    gb->nn = CPU_RW (gb->pc); PREFETCH_BYTE  gb->pc++; gb->sp -= 2;\
     CPU_WW(gb->sp, gb->pc); gb->pc = gb->nn; INC_MCYCLE; }\
 
     /* Return function template */
@@ -269,15 +270,15 @@
 
     /* Conditional function templates */
     #define JP_IF(X) \
-        gb->nn = CPU_RW (gb->pc); gb->pc += 2;\
+        gb->nn = CPU_RW (gb->pc); PREFETCH_BYTE  gb->pc++;\
         if (X) { gb->pc = gb->nn ; INC_MCYCLE; }\
 
     #define JR_IF(X) \
-        int8_t e = (int8_t) CPU_RB (gb->pc++);\
-        if (X) { gb->pc += e; INC_MCYCLE; }\
+        int8_t e = (int8_t) CPU_RB (gb->pc); gb->pc++;\
+        if (X) { if (!gb->pcInc) { e--; gb->pcInc = 1; } gb->pc += e; INC_MCYCLE; }\
 
     #define CALL_IF(X) \
-        gb->nn = CPU_RW (gb->pc); gb->pc += 2;\
+        gb->nn = CPU_RW (gb->pc); PREFETCH_BYTE  gb->pc++;\
         if (X) { PUSH_(gb->pc >> 8, gb->pc & 0xFF);\
             gb->pc = gb->nn; }\
 
