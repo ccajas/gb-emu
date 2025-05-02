@@ -204,29 +204,37 @@ inline uint8_t gb_apu_rw(struct GB *gb, const uint8_t reg, const uint8_t val, co
     return 0;
 }
 
-#define LOW_BANK       (addr <= 0x3FFF)
-#define HIGH_BANK      (addr >= 0x4000 && addr <= 0x7FFF)
-#define RAM_BANK       (addr >= 0xA000 && addr <= 0xBFFF)
-#define RAM_ENABLE_REG (addr <= 0x1FFF)
-#define BANK_SELECT    (addr >= 0x2000 && addr <= 0x3FFF)
-#define BANK_SELECT_2  (addr >= 0x4000 && addr <= 0x5FFF)
-#define BANK_SELECT_L  (addr >= 0x2000 && addr <= 0x2FFF)
-#define BANK_SELECT_H  (addr >= 0x3000 && addr <= 0x3FFF)
-#define MODE_SELECT    (addr >= 0x6000 && addr <= 0x7FFF)
+static const uint16_t TAC_intervals[4] = {1024, 16, 64, 256};
 
-#define RAM_ADDR       (cart->ramBank * 0x2000) + (addr - 0xA000)
+#define UPDATE_TIMER_SIMPLE(gb, cycles)\
+    if (gb->io[TimerCtrl].TAC_Enable)\
+    {\
+        const uint16_t clockRate = TAC_intervals[gb->io[TimerCtrl].TAC_clock];\
+        gb->timAClock += cycles;\
+        if (gb->timAClock >= clockRate)\
+            while (gb->timAClock >= clockRate)\
+            {\
+                gb->timAClock -= clockRate;\
+                if (++gb->io[TimA].r == 0)\
+                {\
+                    gb->io[IntrFlags].r |= IF_Timer;\
+                    gb->io[TimA].r = gb->io[TMA].r;\
+                }\
+            }\
+    }
 
 uint8_t gb_mem_read(struct GB *gb, const uint16_t addr)
 {
     const uint8_t val = 0;
     INC_MCYCLE;
-    ++gb->readWrite;
 
+#ifndef FAST_TIMING
 #ifdef USE_TIMER_SIMPLE
+    ++gb->readWrite;
     gb->divClock += 4;
-    gb_update_timer_simple(gb, 4);
+    UPDATE_TIMER_SIMPLE(gb, 4);
 #endif
-
+#endif
     /* For Blargg's CPU instruction tests */
 #ifdef CPU_INSTRS_TESTING
     if (addr == 0xFF44)
@@ -291,11 +299,13 @@ uint8_t gb_mem_read(struct GB *gb, const uint16_t addr)
 uint8_t gb_mem_write(struct GB *gb, const uint16_t addr, const uint8_t val)
 {
     INC_MCYCLE;
-    ++gb->readWrite;
     
+#ifndef FAST_TIMING
 #ifdef USE_TIMER_SIMPLE
+    ++gb->readWrite;
     gb->divClock += 4;
-    gb_update_timer_simple(gb, 4);
+    UPDATE_TIMER_SIMPLE(gb, 4);
+#endif
 #endif
 
     /* For Blargg's CPU instruction tests */
@@ -717,8 +727,6 @@ void gb_exec_cb(struct GB *gb, const uint8_t op)
     }
 }
 
-static const uint16_t TAC_INTERVALS[4] = {1024, 16, 64, 256};
-
 /* Update TIMA register */
 
 inline void gb_update_timer_simple(struct GB *gb, const uint16_t cycles)
@@ -726,7 +734,7 @@ inline void gb_update_timer_simple(struct GB *gb, const uint16_t cycles)
     if (!gb->io[TimerCtrl].TAC_Enable) /* TIMA counter disabled */
         return;
 
-    const uint16_t clockRate = TAC_INTERVALS[gb->io[TimerCtrl].TAC_clock];
+    const uint16_t clockRate = TAC_intervals[gb->io[TimerCtrl].TAC_clock];
     gb->timAClock += cycles;
 
     /* Exit when clock didn't pass interval */

@@ -82,75 +82,7 @@ struct GB
         uint8_t flags;
     };
 
-    /* Assigned bit values for certain registers */
-    union regValues 
-    {
-        struct /* Timer Control */
-        {
-            uint8_t TAC_clock  : 2;
-            uint8_t TAC_Enable : 1;
-            uint8_t b3_7       : 5; /* Unused */
-        };
-#ifdef ENABLE_AUDIO
-        struct /* Audio register NR10 */
-        {
-            uint8_t SweepStep : 3;
-            uint8_t SweepDir  : 1;
-            uint8_t SweepPace : 3;
-            uint8_t Sweep_hb  : 1; /* Unused */
-        };
-        struct /* Audio register NRx1 */
-        {
-            uint8_t Length  : 6;
-            uint8_t Duty    : 2;
-        };
-        struct /* Audio register NRx2 */
-        {
-            uint8_t EnvPace : 3;
-            uint8_t EnvDir  : 1;
-            uint8_t Volume  : 4;
-        };
-        struct /* Audio register NRx4 */
-        {
-            uint8_t PeriodH    : 3;
-            uint8_t b3_5       : 3; /* Unused */
-            uint8_t Len_Enable : 1;
-            uint8_t Trigger    : 1;
-        };
-        struct /* Audio Control */
-        {
-            uint8_t Ch1_on    : 1;
-            uint8_t Ch2_on    : 1;
-            uint8_t Ch3_on    : 1;
-            uint8_t Ch4_on    : 1;
-            uint8_t b4_6      : 3; /* Unused */
-            uint8_t Master_on : 1;
-        };
-#endif
-        struct /* LCD Control */
-        {
-            uint8_t BG_Win_Enable : 1;
-            uint8_t OBJ_Enable    : 1;
-            uint8_t OBJ_Size      : 1;
-            uint8_t BG_Area       : 1;
-            uint8_t BG_Win_Data   : 1;
-            uint8_t Window_Enable : 1;
-            uint8_t Window_Area   : 1;
-            uint8_t LCD_Enable    : 1;
-        };
-        struct /* LCD Status */
-        {
-            uint8_t stat_mode   : 2;
-            uint8_t stat_LYC_LY : 1;
-            uint8_t stat_HBlank : 1;
-            uint8_t stat_VBlank : 1;
-            uint8_t stat_OAM    : 1;
-            uint8_t stat_LYC    : 1;
-            uint8_t stat_hb     : 1; /* Unused */
-        };
-        uint8_t r;
-    }
-    io[IO_SIZE];
+    union regValues io[IO_SIZE];
     
     /* Other CPU registers / general timekeeping */
     uint16_t pc, sp;
@@ -402,22 +334,28 @@ static inline void gb_step (struct GB * gb)
         LOG_CPU_STATE (gb, op);
     }
 
+    /* Update timers for every remaining m-cycle */
+    #ifdef USE_TIMER_SIMPLE
+
+    #ifdef FAST_TIMING
+        const uint16_t tmCycles = gb->rt - (gb->readWrite << 2);
+    #else
+        const uint16_t tmCycles = gb->rt;
+    #endif
+        UPDATE_DIV (gb, tmCycles);
+        gb_update_timer_simple (gb, tmCycles);
+    #else
+        int t = 0;
+        while (t++ < gb->rt)
+            gb_handle_timers (gb);
+    #endif
+
     gb_handle_interrupts (gb);
     if (gb->imePending)
     {
         gb->imePending = 0;
         gb->ime = 1;
     }
-
-    /* Update timers for every remaining m-cycle */
-    #ifdef USE_TIMER_SIMPLE
-        UPDATE_DIV (gb, gb->rt - (gb->readWrite << 2));
-        gb_update_timer_simple (gb, gb->rt - (gb->readWrite << 2));
-    #else
-        int t = 0;
-        while (t++ < gb->rt)
-            gb_handle_timers (gb);
-    #endif
 
     /* Update PPU if LCD is turned on */
     if (gb->io[LCDControl].LCD_Enable)

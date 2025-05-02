@@ -1,6 +1,75 @@
 #ifndef IO_H_
 #define IO_H_
 
+/* Assigned bit values for certain registers */
+union regValues 
+{
+    struct /* Timer Control */
+    {
+        uint8_t TAC_clock  : 2;
+        uint8_t TAC_Enable : 1;
+        uint8_t b3_7       : 5; /* Unused */
+    };
+#ifdef ENABLE_AUDIO
+    struct /* Audio register NR10 */
+    {
+        uint8_t SweepStep : 3;
+        uint8_t SweepDir  : 1;
+        uint8_t SweepPace : 3;
+        uint8_t Sweep_hb  : 1; /* Unused */
+    };
+    struct /* Audio register NRx1 */
+    {
+        uint8_t Length  : 6;
+        uint8_t Duty    : 2;
+    };
+    struct /* Audio register NRx2 */
+    {
+        uint8_t EnvPace : 3;
+        uint8_t EnvDir  : 1;
+        uint8_t Volume  : 4;
+    };
+    struct /* Audio register NRx4 */
+    {
+        uint8_t PeriodH    : 3;
+        uint8_t b3_5       : 3; /* Unused */
+        uint8_t Len_Enable : 1;
+        uint8_t Trigger    : 1;
+    };
+    struct /* Audio Control */
+    {
+        uint8_t Ch1_on    : 1;
+        uint8_t Ch2_on    : 1;
+        uint8_t Ch3_on    : 1;
+        uint8_t Ch4_on    : 1;
+        uint8_t b4_6      : 3; /* Unused */
+        uint8_t Master_on : 1;
+    };
+#endif
+    struct /* LCD Control */
+    {
+        uint8_t BG_Win_Enable : 1;
+        uint8_t OBJ_Enable    : 1;
+        uint8_t OBJ_Size      : 1;
+        uint8_t BG_Area       : 1;
+        uint8_t BG_Win_Data   : 1;
+        uint8_t Window_Enable : 1;
+        uint8_t Window_Area   : 1;
+        uint8_t LCD_Enable    : 1;
+    };
+    struct /* LCD Status */
+    {
+        uint8_t stat_mode   : 2;
+        uint8_t stat_LYC_LY : 1;
+        uint8_t stat_HBlank : 1;
+        uint8_t stat_VBlank : 1;
+        uint8_t stat_OAM    : 1;
+        uint8_t stat_LYC    : 1;
+        uint8_t stat_hb     : 1; /* Unused */
+    };
+    uint8_t r;
+};
+
 static const uint8_t apu_bitmasks[] = {
     0x80, 0x3F, 0,    0xFF, 0xBF, /* NR10 ... */
     0xFF, 0x3F, 0,    0xFF, 0xBF, /* NR20 ... */
