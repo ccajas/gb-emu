@@ -228,13 +228,12 @@ uint8_t gb_mem_read(struct GB *gb, const uint16_t addr)
     const uint8_t val = 0;
     INC_MCYCLE;
 
-#ifndef FAST_TIMING
-#ifdef USE_TIMER_SIMPLE
+#if defined(USE_TIMER_SIMPLE) || !defined(FAST_TIMING)
     ++gb->readWrite;
     gb->divClock += 4;
     UPDATE_TIMER_SIMPLE(gb, 4);
 #endif
-#endif
+
     /* For Blargg's CPU instruction tests */
 #ifdef CPU_INSTRS_TESTING
     if (addr == 0xFF44)
@@ -300,12 +299,10 @@ uint8_t gb_mem_write(struct GB *gb, const uint16_t addr, const uint8_t val)
 {
     INC_MCYCLE;
     
-#ifndef FAST_TIMING
-#ifdef USE_TIMER_SIMPLE
+#if defined(USE_TIMER_SIMPLE) || !defined(FAST_TIMING)
     ++gb->readWrite;
     gb->divClock += 4;
     UPDATE_TIMER_SIMPLE(gb, 4);
-#endif
 #endif
 
     /* For Blargg's CPU instruction tests */

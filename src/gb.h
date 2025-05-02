@@ -337,7 +337,7 @@ static inline void gb_step (struct GB * gb)
     /* Update timers for every remaining m-cycle */
     #ifdef USE_TIMER_SIMPLE
 
-    #ifdef FAST_TIMING
+    #ifndef FAST_TIMING
         const uint16_t tmCycles = gb->rt - (gb->readWrite << 2);
     #else
         const uint16_t tmCycles = gb->rt;
