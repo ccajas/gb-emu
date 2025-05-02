@@ -6,19 +6,19 @@
 #include "io.h"
 #include "ops.h"
 
-#define CPU_FREQ_DMG      4194304.0
-#define FRAME_CYCLES      70224.0
-#define DIV_CYCLES        16384
-#define DISPLAY_WIDTH     160
-#define DISPLAY_HEIGHT    144
-#define SCAN_LINES        154
+#define CPU_FREQ_DMG        4194304.0
+#define FRAME_CYCLES        70224.0
+#define DIV_CYCLES          16384
+#define DISPLAY_WIDTH       160
+#define DISPLAY_HEIGHT      144
+#define SCAN_LINES          154
 
-#define BOOT_ROM_SIZE 0x100
-#define VRAM_SIZE     0x2000
-#define WRAM_SIZE     0x2000
-#define OAM_SIZE      0xA0
-#define HRAM_SIZE     0x80
-#define IO_SIZE       0x100
+#define BOOT_ROM_SIZE       0x100
+#define VRAM_SIZE           0x2000
+#define WRAM_SIZE           0x2000
+#define OAM_SIZE            0xA0
+#define HRAM_SIZE           0x80
+#define IO_SIZE             0x100
 
 #define SAMPLE_RATE         48000
 #define GB_FRAME_RATE       (CPU_FREQ_DMG / FRAME_CYCLES)
@@ -50,8 +50,6 @@
 
 struct GB
 {
-    enum { A = 0, F } registers;
-
     /* A-F, H, L - 8-bit registers */
     REG_16(af, f, a);
     REG_16(bc, c, b);
@@ -193,6 +191,7 @@ struct GB
         uint8_t  envTick   : 4;
     }
     audioCh[4];
+    
     uint8_t  sweepEnabled : 1;
     uint8_t  sweepTick : 4;
     uint16_t sweepBck;
@@ -218,8 +217,6 @@ struct GB
 };
 
 uint8_t gb_apu_rw     (struct GB *, const uint8_t  reg,  const uint8_t val, const uint8_t write);
-uint8_t gb_mem_access (struct GB *, const uint16_t addr, const uint8_t val, const uint8_t write);
-
 uint8_t gb_mem_read   (struct GB *, const uint16_t addr);
 uint8_t gb_mem_write  (struct GB *, const uint16_t addr, const uint8_t val);
 
@@ -365,11 +362,8 @@ static inline void gb_handle_interrupts(struct GB *gb)
 #endif
 
 #define PREFETCH_BYTE \
-    if (!gb->pcInc) {\
-        LOG_("GB: == HALT bug found at %04x\n", gb->pc);\
-        gb->pcInc = 1;\
-    } else \
-        gb->pc++;\
+    gb->pc++;
+        /*LOG_("GB: == HALT bug found at %04x\n", gb->pc);*/
 
 static inline void gb_step (struct GB * gb)
 {
@@ -388,7 +382,7 @@ static inline void gb_step (struct GB * gb)
         if (gb->io[IntrEnabled].r & gb->io[IntrFlags].r & IF_Any)
             gb->halted = 0;
         
-        //gb_handle_interrupts (gb);
+        /*gb_handle_interrupts (gb);*/
         gb->rt += 4;
     }
     else
@@ -407,7 +401,7 @@ static inline void gb_step (struct GB * gb)
         gb->ime = 1;
     }
 
-        /* Update timers for every remaining m-cycle */
+    /* Update timers for every remaining m-cycle */
     #ifdef USE_TIMER_SIMPLE
         UPDATE_DIV (gb);
         gb_update_timer_simple (gb);

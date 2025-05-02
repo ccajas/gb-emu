@@ -18,10 +18,10 @@
 
 #define USE_INC_MCYCLE
 
-#ifndef USE_INC_MCYCLE
-#define INC_MCYCLE
-#else
+#ifdef USE_INC_MCYCLE
 #define INC_MCYCLE  ++gb->rm
+#else
+#define INC_MCYCLE
 #endif
 
 /** CPU bus read/write **/
@@ -35,14 +35,14 @@
 /** Choose between operations based on position **/
 
 #define OPR_2_(op_, name) \
-    case op_:     name (REG_B); break;\
-    case op_ + 1: name (REG_C); break;\
-    case op_ + 2: name (REG_D); break;\
-    case op_ + 3: name (REG_E); break;\
-    case op_ + 4: name (REG_H); break;\
-    case op_ + 5: name (REG_L); break;\
-    case op_ + 6: hl = CPU_RB(REG_HL); name (hl); break;\
-    case op_ + 7: name (REG_A); break;\
+    case op_:     name (REG_B) break;\
+    case op_ + 1: name (REG_C) break;\
+    case op_ + 2: name (REG_D) break;\
+    case op_ + 3: name (REG_E) break;\
+    case op_ + 4: name (REG_H) break;\
+    case op_ + 5: name (REG_L) break;\
+    case op_ + 6: hl = CPU_RB(REG_HL); name (hl) break;\
+    case op_ + 7: name (REG_A) break;\
 
 #define OPR_2R_(op_, name) \
     OPR_2_(op_, name)\
@@ -55,13 +55,13 @@
     OPR_2_(op_ + 0x38, name)\
 
 #define OP_r8(op_, name, R)\
-    case op_:     name ##_r8(R, REG_B); break;\
-    case op_ + 1: name ##_r8(R, REG_C); break;\
-    case op_ + 2: name ##_r8(R, REG_D); break;\
-    case op_ + 3: name ##_r8(R, REG_E); break;\
-    case op_ + 4: name ##_r8(R, REG_H); break;\
-    case op_ + 5: name ##_r8(R, REG_L); break;\
-    case op_ + 7: name ##_r8(R, REG_A); break;\
+    case op_:     name ##_r8(R, REG_B) break;\
+    case op_ + 1: name ##_r8(R, REG_C) break;\
+    case op_ + 2: name ##_r8(R, REG_D) break;\
+    case op_ + 3: name ##_r8(R, REG_E) break;\
+    case op_ + 4: name ##_r8(R, REG_H) break;\
+    case op_ + 5: name ##_r8(R, REG_L) break;\
+    case op_ + 7: name ##_r8(R, REG_A) break;\
 
 #define OP_r8_hl(op_, name, R)\
     OP_r8(op_, name, R);\
@@ -99,7 +99,7 @@
 /** 8-bit load instructions **/
 
 #define LD_r8(dest, src)     OP(LD_r8) dest = src;
-#define LD_HL_r8(_, src)     OP(LD_r8) CPU_WB(REG_HL, src)
+#define LD_HL_r8(_, src)     OP(LD_r8) CPU_WB(REG_HL, src);
 
 #define LD_OPS\
     OP_r8_hl(0x40, LD, REG_B)\
@@ -138,7 +138,7 @@
 
 #define PUSHrr(op_, R16_1, R16_2)  OP(PUSHrr) PUSH_(R16_1, R16_2);
 #define POPrr(op_, R16_1, R16_2)   OP(POPrr)\
-    R16_2 = CPU_RB (gb->sp++) & ((op_ == 0xF1) ? 0xF0 : 0xFF); R16_1 = CPU_RB (gb->sp++);\
+    R16_2 = CPU_RB (gb->sp++) & ((op_ == 0xF1) ? 0xF0 : 0xFF); R16_1 = CPU_RB (gb->sp++);
 
 /* Flag setting helpers */
 
@@ -148,13 +148,13 @@
 #define SET_FLAG_C(X)    gb->f_c = (X)
 
 #define SET_FLAGS(mask, z,n,h,c)\
-    gb->flags = (gb->flags & mask) | ((!z << 7) + (n << 6) + (h << 5) + (c << 4));
+    gb->flags = (gb->flags & mask) | ((!z << 7) | (n << 6) | (h << 5) | (c << 4))
 
 /** 8-bit arithmetic/logic instructions **/
 
     /* Add function templates */
     #define FLAGS_ALU_(X, N)  SET_FLAGS (0,\
-        (gb->nn & 0xFF), N,(((REG_A ^ X ^ gb->nn) & 0x10) > 0), (gb->nn >= 0x100));\
+        (gb->nn & 0xFF), N, (((REG_A ^ X ^ gb->nn) & 0x10) > 0), (gb->nn >= 0x100))
 
     #define ADC_A_(X, C)   const uint8_t val = X; gb->nn = REG_A + val + C; FLAGS_ALU_(val, 0); REG_A = gb->nn & 0xFF;
     #define SBC_A_(X, C)   const uint8_t val = X; gb->nn = REG_A - val - C; FLAGS_ALU_(val, 1); REG_A = gb->nn & 0xFF;

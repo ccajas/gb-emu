@@ -219,6 +219,8 @@ inline uint8_t gb_apu_rw(struct GB *gb, const uint8_t reg, const uint8_t val, co
 uint8_t gb_mem_read(struct GB *gb, const uint16_t addr)
 {
     const uint8_t val = 0;
+    INC_MCYCLE;
+
     /* For Blargg's CPU instruction tests */
 #ifdef CPU_INSTRS_TESTING
     if (addr == 0xFF44)
@@ -229,7 +231,6 @@ uint8_t gb_mem_read(struct GB *gb, const uint16_t addr)
         gb->io[SerialCtrl] = 0x0;
     }
 #endif
-    INC_MCYCLE;
 
     if (addr < 0x0100 && gb->io[BootROM].r == 0) /* Run boot ROM if needed */
     {
@@ -283,6 +284,8 @@ uint8_t gb_mem_read(struct GB *gb, const uint16_t addr)
 
 uint8_t gb_mem_write(struct GB *gb, const uint16_t addr, const uint8_t val)
 {
+    INC_MCYCLE;
+
     /* For Blargg's CPU instruction tests */
 #ifdef CPU_INSTRS_TESTING
     if (gb->io[SerialCtrl] == 0x81)
@@ -291,7 +294,6 @@ uint8_t gb_mem_write(struct GB *gb, const uint16_t addr, const uint8_t val)
         gb->io[SerialCtrl] = 0x0;
     }
 #endif
-    INC_MCYCLE;
 
     if (addr < 0x0100 && gb->io[BootROM].r == 0) /* Run boot ROM if needed */
     {
@@ -344,126 +346,6 @@ uint8_t gb_mem_write(struct GB *gb, const uint16_t addr, const uint8_t val)
     if (addr == 0xFFFF)
         gb->io[IntrEnabled].r = val;
         //return gb_io_rw(gb, addr, val, 1); /* Interrupt enable */
-    return 0;
-}
-
-uint8_t gb_mem_access(struct GB *gb, const uint16_t addr, const uint8_t val, const uint8_t write)
-{
-    /* For Blargg's CPU instruction tests */
-#ifdef CPU_INSTRS_TESTING
-    if (addr == 0xFF44 && !write)
-        return 0x90;
-    if (gb->io[SerialCtrl] == 0x81)
-    {
-        LOG_("%c", gb->io[SerialData]);
-        gb->io[SerialCtrl] = 0x0;
-    }
-#endif
-    /* Byte to be accessed from memory */
-    uint8_t *b;
-#define DIRECT_RW(b)\
-    if (write)\
-        *b = val;\
-    return *b;\
-
-    INC_MCYCLE;
-    struct Cartridge *cart = &gb->cart;
-
-    if (addr < 0x0100 && gb->io[BootROM].r == 0) /* Run boot ROM if needed */
-    {
-        if (!write)
-            return gb->bootRom[addr];
-        else
-            return 0;
-    }
-    if (addr < 0x8000)
-    {
-        return cart->rw(cart, addr, val, write); /* ROM from MBC     */
-        if (!write) /* Read from cartridge */
-        {
-            if LOW_BANK
-                return cart->rom_read(cart, addr);
-            if HIGH_BANK
-            {
-                const uint8_t selectedBank = (cart->romBank1 == 0 ? 1 : cart->romBank1) & cart->romMask;
-                return cart->rom_read(cart, (selectedBank - 1) * ROM_BANK_SIZE + addr);
-            }
-        }
-        else /* Write to registers */
-        {
-            if LOW_BANK
-            {
-                const uint8_t setRomBank = (addr >> 8) & 1;
-                if (setRomBank)
-                    cart->romBank1 = val & 0xF; /* LSB == 1, ROM bank select */
-                else
-                    cart->usingRAM = ((val & 0xF) == 0xA); /* LSB == 0, RAM switch      */
-            }
-        }
-        return 0;
-    }
-    if (addr < 0xA000)
-    {
-        if (!gb->vramAccess)
-            return 0xFF;
-        if (!write)
-            return gb->vram[addr & 0x1FFF];
-        else
-            gb->vram[addr & 0x1FFF] = val;
-        return 0;
-    } /* Video RAM        */
-    if (addr < 0xC000)
-    {
-        return cart->rw(cart, addr, val, write); /* External RAM     */
-        if (!write) /* Read from cartridge */
-        {
-            if (!cart->usingRAM)
-                return 0;
-            return cart->ramData[addr & 0x1FF] & 0xF; /* Return only lower 4 bits  */
-        }
-        else /* Write to registers */
-        {
-            if (!cart->usingRAM)
-                return 0xFF;
-            cart->ramData[addr & 0x1FFF] = (val & 0xF) | 0xF0; /* Write only lower 4 bits   */
-        }
-        return 0;
-    }
-    if (addr < 0xE000)
-    {
-        b = &gb->ram[addr % WRAM_SIZE];
-        DIRECT_RW(b);
-    } /* Work RAM         */
-    if (addr < 0xFE00)
-    {
-        b = &gb->ram[addr % WRAM_SIZE];
-        DIRECT_RW(b);
-    } /* Echo RAM         */
-    if (addr < 0xFEA0) /* OAM              */
-    {
-        if (!gb->oamAccess)
-            return 0xFF;
-        if (!write)
-            return gb->oam[addr - 0xFE00];
-        else
-            gb->oam[addr - 0xFE00] = val;
-        return 0;
-    }
-    if (addr < 0xFF00)
-        return 0xFF; /* Not usable       */
-    if (addr == 0xFF00)
-        return gb_joypad(gb, val, write);      /* Joypad           */
-    if (addr < 0xFF80)
-        return gb_io_rw(gb, addr, val, write); /* I/O registers    */
-    if (addr < 0xFFFF)
-    {
-        b = &gb->hram[addr % HRAM_SIZE];
-        DIRECT_RW(b);
-    } /* High RAM         */
-    if (addr == 0xFFFF)
-        return gb_io_rw(gb, addr, val, write); /* Interrupt enable */
-
-#undef DIRECT_RW
     return 0;
 }
 
@@ -765,10 +647,6 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
             }
     }
 
-#ifndef USE_INC_MCYCLE
-    gb->rm += opCycles[op];
-#endif
-
     /* Handle effects of STOP instruction */
     /* TODO: Read joypad button selection/press */
     if (op == 0x10 && gb->stopped)
@@ -778,6 +656,9 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
         //gb_mem_access(gb, 0xFF00 + gb->io[Divider].r, 0, 1);
     }
 
+#ifndef USE_INC_MCYCLE
+    gb->rm += opCycles[op];
+#endif
 #ifdef ASSERT_INSTR_TIMING
     assert(gb->rm >= opCycles[op]);
 #endif
@@ -1236,9 +1117,8 @@ void gb_render(struct GB *const gb)
 
                 if ((!gb->io[LCDControl].LCD_Enable) || (gb->extData.frameSkip &&
                     (gb->totalFrames % (gb->extData.frameSkip + 1) > 0)))
-                    return;        
-#define ENABLE_LCD 1
-#ifdef ENABLE_LCD
+                    return;    
+#if ENABLE_LCD
                 /* Fetch line of pixels for the screen and draw them */
                 gb_pixels_fetch(gb);
                 if (gb->totalFrames % (gb->extData.frameSkip + 1) == 0)

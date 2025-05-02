@@ -18,9 +18,9 @@
 struct Cartridge 
 {
     /* ROM and RAM that can be accessed */
-    uint8_t
-        * romData,
-        * ramData;
+    uint8_t * romData;
+    uint8_t * ramData;
+    uint8_t romData_0[ROM_BANK_SIZE];
 
     /* Information about the game and its hardware */
     uint8_t  
