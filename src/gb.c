@@ -220,6 +220,12 @@ uint8_t gb_mem_read(struct GB *gb, const uint16_t addr)
 {
     const uint8_t val = 0;
     INC_MCYCLE;
+    ++gb->readWrite;
+
+#ifdef USE_TIMER_SIMPLE
+    gb->divClock += 4;
+    gb_update_timer_simple(gb, 4);
+#endif
 
     /* For Blargg's CPU instruction tests */
 #ifdef CPU_INSTRS_TESTING
@@ -285,6 +291,12 @@ uint8_t gb_mem_read(struct GB *gb, const uint16_t addr)
 uint8_t gb_mem_write(struct GB *gb, const uint16_t addr, const uint8_t val)
 {
     INC_MCYCLE;
+    ++gb->readWrite;
+    
+#ifdef USE_TIMER_SIMPLE
+    gb->divClock += 4;
+    gb_update_timer_simple(gb, 4);
+#endif
 
     /* For Blargg's CPU instruction tests */
 #ifdef CPU_INSTRS_TESTING
@@ -705,6 +717,33 @@ void gb_exec_cb(struct GB *gb, const uint8_t op)
     }
 }
 
+static const uint16_t TAC_INTERVALS[4] = {1024, 16, 64, 256};
+
+/* Update TIMA register */
+
+inline void gb_update_timer_simple(struct GB *gb, const uint16_t cycles)
+{
+    if (!gb->io[TimerCtrl].TAC_Enable) /* TIMA counter disabled */
+        return;
+
+    const uint16_t clockRate = TAC_INTERVALS[gb->io[TimerCtrl].TAC_clock];
+    gb->timAClock += cycles;
+
+    /* Exit when clock didn't pass interval */
+    if (gb->timAClock >= clockRate)
+        while (gb->timAClock >= clockRate)
+        {
+            /* Reset clock */
+            gb->timAClock -= clockRate;
+            /* Increment TIMA and request interrupt on TIMA overflow */
+            if (++gb->io[TimA].r == 0)
+            {
+                gb->io[IntrFlags].r |= IF_Timer;
+                gb->io[TimA].r = gb->io[TMA].r;
+            }
+        }
+}
+
 void gb_update_timer(struct GB *gb, const uint8_t change)
 {
     /* Increment div every m-cycle and save bits 6-13 to DIV register */
@@ -727,32 +766,6 @@ void gb_update_timer(struct GB *gb, const uint8_t change)
         /* Request timer interrupt if pending */
         if (++gb->io[TimA].r == 0)
             gb->nextTimA_IRQ = 1;
-    }
-}
-
-static const uint16_t TAC_INTERVALS[4] = {1024, 16, 64, 256};
-
-/* Update TIMA register */
-
-inline void gb_update_timer_simple(struct GB *gb)
-{
-    if ((gb->io[TimerCtrl].r & 4) == 0) /* TIMA counter disabled */
-        return;
-
-    const uint16_t clockRate = TAC_INTERVALS[gb->io[TimerCtrl].r & 3];
-    gb->timAClock += gb->rt;
-
-    /* Exit when clock didn't pass interval */
-    while (gb->timAClock >= clockRate)
-    {
-        /* Reset clock */
-        gb->timAClock -= clockRate;
-        /* Increment TIMA and request interrupt on TIMA overflow */
-        if (++gb->io[TimA].r == 0)
-        {
-            gb->io[IntrFlags].r |= IF_Timer;
-            gb->io[TimA].r = gb->io[TMA].r;
-        }
     }
 }
 

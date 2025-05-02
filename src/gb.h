@@ -85,6 +85,12 @@ struct GB
     /* Assigned bit values for certain registers */
     union regValues 
     {
+        struct /* Timer Control */
+        {
+            uint8_t TAC_clock  : 2;
+            uint8_t TAC_Enable : 1;
+            uint8_t b3_7       : 5; /* Unused */
+        };
 #ifdef ENABLE_AUDIO
         struct /* Audio register NR10 */
         {
@@ -167,6 +173,7 @@ struct GB
 
     /* PPU related tracking */
     uint8_t vramAccess : 1, oamAccess : 1;
+    uint8_t readWrite;
     uint8_t windowLY;
 
     /* Memory and I/O registers */
@@ -191,7 +198,7 @@ struct GB
         uint8_t  envTick   : 4;
     }
     audioCh[4];
-    
+
     uint8_t  sweepEnabled : 1;
     uint8_t  sweepTick : 4;
     uint16_t sweepBck;
@@ -230,7 +237,7 @@ void gb_boot_reset (struct GB *);
 
 void gb_handle_timers       (struct GB *);
 void gb_update_timer        (struct GB *, const uint8_t);
-void gb_update_timer_simple (struct GB *);
+void gb_update_timer_simple (struct GB *, const uint16_t);
 
 void gb_render              (struct GB *);
 uint8_t * gb_pixels_fetch   (struct GB *);
@@ -348,8 +355,8 @@ static inline void gb_handle_interrupts(struct GB *gb)
 
 #ifdef USE_TIMER_SIMPLE /* Update DIV register */
 
-#define UPDATE_DIV(gb) \
-    gb->divClock += gb->rt;\
+#define UPDATE_DIV(gb, cycles)\
+    gb->divClock += cycles;\
     while (gb->divClock >= 256)\
     {\
         const uint_fast8_t lastDiv = gb->io[Divider].r;\
@@ -368,6 +375,7 @@ static inline void gb_handle_interrupts(struct GB *gb)
 static inline void gb_step (struct GB * gb)
 {
     gb->rt = 0;
+    gb->readWrite = 0;
 
     if (gb->stopped)
     {
@@ -403,8 +411,8 @@ static inline void gb_step (struct GB * gb)
 
     /* Update timers for every remaining m-cycle */
     #ifdef USE_TIMER_SIMPLE
-        UPDATE_DIV (gb);
-        gb_update_timer_simple (gb);
+        UPDATE_DIV (gb, gb->rt - (gb->readWrite << 2));
+        gb_update_timer_simple (gb, gb->rt - (gb->readWrite << 2));
     #else
         int t = 0;
         while (t++ < gb->rt)
