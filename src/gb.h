@@ -146,6 +146,7 @@ struct GB
         uint8_t joypad;
         uint8_t frameSkip;
         uint8_t pixelLine[DISPLAY_WIDTH];
+        uint8_t title[16];
         void *  ptr;
     }
     extData;
@@ -334,28 +335,29 @@ static inline void gb_step (struct GB * gb)
         LOG_CPU_STATE (gb, op);
     }
 
-    /* Update timers for every remaining m-cycle */
-    #ifdef USE_TIMER_SIMPLE
-
-    #ifndef FAST_TIMING
-        const uint16_t tmCycles = gb->rt - (gb->readWrite << 2);
-    #else
-        const uint16_t tmCycles = gb->rt;
-    #endif
-        UPDATE_DIV (gb, tmCycles);
-        gb_update_timer_simple (gb, tmCycles);
-    #else
-        int t = 0;
-        while (t++ < gb->rt)
-            gb_handle_timers (gb);
-    #endif
-
     gb_handle_interrupts (gb);
     if (gb->imePending)
     {
         gb->imePending = 0;
         gb->ime = 1;
     }
+
+    /* Update timers for every remaining m-cycle */
+#ifdef USE_TIMER_SIMPLE
+
+#ifndef FAST_TIMING
+    UPDATE_DIV (gb, gb->rt - (gb->readWrite << 2));
+    gb_update_timer_simple (gb, gb->rt - (gb->readWrite << 2));
+#else
+    UPDATE_DIV (gb, gb->rt);
+    gb_update_timer_simple (gb, gb->rt);
+#endif
+
+#else
+    int t = 0;
+    while (t++ < gb->rt)
+        gb_handle_timers (gb);
+#endif
 
     /* Update PPU if LCD is turned on */
     if (gb->io[LCDControl].LCD_Enable)

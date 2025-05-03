@@ -228,7 +228,7 @@ uint8_t gb_mem_read(struct GB *gb, const uint16_t addr)
     const uint8_t val = 0;
     INC_MCYCLE;
 
-#if defined(USE_TIMER_SIMPLE) || !defined(FAST_TIMING)
+#if !defined(FAST_TIMING) && defined(USE_TIMER_SIMPLE)
     ++gb->readWrite;
     gb->divClock += 4;
     UPDATE_TIMER_SIMPLE(gb, 4);
@@ -299,7 +299,7 @@ uint8_t gb_mem_write(struct GB *gb, const uint16_t addr, const uint8_t val)
 {
     INC_MCYCLE;
     
-#if defined(USE_TIMER_SIMPLE) || !defined(FAST_TIMING)
+#if !defined(FAST_TIMING) && defined(USE_TIMER_SIMPLE)
     ++gb->readWrite;
     gb->divClock += 4;
     UPDATE_TIMER_SIMPLE(gb, 4);
@@ -376,6 +376,7 @@ void gb_init(struct GB *gb, uint8_t *bootRom)
 {
     cart_identify(&gb->cart);
     LOG_("GB: ROM mask: %d\n", gb->cart.romMask);
+    memcpy(gb->extData.title, gb->cart.title, sizeof(gb->cart.title));
 
     /* Initialize RAM and settings */
     memset(gb->ram, 0, WRAM_SIZE);
@@ -685,20 +686,20 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
     gb->rt = gb->rm * 4;
 }
 
-void gb_exec_cb(struct GB *gb, const uint8_t op)
+void gb_exec_cb(struct GB *gb, const uint8_t op_cb)
 {
     #ifndef USE_INC_MCYCLE
     ++gb->rm;
     #endif
 
     PREFETCH_BYTE
-    const uint8_t opHh = op >> 3; /* Octal divisions */
+    const uint8_t opHh = op_cb >> 3; /* Octal divisions */
     const uint8_t r_bit = opHh & 7;
 
     /* Fetch value at address (HL) if it's needed */
     uint8_t hl = 0;
 
-    switch (op)
+    switch (op_cb)
     {
         OPR_2_(0,    RLC)
         OPR_2_(0x8,  RRC)
@@ -715,7 +716,7 @@ void gb_exec_cb(struct GB *gb, const uint8_t op)
     }
 
     /* Write back to (HL) for most (HL) operations except BIT */
-    if ((op & 7) == 6 && (opHh < 8 || opHh > 0xF))
+    if ((op_cb & 7) == 6 && (opHh < 8 || opHh > 0xF))
     {
         #ifndef USE_INC_MCYCLE
         ++gb->rm;

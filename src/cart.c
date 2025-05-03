@@ -276,9 +276,8 @@ void cart_identify(struct Cartridge *cart)
 
     const uint8_t cartType = header[0x47];
     /* Get cartridge title */
-    unsigned char cartTitle[16];
-    memcpy(cartTitle, cart->header + 0x34, 16 * sizeof(uint8_t));
-    LOG_("GB: Title: %s\n", cartTitle);
+    memcpy(cart->title, cart->header + 0x34, 16 * sizeof(uint8_t));
+    LOG_("GB: Title: %s\n", cart->title);
 
     /* Select MBC for read/write */
     switch (cartType)

@@ -27,6 +27,7 @@ struct Cartridge
         header[GB_HEADER_SIZE],
         mbc,
         cartType;
+    uint8_t title[16];
 
     /* Other hardware present */
     uint8_t ram     : 1;
