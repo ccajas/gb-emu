@@ -486,22 +486,17 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
     switch (opHh)
     {
         case 8 ... 0xF:
-            /* Fetch value at address (HL) if it's needed */
-            //uint8_t hl = ((op & 7) == 0x6) ? CPU_RB(REG_HL) : 0;
             switch (op)
             {
                 /* Halt */
                 case 0x76:
                     OP(HALT)
+                    gb->halted = 1;
                     if (!gb->ime)
                     {
-                        if (gb->io[IntrEnabled].r && gb->io[IntrFlags].r & IF_Any)
-                            gb->pcInc = 0;
-                        else
-                            gb->halted = 1;
+                        if (gb->io[IntrEnabled].r & gb->io[IntrFlags].r & IF_Any)
+                            gb->pcInc = gb->halted = 0;
                     }
-                    else
-                        gb->halted = 1;
                     break;
                 /* 8-bit load, LD or LDrHL */
                 LD_OPS
@@ -692,7 +687,7 @@ void gb_exec_cb(struct GB *gb, const uint8_t op_cb)
     ++gb->rm;
     #endif
 
-    PREFETCH_BYTE
+    ++gb->pc;
     const uint8_t opHh = op_cb >> 3; /* Octal divisions */
     const uint8_t r_bit = opHh & 7;
 

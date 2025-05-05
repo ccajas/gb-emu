@@ -301,10 +301,6 @@ static inline void gb_handle_interrupts(struct GB *gb)
 
 #endif
 
-#define PREFETCH_BYTE \
-    gb->pc++;
-        /*LOG_("GB: == HALT bug found at %04x\n", gb->pc);*/
-
 static inline void gb_step (struct GB * gb)
 {
     gb->rt = 0;
@@ -330,7 +326,10 @@ static inline void gb_step (struct GB * gb)
     {   /* Load next op and execute */
         gb->rm = 0;
         const uint8_t op = CPU_RB (gb->pc);
-        PREFETCH_BYTE
+        if (!gb->pcInc) /* Enable halt bug PC count or continue as normal */
+            gb->pcInc = 1;
+        else
+            gb->pc++;
         gb_cpu_exec (gb, op);
         LOG_CPU_STATE (gb, op);
     }
