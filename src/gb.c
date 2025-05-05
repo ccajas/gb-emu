@@ -792,25 +792,6 @@ void gb_handle_timers(struct GB *gb)
  *****************  PPU functions  *****************
  */
 
-/* Used for comparing and setting PPU mode timings */
-enum
-{
-    Stat_HBlank = 0,
-    Stat_VBlank,
-    Stat_OAM_Search,
-    Stat_Transfer
-}
-modes;
-
-enum
-{
-    TICKS_OAM_READ = 80,
-    TICKS_TRANSFER = 252,
-    TICKS_HBLANK   = 456,
-    TICKS_VBLANK   = 456
-}
-modeTicks;
-
 /* Custom pixel palette values for the frontend */
 
 enum
@@ -859,8 +840,8 @@ int compare_sprites(const void *in1, const void *in2)
     /* End fetch tile macro */
 
 /* Stored BG Palette values */
-uint8_t bgpValues[172 >> 3];
-uint8_t bgAreaValues[172 >> 3];
+//uint8_t bgpValues[172 >> 3];
+//uint8_t bgAreaValues[172 >> 3];
 
 #define BGP_VAL       gb->io[BGPalette].r
 #define BGAREA_VAL    gb->io[LCDControl].BG_Area
@@ -1060,7 +1041,7 @@ uint8_t * gb_pixels_fetch(struct GB *gb)
 #undef MAX_SPRITES_LINE
 #undef NUM_SPRITES
 
-_FORCE_INLINE void gb_oam_read(struct GB *gb)
+inline void gb_oam_read(struct GB *gb)
 {
     /* Mode 2 - OAM read */
     if (IO_STAT_MODE != Stat_OAM_Search)
@@ -1073,11 +1054,11 @@ _FORCE_INLINE void gb_oam_read(struct GB *gb)
     }
 }
 
-_FORCE_INLINE void gb_transfer(struct GB *gb)
+inline void gb_transfer(struct GB *gb)
 {
-    const uint8_t bgpIndex = gb->lineClock - TICKS_OAM_READ;
-    bgpValues[bgpIndex >> 3]    = gb->io[BGPalette].r;
-    bgAreaValues[bgpIndex >> 3] = gb->io[LCDControl].BG_Area;
+    //const uint8_t bgpIndex = gb->lineClock - TICKS_OAM_READ;
+    //bgpValues[bgpIndex >> 3]    = gb->io[BGPalette].r;
+    //bgAreaValues[bgpIndex >> 3] = gb->io[LCDControl].BG_Area;
     
     /* Mode 3 - Transfer to LCD */
     if (IO_STAT_MODE != Stat_Transfer)

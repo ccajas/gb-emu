@@ -173,6 +173,8 @@ void gb_update_timer        (struct GB *, const uint8_t);
 void gb_update_timer_simple (struct GB *, const uint16_t);
 
 void gb_render              (struct GB *);
+void gb_oam_read            (struct GB *);
+void gb_transfer            (struct GB *);
 uint8_t * gb_pixels_fetch   (struct GB *);
 
 void gb_init_audio          (struct GB *);
@@ -318,6 +320,25 @@ static inline void gb_step (struct GB * gb)
         /* Check if interrupt is pending */
         if (gb->io[IntrEnabled].r & gb->io[IntrFlags].r & IF_Any)
             gb->halted = 0;
+        /* Next interrupt can be predicted, so move clock ahead accordingly */
+        else if (gb->lineClock > TICKS_TRANSFER)
+        {
+            uint16_t ticks = gb->lineClock;
+            while (ticks < TICKS_HBLANK - 8)
+            {
+                ticks += 8;
+                gb->rt += 8;
+            }
+        }
+        else if (gb->lineClock > TICKS_OAM_READ)
+        {
+            uint16_t ticks = gb->lineClock;
+            while (ticks < TICKS_TRANSFER - 16)
+            {
+                ticks += 8;
+                gb->rt += 8;
+            }
+        }
         
         /*gb_handle_interrupts (gb);*/
         gb->rt += 4;

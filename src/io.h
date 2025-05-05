@@ -138,6 +138,28 @@ static enum
 }
 registers;
 
+/* Used for comparing and setting PPU mode timings */
+
+__attribute__((unused))
+static enum
+{
+    Stat_HBlank = 0,
+    Stat_VBlank,
+    Stat_OAM_Search,
+    Stat_Transfer
+}
+modes;
+
+__attribute__((unused))
+static enum
+{
+    TICKS_OAM_READ = 80,
+    TICKS_TRANSFER = 252,
+    TICKS_HBLANK   = 456,
+    TICKS_VBLANK   = 456
+}
+modeTicks;
+
 /* Interrupt request/enable flags */
 
 __attribute__((unused))
