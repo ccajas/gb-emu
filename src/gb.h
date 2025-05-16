@@ -317,31 +317,20 @@ static inline void gb_step (struct GB * gb)
 
     if (gb->halted)
     {
+        /* Next interrupt can be predicted, so move clock ahead accordingly */
+        const uint16_t ticks = 
+            (gb->lineClock > TICKS_TRANSFER) ? TICKS_HBLANK - gb->lineClock :
+            (gb->lineClock > TICKS_OAM_READ) ? TICKS_TRANSFER - gb->lineClock :
+            TICKS_OAM_READ - gb->lineClock;
+
+        gb->rt += ticks;
+        /*gb_handle_interrupts (gb);*/
+        if (gb->rt == 0)
+            gb->rt += 4;
+
         /* Check if interrupt is pending */
         if (gb->io[IntrEnabled].r & gb->io[IntrFlags].r & IF_Any)
             gb->halted = 0;
-        /* Next interrupt can be predicted, so move clock ahead accordingly */
-        else if (gb->lineClock > TICKS_TRANSFER)
-        {
-            uint16_t ticks = gb->lineClock;
-            while (ticks < TICKS_HBLANK - 8)
-            {
-                ticks += 8;
-                gb->rt += 8;
-            }
-        }
-        else if (gb->lineClock > TICKS_OAM_READ)
-        {
-            uint16_t ticks = gb->lineClock;
-            while (ticks < TICKS_TRANSFER - 16)
-            {
-                ticks += 8;
-                gb->rt += 8;
-            }
-        }
-        
-        /*gb_handle_interrupts (gb);*/
-        gb->rt += 4;
     }
     else
     {   /* Load next op and execute */
