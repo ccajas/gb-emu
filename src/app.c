@@ -114,6 +114,7 @@ void drop_callback (GLFWwindow * window, int count, const char** paths)
     if (app_load(&app->gb, app->defaultFile))
     {
         app->gb.extData.ptr = &app->gbData;
+        app->gbData.palette = gbcChecksumPalettes[app->gb.cart.checksum] * 3;
         app->paused = 0;
     }
     else app->defaultFile[0] = '\0';
@@ -254,6 +255,7 @@ void app_init (struct App * app)
         if (app_load(&app->gb, app->defaultFile))
         {
             app->gb.extData.ptr = &app->gbData;
+            app->gbData.palette = gbcChecksumPalettes[app->gb.cart.checksum] * 3;
             app->paused = 0;
         }
         else app->defaultFile[0] = '\0';
@@ -517,6 +519,7 @@ void app_run (struct App * app)
                 {
                     sprintf(app->fpsString, "FPS: %0.2f | Perf: %0.2fx ", 
                         fps, (double)(frames / (GB_FRAME_RATE)) / totalTime);
+                    sprintf(app->fpsString, "GB emu | %s", app->gb.extData.title);
                     GBE_WINDOW_TITLE(app->fpsString);
                 }
             }

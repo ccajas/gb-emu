@@ -60,6 +60,10 @@ static const GB_Palette manualPalettes[] =
 static const GB_Palette gbcPalettes[] =
 {
     /* Default palette */
+    { "GBC_x16_BG",    { RGB_4 (0x202020, 0x606060, 0xAAAAAA, 0xEFEFEF) }},
+    { "GBC_x16_OBJ0",  { RGB_4 (0x202020, 0x606060, 0xAAAAAA, 0xEFEFEF) }},
+    { "GBC_x16_OBJ1",  { RGB_4 (0x202020, 0x606060, 0xAAAAAA, 0xEFEFEF) }},
+
     { "GBC_x16_BG",    { RGB_4 (0x131614, 0x515652, 0x8F9791, 0xB9C3BC) }},
     { "GBC_x16_OBJ0",  { RGB_4 (0x131614, 0x515652, 0x8F9791, 0xB9C3BC) }},
     { "GBC_x16_OBJ1",  { RGB_4 (0x131614, 0x515652, 0x8F9791, 0xB9C3BC) }},
@@ -68,30 +72,34 @@ static const GB_Palette gbcPalettes[] =
     { "GBC_x16_OBJ0",  { RGB_4 (0x131616, 0x374242, 0x5E6C61, 0x95A694) }},
     { "GBC_x16_OBJ1",  { RGB_4 (0x131616, 0x374242, 0x5E6C61, 0x95A694) }},*/
 
-    { "DMG Original",  { RGB_4 (0x044140, 0x1B6D62, 0x2C9B6A, 0x93B805) }},
-    { "DMG Original",  { RGB_4 (0x044140, 0x1B6D62, 0x2C9B6A, 0x93B805) }},
-    { "DMG Original",  { RGB_4 (0x044140, 0x1B6D62, 0x2C9B6A, 0x93B805) }},
-
-    { "GBC_x16_BG",    { RGB_4 (0,        0x555555, 0xAAAAAA, 0xFFFFFF) }},
-    { "GBC_x16_OBJ0",  { RGB_4 (0,        0x555555, 0xAAAAAA, 0xFFFFFF) }},
-    { "GBC_x16_OBJ1",  { RGB_4 (0,        0x555555, 0xAAAAAA, 0xFFFFFF) }},
+    { "DMG Original",  { RGB_4 (0x00261C, 0x177569, 0x5BB734, 0xA6D91F) }},
+    { "DMG Original",  { RGB_4 (0x00261C, 0x177569, 0x5BB734, 0xA6D91F) }},
+    { "DMG Original",  { RGB_4 (0x00261C, 0x177569, 0x5BB734, 0xA6D91F) }},
     /* Kirby */
     { "GB_x0805_BG",   { RGB_4 (0,        0x006300, 0xFFFF00, 0xA59CFF) }},
     { "GB_x0805_OBJ0", { RGB_4 (0,        0x630000, 0xD60000, 0xFF6352) }},
     { "GB_x0805_OBJ1", { RGB_4 (0x0084FF, 0xFFFF7B, 0xF5F5F5, 0x0000FF) }},
     /* Super Mario Land 2 */
     { "GB_x0905_BG",   { RGB_4 (0x5A5A5A, 0x9C8431, 0x63EFEF, 0xFFFFCE) }},
-    { "GB_x0905_OBJ0", { RGB_4 (0,        0x944200, 0xFF7300, 0xF5F5F5) }},
-    { "GB_x0905_OBJ1", { RGB_4 (0,        0x0000FF, 0x63A5FF, 0xF5F5F5) }},
-    /* Wario Land II */
-    { "GB_x1505_BG",   { RGB_4 (0,        0x42737B, 0xADAD84, 0xFFFFFF) }}, 
-    { "GB_x1505_OBJ0", { RGB_4 (0,        0x843100, 0xFFAD63, 0xFFFFFF) }},
-    { "GB_x1505_OBJ1", { RGB_4 (0,        0x0000FF, 0x63A5FF, 0xFFFFFF) }},
+    { "GB_x0905_OBJ0", { RGB_4 (0,        0x944200, 0xFF7300, 0xF9F9F9) }},
+    { "GB_x0905_OBJ1", { RGB_4 (0,        0x0000FF, 0x63A5FF, 0xF9F9F9) }},
     /* Dr. Mario */
-    { "GB_x0A03_BG",   { RGB_4 (0,        0x0000FF, 0x63A5FF, 0xF5F5F5) }},
-    { "GB_x0A03_OBJ0", { RGB_4 (0,        0x0000FF, 0x63A5FF, 0xF5F5F5) }},
-    { "GB_x0A03_OBJ1", { RGB_4 (0,        0x943A3A, 0xFF8484, 0xF5F5F5) }}
+    { "GB_x0B02_BG",   { RGB_4 (0,        0x0000FF, 0x63A5FF, 0xF9F9F9) }},
+    { "GB_x0B02_OBJ0", { RGB_4 (0,        0x0000FF, 0x63A5FF, 0xF9F9F9) }},
+    { "GB_x0B02_OBJ1", { RGB_4 (0,        0x943A3A, 0xFF8484, 0xF9F9F9) }},
+    /* Link's Awakening */
+    { "GB_x1105_BG",   { RGB_4 (0,        0x943A3A, 0xFF8484, 0xF9F9F9) }},
+    { "GB_x1105_OBJ0", { RGB_4 (0x004A00, 0x318400, 0x00FF00, 0xF9F9F9) }},
+    { "GB_x1105_OBJ1", { RGB_4 (0,        0x0000FF, 0x63A5FF, 0xF9F9F9) }},
+    /* Wario Land II */
+    { "GB_x1505_BG",   { RGB_4 (0,        0x42737B, 0xADAD84, 0xF9F9F9) }}, 
+    { "GB_x1505_OBJ0", { RGB_4 (0,        0x843100, 0xFFAD63, 0xF9F9F9) }},
+    { "GB_x1505_OBJ1", { RGB_4 (0,        0x0000FF, 0x63A5FF, 0xF9F9F9) }},
 };
 
+static const uint8_t gbcChecksumPalettes[0x100] = {
+    [0x70] = 6,
+    [0xD3] = 7   
+}; 
 
 #endif

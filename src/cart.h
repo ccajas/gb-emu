@@ -26,7 +26,8 @@ struct Cartridge
     uint8_t  
         header[GB_HEADER_SIZE],
         mbc,
-        cartType;
+        cartType,
+        checksum;
     uint8_t title[16];
 
     /* Other hardware present */

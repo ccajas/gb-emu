@@ -262,13 +262,13 @@ void cart_identify(struct Cartridge *cart)
         LOG_("GB: Invalid checksum!\n");
     else
         LOG_("GB: Valid checksum $%02X\n", checksum);
-
-    checksum = 0;
+ 
+    cart->checksum = 0;
     for (addr = 0x134; addr <= 0x143; addr++)
     {
-        checksum = checksum + cart->romData[addr];
+        cart->checksum += cart->romData[addr];
     }
-    LOG_("Checksum 2: $%02X\n", checksum);
+    LOG_("GB: Checksum 2: $%02X\n", cart->checksum);
 
     /* Get cartridge type and MBC from header */
     memcpy(cart->header, cart->romData + 0x100, 80 * sizeof(uint8_t));
