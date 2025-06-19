@@ -1169,6 +1169,13 @@ void gb_render(struct GB *const gb)
 
 void gb_init_audio (struct GB * const gb)
 {
+#ifdef ENABLE_AUDIO
+    LOG_("GB: Init audio\n");\
+    
+    int i;
+    for (i = 0; i < 4; i++)
+        gb->audioCh[i].periodTick = 0;
+#endif
     gb->io[NR10].r = 0x80;
     gb->io[NR11].r = 0xBF;
     gb->io[NR12].r = 0xF3;
@@ -1339,17 +1346,17 @@ void gb_update_div_apu (struct GB * const gb)
 }
 
 #ifdef ENABLE_AUDIO
+
+static const uint8_t dutyCycles[4] = { 0x01, 0x03, 0x0F, 0xFC };
+static const uint8_t clkDivider[8] = 
+        { 0x8, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70 };
+
 int16_t gb_update_audio (struct GB * const gb)
 {
     /* Approx. ceiling for more correct sounding pitch */
     const int cycles = ((int)CYCLES_PER_SAMPLE) + 1;
 
     /* Use for better performance (lower accuracy) */
-
-    const uint8_t dutyCycles[4] = { 0x01, 0x03, 0x0F, 0xFC };
-    const uint8_t divisor[8] = 
-        { 0x8, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70 };
-
     int32_t pulse[2] = {0};
     int32_t sample = 0;
 
@@ -1420,7 +1427,7 @@ int16_t gb_update_audio (struct GB * const gb)
 
         const uint8_t shift = (gb->io[NR43].r >> 4) & 15;
         const uint8_t clock = gb->io[NR43].r & 7;
-        const uint32_t freq = divisor[clock] << shift;
+        const uint32_t freq = clkDivider[clock] << shift;
 
         assert (freq != 0);
         while (gb->audioCh[3].periodTick >= freq)
@@ -1440,7 +1447,7 @@ int16_t gb_update_audio (struct GB * const gb)
         }
 
         int32_t noise = (gb->audioLFSR & 1) ? INT16_MIN : INT16_MAX;
-        sample += (noise / 15) * gb->audioCh[3].currentVol;
+        sample += (noise / 24) * gb->audioCh[3].currentVol;
     }
 
     /* Mix channel outputs */
