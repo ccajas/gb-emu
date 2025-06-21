@@ -6,11 +6,19 @@
 typedef struct 
 {
     char name[32];
+#if defined(COLOR_RGB_565)
+    uint16_t colors[4];
+#else
     uint8_t colors[4][3];
+#endif
 }
 GB_Palette;
 
-#define RGB_(X)  { (X >> 16), ((X >> 8) & 255), (X & 255) }
+#if defined(COLOR_RGB_565)
+    #define RGB_(X)  (uint16_t)(((X & 0xf80000) >> 8) | ((X & 0xfc00) >> 5) | ((X & 0xf8) >> 3))
+#else
+    #define RGB_(X)  { (X >> 16), ((X >> 8) & 255), (X & 255) }
+#endif
 #define RGB_4(P1, P2, P3, P4)  RGB_(P1), RGB_(P2), RGB_(P3), RGB_(P4)
 
 static const GB_Palette palettes[] =
