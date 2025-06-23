@@ -1351,11 +1351,8 @@ static const uint8_t dutyCycles[4] = { 0x01, 0x03, 0x0F, 0xFC };
 static const uint8_t clkDivider[8] = 
         { 0x8, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70 };
 
-int16_t gb_update_audio (struct GB * const gb)
+int16_t gb_update_audio (struct GB * const gb, const uint16_t cycles)
 {
-    /* Approx. ceiling for more correct sounding pitch */
-    const int cycles = ((int)CYCLES_PER_SAMPLE) + 1;
-
     /* Use for better performance (lower accuracy) */
     int32_t pulse[2] = {0};
     int32_t sample = 0;

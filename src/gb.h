@@ -20,9 +20,7 @@
 #define HRAM_SIZE           0x80
 #define IO_SIZE             0x100
 
-#define SAMPLE_RATE         48000
 #define GB_FRAME_RATE       (CPU_FREQ_DMG / FRAME_CYCLES)
-#define CYCLES_PER_SAMPLE   (CPU_FREQ_DMG / SAMPLE_RATE)
 
 /* Assign register pair as 16-bit union */
 
@@ -182,7 +180,7 @@ void gb_ch_trigger          (struct GB *, const uint8_t);
 void gb_update_div_apu      (struct GB *);
 
 #ifdef ENABLE_AUDIO
-int16_t gb_update_audio     (struct GB *);
+int16_t gb_update_audio     (struct GB *, const uint16_t);
 #endif
 
 static inline uint8_t gb_rom_loaded (struct GB * gb)

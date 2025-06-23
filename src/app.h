@@ -4,9 +4,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include "app_settings.h"
 #include "gb.h"
 #include "palettes.h"
-#include "app_settings.h"
 
 #define USE_BOOT_ROM__
 

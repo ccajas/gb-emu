@@ -124,8 +124,9 @@ void drop_callback (GLFWwindow * window, int count, const char** paths)
 
 #ifdef ENABLE_AUDIO
 
-//#include "../_docs/audiotest/testraw.h"
-#define BUF_SIZE  (int)(SAMPLE_RATE / 60)
+/* Approx. ceiling for more correct sounding pitch */
+#define BUF_SIZE            (int)(GB_SAMPLE_RATE / 60)
+#define CYCLES_PER_SAMPLE   (int)(CPU_FREQ_DMG / GB_SAMPLE_RATE) + 1
 
 //unsigned char testraw[BUF_SIZE] = {0};
 int16_t audioBuf[BUF_SIZE] = {0};
@@ -147,7 +148,7 @@ void audio_data_callback (ma_device * pDevice, void* pOutput, const void* pInput
     ma_pcm_rb_acquire_read(&pRB, &frameCount, (void**)&audioBuf);
     int i;
     for (i = 0; i < BUF_SIZE; i++)
-        audioBuf[i] = gb_update_audio(&app->gb);
+        audioBuf[i] = gb_update_audio(&app->gb, CYCLES_PER_SAMPLE);
 
     memcpy(pOutput, audioBuf, frames);
     ma_pcm_rb_commit_read(&pRB, frameCount);
@@ -159,13 +160,13 @@ void audio_data_callback (ma_device * pDevice, void* pOutput, const void* pInput
 
 void app_audio_init(struct App * app)
 {
-    ma_device_config config = ma_device_config_init(ma_device_type_playback);
+    ma_device_config config   = ma_device_config_init(ma_device_type_playback);
     config.periodSizeInFrames = BUF_SIZE;
-    config.playback.format   = ma_format_s16;
-    config.playback.channels = 1;
-    config.sampleRate        = SAMPLE_RATE;
-    config.dataCallback      = audio_data_callback;
-    config.pUserData         = app;
+    config.playback.format    = ma_format_s16;
+    config.playback.channels  = 1;
+    config.sampleRate         = GB_SAMPLE_RATE;
+    config.dataCallback       = audio_data_callback;
+    config.pUserData          = app;
     
     if (ma_device_init(NULL, &config, &app->audioDevice) != MA_SUCCESS) {
         printf("device initialzation failed\n");
