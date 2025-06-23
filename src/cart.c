@@ -276,7 +276,9 @@ void cart_identify(struct Cartridge *cart)
 
     const uint8_t cartType = header[0x47];
     /* Get cartridge title */
-    memcpy(cart->title, cart->header + 0x34, 16 * sizeof(uint8_t));
+    memset(cart->title, 0, 16);
+    memcpy(cart->title, cart->header + 0x34, 
+        ((header[0x43] & 0x80) ? 15 : 16) * sizeof(uint8_t));
     LOG_("GB: Title: %s\n", cart->title);
 
     /* Select MBC for read/write */
