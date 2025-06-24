@@ -803,26 +803,26 @@ enum
 
 struct sprite_data
 {
-    uint8_t sprite_number;
+    uint8_t oamEntry;
     uint8_t x;
 };
 
-#define SPRITE_SORTED__
-#define HIGH_SORT_ACCURACY__
+#define HIGH_SORT_ACCURACY
 
 #ifdef HIGH_SORT_ACCURACY
-int compare_sprites(const void *in1, const void *in2)
+int compare_sprites(const void * in1, const void * in2)
 {
-    const struct sprite_data *sd1, *sd2;
+    const struct sprite_data * sd1, * sd2;
     int x_res;
 
-    sd1 = (struct sprite_data *)in1;
-    sd2 = (struct sprite_data *)in2;
+    sd1 = (struct sprite_data*)in1;
+    sd2 = (struct sprite_data*)in2;
     x_res = (int)sd1->x - (int)sd2->x;
+
     if (x_res != 0)
         return x_res;
 
-    return (int)sd1->sprite_number - (int)sd2->sprite_number;
+    return (int)sd1->oamEntry - (int)sd2->oamEntry;
 }
 #endif
 
@@ -934,75 +934,52 @@ uint8_t * gb_pixels_fetch(struct GB *gb)
 
     if (gb->io[LCDControl].OBJ_Enable)
     {
-        uint8_t sprite;
         uint8_t totalSprites = 0;
 
         /* Record number of sprites on the line being rendered, limited
          * to the maximum number sprites that the Game Boy is able to
          * render on each line (10 sprites). */
-#ifdef SPRITE_SORTED
-        struct sprite_data sprites_to_render[NUM_SPRITES];
-
-        for (sprite = 0; sprite < (sizeof(sprites_to_render) / sizeof(sprites_to_render[0])); sprite++)
-        {
-            const uint8_t objY = gb->oam[4 * sprite];
-            const uint8_t objX = gb->oam[4 * sprite + 1];
-
-            /* If sprite isn't on this line, continue */
-            if (gb->io[LY].r + (gb->io[LCDControl].OBJ_Size ? 0 : 8) >= objY || gb->io[LY].r + 16 < objY)
-                continue;
-
-            sprites_to_render[totalSprites].sprite_number = sprite;
-            sprites_to_render[totalSprites].x = objX;
-            totalSprites++;
-        }
-#endif
-        uint8_t sprites[10];
-        memset(sprites, 0, 10);
-        totalSprites = 0;
+        struct sprite_data sprites[MAX_SPRITES_LINE];
 
         /* Find available sprites that could be visible on this line */
         uint8_t s;
         for (s = 0; s < OAM_SIZE; s += 4)
         {
-            if (gb->oam[s] == 0 && gb->oam[s] >= DISPLAY_WIDTH)
+            if (gb->oam[s + 1] == 0 && gb->oam[s + 1] >= DISPLAY_WIDTH)
                 continue;
             if (gb->io[LY].r >= gb->oam[s] - (gb->io[LCDControl].OBJ_Size ? 0 : 8) ||
                 gb->io[LY].r < gb->oam[s] - 16)
                 continue;
 
-            sprites[totalSprites++] = s;
-            if (totalSprites == 10)
+            sprites[totalSprites].oamEntry = s;
+            sprites[totalSprites++].x = gb->oam[s + 1];
+
+            if (totalSprites == MAX_SPRITES_LINE)
                 break;
         }
 #ifdef HIGH_SORT_ACCURACY
-        /* If maximum number of sprites reached, prioritise X
-         * coordinate and object location in OAM. */
-        qsort(sprites_to_render, totalSprites,
-              sizeof(sprites_to_render[0]), compare_sprites);
+        /* Sort sprites by coordinate and object location in OAM.
+         * TODO: Maybe forgo qsort for a sparse array if performance differs */
+        qsort(sprites, totalSprites, sizeof(sprites[0]), compare_sprites);
 #endif
-        if (totalSprites > MAX_SPRITES_LINE)
-            totalSprites = MAX_SPRITES_LINE;
-
         /* Sprites are rendered from low priority to high priority */
-        for (sprite = totalSprites - 1; sprite != 0xFF; sprite--)
+        for (s = totalSprites - 1; s != 0xFF; s--)
         {
-            const uint8_t s = sprites[sprite];
-
-            const uint8_t objX = gb->oam[s + 1];
+            const uint8_t entry = sprites[s].oamEntry;
+            const uint8_t objX = gb->oam[entry + 1];
 
             /* Skip sprite if not visible */
             if (objX == 0 || objX >= DISPLAY_WIDTH + 8)
                 continue;
 
-            const uint8_t objY = gb->oam[s + 0];
+            const uint8_t objY = gb->oam[entry + 0];
             /* Handle Y flip */
-            const uint8_t objFlags = gb->oam[s + 3];
+            const uint8_t objFlags = gb->oam[entry + 3];
             uint8_t posY = gb->io[LY].r - objY + 16;
             if (objFlags & 0x40)
                 posY = (gb->io[LCDControl].OBJ_Size ? 15 : 7) - posY;
 
-            const uint8_t objTile = (gb->oam[s + 2] & 
+            const uint8_t objTile = (gb->oam[entry + 2] & 
                 (gb->io[LCDControl].OBJ_Size ? 0xFE : 0xFF));
 
             const uint8_t rowLSB = gb->vram[(objTile << 4) | (posY << 1)];
@@ -1016,7 +993,7 @@ uint8_t * gb_pixels_fetch(struct GB *gb)
             for (lineX = sLeft - 8; lineX != sRight; lineX++)
             {
                 /* handle X flip */
-                const uint8_t relX = (gb->oam[s + 3] & 0x20) ? lineX - objX : 7 - (lineX - objX);
+                const uint8_t relX = (gb->oam[entry + 3] & 0x20) ? lineX - objX : 7 - (lineX - objX);
                 const uint8_t palIndex =
                     ((rowLSB >> (relX & 7)) & 1) |
                     (((rowMSB >> (relX & 7)) & 1) << 1);
@@ -1088,12 +1065,7 @@ inline void gb_transfer(struct GB *gb)
 void gb_render(struct GB *const gb)
 {
     gb->lineClock += gb->rt;
-/*  gb->lineClockSt += gb->rt;
 
-    if (gb->lineClockSt < PPU_PACE) return;
-
-    gb->lineClockSt -= PPU_PACE;
-*/
     if (gb->io[LY].r < DISPLAY_HEIGHT)
     {
         /* Visible line, within screen bounds */
