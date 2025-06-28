@@ -247,7 +247,7 @@
 #define STOP    OP(STOP)  gb->stopped = 1; /* STOP is handled after switch/case */
 #define NOP     OP(NOP)
 #define DI      OP(DI)    gb->imePending = 0; gb->ime = 0; 
-#define EI      OP(EI)    gb->imePending = 1; 
+#define EI      OP(EI)    gb->ime = 1;//gb->imePending = 1; 
 
 /** Jump and call instructions **/
 

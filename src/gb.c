@@ -385,7 +385,7 @@ void gb_init(struct GB *gb, uint8_t *bootRom)
     memset(gb->oam, 0, OAM_SIZE);
 
     memset(gb->io, 0, sizeof(gb->io));
-    LOG_("GB: Memset done\n");
+    LOG_("GB: Memory init done\n");
 
     if (bootRom != NULL)
         gb_reset(gb, bootRom);
@@ -414,7 +414,7 @@ void gb_reset(struct GB *gb, uint8_t *bootROM)
     gb_boot_register(gb, 0);
 
     gb->pc = 0;
-    gb->ime = 0;
+    gb->ime = gb->imeDispatched = 0;
     gb->halted = 0;
     gb->stopped = 0;
 
@@ -497,6 +497,7 @@ void gb_cpu_exec(struct GB *gb, const uint8_t op)
                         if (gb->io[IntrEnabled].r & gb->io[IntrFlags].r & IF_Any)
                             gb->pcInc = gb->halted = 0;
                     }
+                    
                     break;
                 /* 8-bit load, LD or LDrHL */
                 LD_OPS

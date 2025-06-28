@@ -115,6 +115,7 @@ struct GB
     /* Interrupt master enable and PC increment */
     uint8_t ime : 1;
     uint8_t imePending : 1;
+    uint8_t imeDispatched : 1;
     uint8_t lastJoypad;
 #ifdef ENABLE_AUDIO
     /* Audio channel data */
@@ -230,38 +231,53 @@ static inline uint8_t gb_joypad (struct GB * gb, const uint8_t val, const uint8_
     return 0;
 }
 
-static inline void gb_handle_interrupts(struct GB *gb)
+static inline uint8_t gb_handle_interrupts(struct GB *gb)
 {
     /* Get interrupt flags */
     const uint8_t io_IE = gb->io[IntrEnabled].r;
     const uint8_t io_IF = gb->io[IntrFlags].r;
 
-    if (!gb->ime) return;
-
     /* Run if CPU ran HALT instruction or IME enabled w/flags */
-    if (io_IE & io_IF & IF_Any)
+    if ((gb->ime || gb->halted) && (io_IF & io_IE & IF_Any)) 
     {
-        gb->ime = 0;
-        /* Check all 5 IE and IF bits for flag confirmations
-           This loop also services interrupts by priority (0 = highest) */
-        uint8_t f;
-        uint8_t addr = 0x40;
-        for (f = IF_VBlank; f <= IF_Joypad; f <<= 1)
-        {
-            if ((io_IE & f) && (io_IF & f))
-            {
-                gb->sp -= 2;
-                CPU_WW(gb->sp, gb->pc);
-                gb->pc = addr;
+        gb->halted = 0;
 
-                /* Clear flag bit */
-                gb->io[IntrFlags].r = io_IF & ~f;
-                gb->rt += 20;
-                break;
+        if (gb->ime)
+        {
+            gb->imeDispatched = 1;
+            gb->ime = 0;
+
+            /* Push PC to stack pointer */
+            INC_MCYCLE;
+            INC_MCYCLE;
+            --gb->sp;
+            CPU_WB (gb->sp, gb->pc >> 8);
+            --gb->sp; 
+            CPU_WB (gb->sp, gb->pc & 0xFF);
+            INC_MCYCLE;
+
+            gb->rt = gb->rm * 4;
+        }
+
+        if (gb->imeDispatched)
+        {
+            /* Check all 5 IE and IF bits for flag confirmations
+            This loop also services interrupts by priority (0 = highest) */
+            uint8_t f;
+            uint8_t addr = 0x40;
+            for (f = IF_VBlank; f <= IF_Joypad; f <<= 1)
+            {
+                if ((gb->io[IntrEnabled].r & f) && (gb->io[IntrFlags].r & f))
+                    break;
+                addr += 8;
             }
-            addr += 8;
+
+            /* Jump to vector address and clear flag bit */
+            gb->pc = addr;
+            gb->io[IntrFlags].r ^= f;
         }
     }
+    return gb->imeDispatched;
 }
 
 #define USE_TIMER_SIMPLE
@@ -304,14 +320,8 @@ static inline void gb_handle_interrupts(struct GB *gb)
 static inline void gb_step (struct GB * gb)
 {
     gb->rt = 0;
+    gb->rm = 0;
     gb->readWrite = 0;
-
-    if (gb->stopped)
-    {
-        gb->rt += 4;
-        gb->clock_t += gb->rt;
-        return;
-    }
 
     if (gb->halted)
     {
@@ -322,17 +332,17 @@ static inline void gb_step (struct GB * gb)
             TICKS_OAM_READ - gb->lineClock;
 
         gb->rt += ticks;
-        /*gb_handle_interrupts (gb);*/
+
         if (gb->rt == 0)
             gb->rt += 4;
-
-        /* Check if interrupt is pending */
-        if (gb->io[IntrEnabled].r & gb->io[IntrFlags].r & IF_Any)
-            gb->halted = 0;
     }
-    else
+    
+    if (gb_handle_interrupts (gb))
+    {
+        gb->imeDispatched = 0;
+    }
+    else if (!gb->halted)
     {   /* Load next op and execute */
-        gb->rm = 0;
         const uint8_t op = CPU_RB (gb->pc);
         if (!gb->pcInc) /* Enable halt bug PC count or continue as normal */
             gb->pcInc = 1;
@@ -340,13 +350,6 @@ static inline void gb_step (struct GB * gb)
             gb->pc++;
         gb_cpu_exec (gb, op);
         LOG_CPU_STATE (gb, op);
-    }
-
-    gb_handle_interrupts (gb);
-    if (gb->imePending)
-    {
-        gb->imePending = 0;
-        gb->ime = 1;
     }
 
     /* Update timers for every remaining m-cycle */
@@ -370,19 +373,15 @@ static inline void gb_step (struct GB * gb)
     if (gb->io[LCDControl].LCD_Enable)
         gb_render (gb);
 
-    /* Update APU if turned on */
-
     gb->clock_t += gb->rt;
 }
 
 static inline void gb_frame (struct GB * gb)
 {
-    gb->drawFrame = 0;  
+    gb->drawFrame = 0;
     /* Returns when frame is completed (indicated by frame cycles) */
     while (!gb->drawFrame)
-    {
         gb_step (gb);
-    }
 
     gb->totalFrames++;
 }
