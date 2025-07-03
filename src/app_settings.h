@@ -1,6 +1,5 @@
 #define DEBUG_TEXTURE_W  320
 #define DEBUG_TEXTURE_H  288
-#define GB_SAMPLE_RATE   32000
 #define DEFAULT_SCALE    3
 
 #ifdef ENABLE_AUDIO

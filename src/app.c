@@ -65,7 +65,7 @@ void key_callback (GLFWwindow * window, int key, int scancode, int action, int m
             app_resize_window (window, &app->display,  app->scale);
     }
 
-    const uint8_t totalPalettes = (sizeof(gbcPalettes) / sizeof(gbcPalettes[0]));
+    const uint8_t totalPalettes = (sizeof(manualPalettes) / sizeof(manualPalettes[0]));
     /* Switch palettes */
     if (key == GLFW_KEY_O && action == GLFW_PRESS)
         app->gbData.palette = (app->gbData.palette + 3) % totalPalettes;
@@ -125,14 +125,11 @@ void drop_callback (GLFWwindow * window, int count, const char** paths)
 #ifdef ENABLE_AUDIO
 
 /* Approx. ceiling for more correct sounding pitch */
+#define GB_SAMPLE_RATE      48000
 #define BUF_SIZE            (int)(GB_SAMPLE_RATE / 60)
 #define CYCLES_PER_SAMPLE   (int)(CPU_FREQ_DMG / GB_SAMPLE_RATE) + 1
 
-//unsigned char testraw[BUF_SIZE] = {0};
-int16_t audioBuf[BUF_SIZE] = {0};
-unsigned char testraw[32040] = {0};
-
-unsigned int ptr = 0;
+static int16_t audioBuf[BUF_SIZE] = {0};
 unsigned int samplePos = 0;
 ma_pcm_rb pRB;
 
@@ -152,10 +149,6 @@ void audio_data_callback (ma_device * pDevice, void* pOutput, const void* pInput
 
     memcpy(pOutput, audioBuf, frames);
     ma_pcm_rb_commit_read(&pRB, frameCount);
-
-    ptr += BUF_SIZE;
-    if (ptr > sizeof(testraw))
-        ptr = 0;
 }
 
 void app_audio_init(struct App * app)
@@ -397,7 +390,7 @@ void app_draw_line (void * dataPtr, const uint8_t * pixels, const uint8_t line)
         /* Get color and palette to use it with */
         const uint8_t idx = (3 - *pixels) & 3;
         const uint8_t pal = ((*pixels++ >> 2) & 3) - 1;
-        pixel = (uint8_t*) gbcPalettes[data->palette + pal].colors[idx];
+        pixel = (uint8_t*) manualPalettes[data->palette + pal].colors[idx];
         
         memcpy (data->frameBuffer.imgData + yOffset + x * 3, pixel, 3);
 	}

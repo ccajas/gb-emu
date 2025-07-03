@@ -48,21 +48,25 @@ static const GB_Palette palettes[] =
 
 static const GB_Palette manualPalettes[] =
 {
-    { "GBC_x16_BG",    { RGB_4 (0,        0x525252, 0xA5A5A5, 0xF0F0F0) }},
-    { "GBC_x16_OBJ0",  { RGB_4 (0,        0x525252, 0xA5A5A5, 0xF0F0F0) }},
-    { "GBC_x16_OBJ1",  { RGB_4 (0,        0x525252, 0xA5A5A5, 0xF0F0F0) }},
+    { "GBC_x16_BG",    { RGB_4 (0,        0x525252, 0xA5A5A5, 0xFFFFFF) }},
+    { "GBC_x16_OBJ0",  { RGB_4 (0,        0x525252, 0xA5A5A5, 0xFFFFFF) }},
+    { "GBC_x16_OBJ1",  { RGB_4 (0,        0x525252, 0xA5A5A5, 0xFFFFFF) }},
 
-    { "GBC_x0D_BG",    { RGB_4 (0,        0x52528C, 0x8C8CDE, 0xF5F5F5) }},
-    { "GBC_x0D_OBJ0",  { RGB_4 (0,        0x943A3A, 0xFF8484, 0xF5F5F5) }},
-    { "GBC_x0D_OBJ1",  { RGB_4 (0,        0x843100, 0xFFAD63, 0xF5F5F5) }},
+    { "GBC_x0D_BG",    { RGB_4 (0,        0x52528C, 0x8C8CDE, 0xFFFFFF) }},
+    { "GBC_x0D_OBJ0",  { RGB_4 (0,        0x943A3A, 0xFF8484, 0xFFFFFF) }},
+    { "GBC_x0D_OBJ1",  { RGB_4 (0,        0x843100, 0xFFAD63, 0xFFFFFF) }},
 
-    { "GBC_x1A_BG",    { RGB_4 (0,        0x7B4A00, 0xFFFF00, 0xF5F5F5) }},
-    { "GBC_x1A_OBJ0",  { RGB_4 (0,        0x0000FF, 0x63A5FF, 0xF5F5F5) }},
-    { "GBC_x1A_OBJ1",  { RGB_4 (0,        0x008400, 0x7BFF31, 0xF5F5F5) }},
+    { "GBC_x17_BG",    { RGB_4 (0,        0x856D90, 0xE1AB91, 0xE7E0CA) }},
+    { "GBC_x17_OBJ0",  { RGB_4 (0,        0x856D90, 0xE1AB91, 0xE7E0CA) }},
+    { "GBC_x17_OBJ1",  { RGB_4 (0,        0x856D90, 0xE1AB91, 0xE7E0CA) }},
 
-    { "GBC_x13_BG",    { RGB_4 (0,        0x0063C5, 0x7BFF31, 0xF5F5F5) }},
-    { "GBC_x13_OBJ0",  { RGB_4 (0,        0x943A3A, 0xFF8484, 0xF5F5F5) }},
-    { "GBC_x13_OBJ1",  { RGB_4 (0,        0x943A3A, 0xFF8484, 0xF5F5F5) }}
+    { "GBC_x1A_BG",    { RGB_4 (0,        0x7B4A00, 0xFFFF00, 0xFFFFFF) }},
+    { "GBC_x1A_OBJ0",  { RGB_4 (0,        0x0000FF, 0x63A5FF, 0xFFFFFF) }},
+    { "GBC_x1A_OBJ1",  { RGB_4 (0,        0x008400, 0x7BFF31, 0xFFFFFF) }},
+
+    { "GBC_x1C_BG",    { RGB_4 (0,        0x0063C5, 0x7BFF31, 0xFFFFFF) }},
+    { "GBC_x1C_OBJ0",  { RGB_4 (0,        0x943A3A, 0xFF8484, 0xFFFFFF) }},
+    { "GBC_x1C_OBJ1",  { RGB_4 (0,        0x943A3A, 0xFF8484, 0xFFFFFF) }}
 };
 
 static const GB_Palette gbcPalettes[] =
@@ -83,6 +87,10 @@ static const GB_Palette gbcPalettes[] =
     { "DMG Original",  { RGB_4 (0x00261C, 0x177569, 0x5BB734, 0xA6D91F) }},
     { "DMG Original",  { RGB_4 (0x00261C, 0x177569, 0x5BB734, 0xA6D91F) }},
     { "DMG Original",  { RGB_4 (0x00261C, 0x177569, 0x5BB734, 0xA6D91F) }},
+
+    { "DMG 2",         { RGB_4 (0x19311F, 0x5D7C3B, 0xA09E35, 0xF8F49F) }},
+    { "DMG 2",         { RGB_4 (0x19311F, 0x5D7C3B, 0xA09E35, 0xF8F49F) }},
+    { "DMG 2",         { RGB_4 (0x19311F, 0x5D7C3B, 0xA09E35, 0xF8F49F) }},
     /* Kirby */
     { "GB_x0805_BG",   { RGB_4 (0,        0x006300, 0xFFFF00, 0xA59CFF) }},
     { "GB_x0805_OBJ0", { RGB_4 (0,        0x630000, 0xD60000, 0xFF6352) }},
@@ -103,11 +111,16 @@ static const GB_Palette gbcPalettes[] =
     { "GB_x1505_BG",   { RGB_4 (0,        0x42737B, 0xADAD84, 0xF9F9F9) }}, 
     { "GB_x1505_OBJ0", { RGB_4 (0,        0x843100, 0xFFAD63, 0xF9F9F9) }},
     { "GB_x1505_OBJ1", { RGB_4 (0,        0x0000FF, 0x63A5FF, 0xF9F9F9) }},
+    /* Arcade Classic No. 2, MLB, Tetris Plus, Wario Blast 
+       (also default if not found) */
+    { "GB_x1C03_BG",   { RGB_4 (0,        0x0063C5, 0x7BFF31, 0xF9F9F9) }}, 
+    { "GB_x1C03_OBJ0", { RGB_4 (0,        0x943A3A, 0xFF8484, 0xF9F9F9) }},
+    { "GB_x1C03_OBJ1", { RGB_4 (0,        0x943A3A, 0xFF8484, 0xF9F9F9) }},
 };
 
 static const uint8_t gbcChecksumPalettes[0x100] = {
     [0x70] = 6,
-    [0xD3] = 7   
+    [0xD3] = 7
 }; 
 
 #endif
