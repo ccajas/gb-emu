@@ -206,23 +206,6 @@ inline uint8_t gb_apu_rw(struct GB *gb, const uint8_t reg, const uint8_t val, co
 
 static const uint16_t TAC_intervals[4] = {1024, 16, 64, 256};
 
-#define UPDATE_TIMER_SIMPLE(gb, cycles)\
-    if (gb->io[TimerCtrl].TAC_Enable)\
-    {\
-        const uint16_t clockRate = TAC_intervals[gb->io[TimerCtrl].TAC_clock];\
-        gb->timAClock += cycles;\
-        if (gb->timAClock >= clockRate)\
-            while (gb->timAClock >= clockRate)\
-            {\
-                gb->timAClock -= clockRate;\
-                if (++gb->io[TimA].r == 0)\
-                {\
-                    gb->io[IntrFlags].r |= IF_Timer;\
-                    gb->io[TimA].r = gb->io[TMA].r;\
-                }\
-            }\
-    }
-
 uint8_t gb_mem_read(struct GB *gb, const uint16_t addr)
 {
     const uint8_t val = 0;
@@ -230,8 +213,8 @@ uint8_t gb_mem_read(struct GB *gb, const uint16_t addr)
 
 #if !defined(FAST_TIMING) && defined(USE_TIMER_SIMPLE)
     ++gb->readWrite;
-    gb->divClock += 4;
-    UPDATE_TIMER_SIMPLE(gb, 4);
+    UPDATE_DIV (gb, 4);
+    gb_update_timer_simple (gb, 4);
 #endif
 
     /* For Blargg's CPU instruction tests */
@@ -301,8 +284,8 @@ uint8_t gb_mem_write(struct GB *gb, const uint16_t addr, const uint8_t val)
     
 #if !defined(FAST_TIMING) && defined(USE_TIMER_SIMPLE)
     ++gb->readWrite;
-    gb->divClock += 4;
-    UPDATE_TIMER_SIMPLE(gb, 4);
+    UPDATE_DIV (gb, 4);
+    gb_update_timer_simple (gb, 4);
 #endif
 
     /* For Blargg's CPU instruction tests */
@@ -1084,7 +1067,7 @@ void gb_render(struct GB *const gb)
                     gb->io[IntrFlags].r |= IF_LCD_STAT;
 
                 if ((!gb->io[LCDControl].LCD_Enable) || (gb->extData.frameSkip &&
-                    (gb->totalFrames % (gb->extData.frameSkip + 1) > 0)))
+                    (gb->totalFrames % (gb->extData.frameSkip + 1) != 0)))
                     return;    
 #if ENABLE_LCD
                 /* Fetch line of pixels for the screen and draw them */
@@ -1148,6 +1131,9 @@ void gb_init_audio (struct GB * const gb)
     int i;
     for (i = 0; i < 4; i++)
         gb->audioCh[i].periodTick = 0;
+
+    gb->wavCycles = 0;
+    gb->wavSample = gb->sampleCount = 0;
 #endif
     gb->io[NR10].r = 0x80;
     gb->io[NR11].r = 0xBF;
@@ -1174,7 +1160,7 @@ void gb_ch_trigger (struct GB * const gb, const uint8_t n)
     const uint16_t period = gb->io[ch_pos + NR13].r | (periodH << 8);
 
 /*
-    Action                          1 2 3 4
+    Action                       CH 1 2 3 4
     ---------------------------------------
     Enable channel                  X X X X
     Reset length timer if expired   X X X X
@@ -1288,7 +1274,7 @@ void gb_update_div_apu (struct GB * const gb)
         }
     }
 
-    if ((gb->apuDiv & 3) == 2) /* Ch 1 sweep ++, 128 Hz */
+    if ((gb->apuDiv & 3) == 2) /* Ch 1 sweep --, 128 Hz */
     {
         /** TODO: Finish overflow check */
         const uint8_t pace = gb->io[NR10].SweepPace;
@@ -1323,6 +1309,39 @@ void gb_update_div_apu (struct GB * const gb)
 static const uint8_t dutyCycles[4] = { 0x01, 0x03, 0x0F, 0xFC };
 static const uint8_t clkDivider[8] = 
         { 0x8, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70 };
+
+void gb_update_wav(struct GB * const gb, const uint16_t cycles)
+{
+    /* Update wave channel */
+    if (gb->audioCh[2].enabled && (gb->io[NR30].r & 0x80))
+    {
+        gb->audioCh[2].periodTick += (cycles >> 1);
+
+        if (gb->audioCh[2].periodTick >= PERIOD_MAX)
+        {
+            const uint16_t period =  
+                (gb->io[NR34].PeriodH << 8) | gb->io[NR33].r;
+
+            gb->audioCh[2].periodTick -= PERIOD_MAX;
+            gb->audioCh[2].periodTick += period;
+            gb->audioCh[2].patternStep++;
+        }
+
+        uint8_t patternStep = gb->audioCh[2].patternStep & 31;
+        int32_t wav = gb->io[Wave + (patternStep >> 1)].r;
+        const uint8_t vol = (gb->io[NR32].r >> 5) & 3;
+
+        wav = (patternStep & 1) ? wav & 0xF : wav >> 4;
+        wav = (vol == 1) ? wav :
+            (vol == 2) ? wav >> 1 :
+            (vol == 3) ? wav >> 2 : 0;
+
+        gb->wavSample += wav;
+        ++gb->sampleCount;
+    }
+
+    gb->wavCycles += cycles;
+}
 
 int16_t gb_update_audio (struct GB * const gb, const uint16_t cycles)
 {
@@ -1359,10 +1378,22 @@ int16_t gb_update_audio (struct GB * const gb, const uint16_t cycles)
         
         pulse[n] = dutyCycles[duty] >> (gb->audioCh[n].patternStep & 7);
         pulse[n] = (pulse[n] & 1) ? INT16_MIN : INT16_MAX;
-        sample += pulse[n] / 15 * gb->audioCh[n].currentVol;
+        sample += (pulse[n] >> 4) * gb->audioCh[n].currentVol;
     }
 
     /* Update wave channel */
+    /*if (gb->sampleCount > 0)
+    {
+        int32_t wav = gb->wavSample / gb->sampleCount;
+        LOG_("Sample count: %d total: %d Average: %d\n", 
+            gb->sampleCount, gb->wavSample, wav);
+
+        sample += (uint32_t)wav * INT16_MAX / 7;
+
+        gb->sampleCount = 0;
+        gb->wavSample = 0;
+    }
+    */
     if (gb->audioCh[2].enabled && (gb->io[NR30].r & 0x80))
     {
         gb->audioCh[2].periodTick += (cycles >> 1);
@@ -1386,9 +1417,9 @@ int16_t gb_update_audio (struct GB * const gb, const uint16_t cycles)
             (vol == 2) ? wav >> 1 :
             (vol == 3) ? wav >> 2 : 0;
 
-        sample += wav * INT16_MAX / 7;
+        sample += wav * (INT16_MAX >> 3);
     }
-
+    
     /* Update noise channel */
     if (gb->audioCh[3].DAC && gb->audioCh[3].enabled)
     {
@@ -1421,7 +1452,7 @@ int16_t gb_update_audio (struct GB * const gb, const uint16_t cycles)
     }
 
     /* Mix channel outputs */
-    sample /= (4 << 1);
+    sample >>= 3;
     return (uint16_t)sample;
 }
 

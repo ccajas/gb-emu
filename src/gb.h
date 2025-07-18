@@ -134,6 +134,9 @@ struct GB
     uint8_t  sweepTick : 4;
     uint16_t sweepBck;
     uint16_t audioLFSR;
+
+    uint32_t wavCycles;
+    uint32_t wavSample, sampleCount;
 #endif
     /* Catridge which holds ROM and RAM */
     struct Cartridge cart;
@@ -181,6 +184,7 @@ void gb_ch_trigger          (struct GB *, const uint8_t);
 void gb_update_div_apu      (struct GB *);
 
 #ifdef ENABLE_AUDIO
+void gb_update_wav          (struct GB *, const uint16_t);
 int16_t gb_update_audio     (struct GB *, const uint16_t);
 #endif
 
@@ -277,6 +281,10 @@ static inline uint8_t gb_handle_interrupts(struct GB *gb)
             gb->io[IntrFlags].r ^= f;
         }
     }
+
+    if (gb->halted && gb->imeDispatched)
+        gb->halted = 0;
+
     return gb->imeDispatched;
 }
 
@@ -322,7 +330,11 @@ static inline void gb_step (struct GB * gb)
     gb->rt = 0;
     gb->rm = 0;
     gb->readWrite = 0;
-
+    
+    if (gb_handle_interrupts (gb))
+    {
+        gb->imeDispatched = 0;
+    }
     if (gb->halted)
     {
         /* Next interrupt can be predicted, so move clock ahead accordingly */
@@ -331,17 +343,9 @@ static inline void gb_step (struct GB * gb)
             (gb->lineClock > TICKS_OAM_READ) ? TICKS_TRANSFER - gb->lineClock :
             TICKS_OAM_READ - gb->lineClock;
 
-        gb->rt += ticks;
-
-        if (gb->rt == 0)
-            gb->rt += 4;
+        gb->rt += (ticks == 0) ? 4 : ticks;
     }
-    
-    if (gb_handle_interrupts (gb))
-    {
-        gb->imeDispatched = 0;
-    }
-    else if (!gb->halted)
+    else
     {   /* Load next op and execute */
         const uint8_t op = CPU_RB (gb->pc);
         if (!gb->pcInc) /* Enable halt bug PC count or continue as normal */
@@ -351,6 +355,10 @@ static inline void gb_step (struct GB * gb)
         gb_cpu_exec (gb, op);
         LOG_CPU_STATE (gb, op);
     }
+
+    /* Update PPU if LCD is turned on */
+    if (gb->io[LCDControl].LCD_Enable)
+        gb_render (gb);
 
     /* Update timers for every remaining m-cycle */
 #ifdef USE_TIMER_SIMPLE
@@ -369,16 +377,13 @@ static inline void gb_step (struct GB * gb)
         gb_handle_timers (gb);
 #endif
 
-    /* Update PPU if LCD is turned on */
-    if (gb->io[LCDControl].LCD_Enable)
-        gb_render (gb);
-
     gb->clock_t += gb->rt;
 }
 
 static inline void gb_frame (struct GB * gb)
 {
     gb->drawFrame = 0;
+
     /* Returns when frame is completed (indicated by frame cycles) */
     while (!gb->drawFrame)
         gb_step (gb);
