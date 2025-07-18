@@ -223,7 +223,6 @@ void app_init (struct App * app)
     app->gbData = (struct gb_data) 
     {
         .palette = 0,
-        .pixelTint = 0,
 #if defined(USE_GLFW)
         .tileMap = {
             .width = DEBUG_TEXTURE_W,
