@@ -147,6 +147,7 @@ struct GB
     {
         uint8_t joypad;
         uint8_t frameSkip;
+        uint8_t interlace;
         uint8_t pixelLine[DISPLAY_WIDTH];
         uint8_t title[16];
         void *  ptr;

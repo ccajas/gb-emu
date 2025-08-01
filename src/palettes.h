@@ -5,7 +5,7 @@
 
 typedef struct 
 {
-    char name[32];
+    char name[16];
 #if defined(COLOR_RGB_565)
     uint16_t colors[4];
 #else
@@ -84,13 +84,21 @@ static const GB_Palette gbcPalettes[] =
     { "GBC_x16_OBJ0",  { RGB_4 (0x131616, 0x374242, 0x5E6C61, 0x95A694) }},
     { "GBC_x16_OBJ1",  { RGB_4 (0x131616, 0x374242, 0x5E6C61, 0x95A694) }},*/
 
-    { "DMG Original",  { RGB_4 (0x00261C, 0x177569, 0x5BB734, 0xA6D91F) }},
-    { "DMG Original",  { RGB_4 (0x00261C, 0x177569, 0x5BB734, 0xA6D91F) }},
-    { "DMG Original",  { RGB_4 (0x00261C, 0x177569, 0x5BB734, 0xA6D91F) }},
+    { "DMG Original",  { RGB_4 (0x044140, 0x1B6D62, 0x32AB6A, 0x93C805) }},
+    { "DMG Original",  { RGB_4 (0x044140, 0x1B6D62, 0x32AB6A, 0x93C805) }},
+    { "DMG Original",  { RGB_4 (0x044140, 0x1B6D62, 0x32AB6A, 0x93C805) }},
 
-    { "DMG 2",         { RGB_4 (0x19311F, 0x5D7C3B, 0xA09E35, 0xF8F49F) }},
-    { "DMG 2",         { RGB_4 (0x19311F, 0x5D7C3B, 0xA09E35, 0xF8F49F) }},
-    { "DMG 2",         { RGB_4 (0x19311F, 0x5D7C3B, 0xA09E35, 0xF8F49F) }},
+    { "Hot 2",         { RGB_4 (0x842D72, 0xEE316B, 0xFFB037, 0xFBDFB7) }},
+    { "Hot 2",         { RGB_4 (0x842D72, 0xEE316B, 0xFFB037, 0xFBDFB7) }},
+    { "Hot 2",         { RGB_4 (0x842D72, 0xEE316B, 0xFFB037, 0xFBDFB7) }},
+
+    { "BGB",           { RGB_4 (0x081820, 0x346856, 0x88C070, 0xE0F8D0) }},
+    { "BGB",           { RGB_4 (0x081820, 0x346856, 0x88C070, 0xE0F8D0) }},
+    { "BGB",           { RGB_4 (0x081820, 0x346856, 0x88C070, 0xE0F8D0) }},
+
+    { "A+Right_BG",    { RGB_4 (0,        0x0063C5, 0x7BFF31, 0xFFFFFF) }},
+    { "A+Right_OBJ0",  { RGB_4 (0,        0x943A3A, 0xCC6464, 0xFFFFFF) }},
+    { "A+Right_OBJ1",  { RGB_4 (0,        0x943A3A, 0xCC6464, 0xFFFFFF) }},
     /* Kirby */
     { "GB_x0805_BG",   { RGB_4 (0,        0x006300, 0xFFFF00, 0xA59CFF) }},
     { "GB_x0805_OBJ0", { RGB_4 (0,        0x630000, 0xD60000, 0xFF6352) }},

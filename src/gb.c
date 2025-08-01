@@ -1068,12 +1068,15 @@ void gb_render(struct GB *const gb)
 
                 if ((!gb->io[LCDControl].LCD_Enable) || (gb->extData.frameSkip &&
                     (gb->totalFrames % (gb->extData.frameSkip + 1) != 0)))
-                    return;    
+                    return;
 #if ENABLE_LCD
+                const uint8_t oddFrame = gb->totalFrames & 1;
+                if (gb->extData.interlace && ((gb->io[LY].r + oddFrame) & 1))
+                    return;
+
                 /* Fetch line of pixels for the screen and draw them */
                 gb_pixels_fetch(gb);
-                if (gb->totalFrames % (gb->extData.frameSkip + 1) == 0)
-                    gb->draw_line (gb->extData.ptr, gb->extData.pixelLine, gb->io[LY].r);
+                gb->draw_line (gb->extData.ptr, gb->extData.pixelLine, gb->io[LY].r);
 #endif
             }
         }

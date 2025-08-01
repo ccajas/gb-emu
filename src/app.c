@@ -210,8 +210,6 @@ void app_config (struct App * app, uint8_t const argc, char * const argv[])
     app->fullScreen = 0;
     app->paused = 1;
     app->debug = app->step = 0;
-    /* Frameskip (for slower FPS) */
-    app->gb.extData.frameSkip = 0;
 }
 
 void app_init (struct App * app)
@@ -236,6 +234,10 @@ void app_init (struct App * app)
         }
 #endif
     };
+
+    /* Frameskip (for slower FPS) */
+    app->gb.extData.frameSkip = 0;
+    app->gb.extData.interlace = 1;
 
     /* Handle file loading */
 #ifndef NO_FILE_LOAD
