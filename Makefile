@@ -30,12 +30,12 @@ target_linux = bin/gb-emu
 
 all: glfw
 
-OS_NAME := $(shell uname -s | tr A-Z a-z)
+OS_NAME := $(shell uname -o | tr A-Z a-z)
 
 .PHONY: bench clean
 
 # main build
-ifeq ($(OS_NAME),linux)
+ifeq ($(OS_NAME),gnu/linux)
 glfw: $(obj)
 	@echo $(OS_NAME)
 	$(CC) $(flags) $(src_min) $(miniaudio) $(srcGL) $(GLFW_PKG) -o $(target_linux)
@@ -66,7 +66,7 @@ corew: $(obj)
 clean:
 	rm -f $(obj) $(target)
 
-# Utility
+# extra
 tests: $(obj)
 	rm -f $(obj) tests/test-cpu
 	gcc -Wall -s -O2 -std=gnu89 $(src_tests) -o tests/test-cpu
