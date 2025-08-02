@@ -237,7 +237,7 @@ void app_init (struct App * app)
 
     /* Frameskip (for slower FPS) */
     app->gb.extData.frameSkip = 0;
-    app->gb.extData.interlace = 1;
+    app->gb.extData.interlace = 0;
 
     /* Handle file loading */
 #ifndef NO_FILE_LOAD
@@ -344,7 +344,7 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
 
 #ifdef  USE_BOOT_ROM
     /* Load boot file if present */
-    FILE * fb = fopen ("_test/mgb_boot.bin", "rb");
+    FILE * fb = fopen ("_test/dmg_boot.bin", "rb");
     
     boot = calloc(BOOT_ROM_SIZE, sizeof (uint8_t));
     if (!fread (boot, BOOT_ROM_SIZE, 1, fb))
