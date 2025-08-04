@@ -41,15 +41,15 @@
 #elif defined(USE_TIGR)
     #include "api/tigr/tigr.h"
 
-    #define GBE_APP_CLOSED          tigrClosed(screen)
+    #define GBE_APP_CLOSED          tigrClosed(app->screen)
     #define GBE_GET_TIME()          (double)(clock()) / CLOCKS_PER_SEC
-    #define GBE_DRAW_BEGIN()        draw_begin (&app->display)
+    #define GBE_DRAW_BEGIN()        //draw_begin (&app->display)
     #define GBE_WINDOW_TITLE(s)
     #define GBE_POLL_EVENTS()
-    #define GBE_APP_CLEANUP()       tigrFree(app->window)
+    #define GBE_APP_CLEANUP()       tigrFree(app->screen)
     #define GBE_DRAW_SWAP_BUFFERS()\
         app_draw (app);\
-        tigrUpdate (app->window);\
+        tigrUpdate (app->screen);\
 
 #else
     #define GBE_APP_CLOSED          0
