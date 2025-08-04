@@ -344,13 +344,19 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
 
 #ifdef  USE_BOOT_ROM
     /* Load boot file if present */
-    FILE * fb = fopen ("_test/dmg_boot.bin", "rb");
+    FILE * fb = fopen ("dmg_boot.bin", "rb");
     
-    boot = calloc(BOOT_ROM_SIZE, sizeof (uint8_t));
-    if (!fread (boot, BOOT_ROM_SIZE, 1, fb))
-        boot = NULL;
+    if (!fb) {
+        LOG_("Failed to load boot rom \"%s\"\n", "dmg_boot.bin");
+    }
     else
-        fclose (fb);
+    {
+        boot = calloc(BOOT_ROM_SIZE, sizeof (uint8_t));
+        if (!fread (boot, BOOT_ROM_SIZE, 1, fb))
+            boot = NULL;
+        else
+            fclose (fb);
+    }
 #endif
     /* Copy ROM to cart */
     LOG_("Loading \"%s\"\n", fileName);
@@ -362,9 +368,10 @@ uint8_t * app_load (struct GB * gb, const char * fileName)
 #else
     uint8_t * boot = NULL;
 
-    LOG_("Loading default: \"%s\"\n", "pocket.gb");
+    LOG_("Loading default: \"%s\"\n", "gb240p.gb");
     gb->cart.romData = rom_gb240p_gb;
-    if (gb->cart.romData) gb_init (gb, boot);
+    if (gb->cart.romData) 
+        gb_init (gb, boot);
 
     return rom_gb240p_gb;
 #endif
@@ -453,6 +460,22 @@ void app_draw (struct App * app)
             draw_quad (&app->display, app->image, w, 0, 2);
     }
 #endif
+
+#ifdef USE_TIGR
+
+    /* Test background fill */
+    tigrClear (app->gbData.frameBuffer, tigrRGB(80, 180, 255));
+    tigrFill (app->gbData.frameBuffer, 0, 100, 20, 40, tigrRGB(60, 120, 60));
+    tigrFill (app->gbData.frameBuffer, 0, 500, 40, 3, tigrRGB(0, 0, 0));
+    tigrLine (app->gbData.frameBuffer, 0, 101, 320, 201, tigrRGB(255, 255, 255));
+
+    tigrBlit (app->screen, app->gbData.frameBuffer, 0, 0, 0, 0, 
+        app->gbData.frameBuffer->w, app->gbData.frameBuffer->h);
+
+    tigrPrint (app->screen, tfont, 120, 110, tigrRGB(0xff, 0xff, 0xff), "Hello, world!");
+
+    tigrUpdate (app->screen);
+#endif
 }
 
 enum { NS_PER_SECOND = 1000000000 };
@@ -488,10 +511,10 @@ void app_run (struct App * app)
             GLFWgamepadstate state;
             glfwGetGamepadState(app->joystickID, &state);
 
-            uint8_t k;
-            for (k = 0; k < 8; k++) {
-                if (state.buttons[app->GBbuttons[k]] == GLFW_PRESS)   app->gb.extData.joypad &= ~(1 << k);
-                if (state.buttons[app->GBbuttons[k]] == GLFW_RELEASE) app->gb.extData.joypad |=  (1 << k);
+            uint8_t btn;
+            for (btn = 0; btn < 8; btn++) {
+                if (state.buttons[app->GBbuttons[btn]] == GLFW_PRESS)   app->gb.extData.joypad &= ~(1 << btn);
+                if (state.buttons[app->GBbuttons[btn]] == GLFW_RELEASE) app->gb.extData.joypad |=  (1 << btn);
             }
         }
 #endif
@@ -512,10 +535,16 @@ void app_run (struct App * app)
                 ++frames;
                 if (frames % 30 == 29)
                 {
+#ifdef USE_GLFW
+                    sprintf(app->fpsString, "GB emu | %s", app->gb.extData.title);
+#else
                     sprintf(app->fpsString, "FPS: %0.2f | Perf: %0.2fx ", 
                         fps, (double)(frames / (GB_FRAME_RATE)) / totalTime);
-                    sprintf(app->fpsString, "GB emu | %s", app->gb.extData.title);
+#endif
                     GBE_WINDOW_TITLE(app->fpsString);
+#ifndef USE_GLFW
+                    printf("Test output (%d) %s\n", frames, app->fpsString);
+#endif
                 }
             }
         }
